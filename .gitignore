@@ -1,2 +1,5 @@
 *.elc
 .cask
+
+# for cask pkg-file
+dist

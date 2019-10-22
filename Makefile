@@ -12,7 +12,7 @@ SRC_ELC = $(SRC_EL:.el=.elc)
 TEST_ELC = $(TEST_EL:.el=.elc)
 
 # tasks
-.PHONY: init-dev clean compile raw-test compiled-test test coverage
+.PHONY: init-dev clean compile raw-test compiled-test test coverage precommit
 
 init-dev:
 	$(CASK)
@@ -49,3 +49,7 @@ test: raw-test compile compiled-test
 
 # do not compile when using undercover.el
 coverage: raw-test
+
+precommit:
+	$(CASK) pkg-file
+	$(MAKE) test
