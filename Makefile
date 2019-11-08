@@ -7,7 +7,7 @@ TEST = ./test
 
 # files
 SRC_EL = $(wildcard $(SRC)/*.el)
-TEST_EL = $(wildcard $(TEST)/test/*.el)
+TEST_EL = $(wildcard $(TEST)/*.el)
 SRC_ELC = $(SRC_EL:.el=.elc)
 TEST_ELC = $(TEST_EL:.el=.elc)
 
