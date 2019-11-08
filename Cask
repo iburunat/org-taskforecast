@@ -8,7 +8,8 @@
 
 (files "src/*.el")
 
-(depends-on "emacs" "24")
+(depends-on "emacs" "25")
+(depends-on "dash" "2.16.0")
 
 (development
  (depends-on "ert-runner" "0.7.0")
