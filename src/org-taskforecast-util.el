@@ -43,10 +43,11 @@ If `org-taskforecast-enable-assert' is nil, this assertion is disabled."
 
 ;;;; Alist utility
 
-(defmacro org-taskforecast-defalist (name &rest fields)
+(defmacro org-taskforecast-defalist (name fields &optional docstring)
   "Define an alist type.
 NAME is a name of the alist.
-FIELDS are list of symbols.
+FIELDS is a list of symbols.
+DOCSTRING is a documentation of defining alist.
 
 This macro defines following functions:
 - Constructor named as NAME
@@ -54,7 +55,7 @@ This macro defines following functions:
 
 The constructor is defined like below:
 
-    (org-taskforecast-defalist my-abc a b c)
+    (org-taskforecast-defalist my-abc (a b c))
 
     Expands to
 
@@ -76,6 +77,7 @@ It checks below:
 - the argument is an alist
 - all of keys of the alist are in FIELDS
 - the alist contains all of keys in FIELDS"
+  (declare (indent 2) (doc-string 3))
   `(progn
      (defun ,(intern (format "%s-type-p" name)) (x)
        ,(format "Check an alist is valid as `%s'.
@@ -85,9 +87,11 @@ Non-nil means valid." name)
             t))
 
      (cl-defun ,name (&key ,@fields)
-       ,(--reduce-from (format "%s\n- %s" acc it)
-                       "Make an alist that contains following fields:"
-                       fields)
+       ,(apply #'concat
+               `("Make an alist that contains following fields:"
+                 ,@(--map (format "\n- %s" it) fields)
+                 "\n\n----\n\n"
+                 ,docstring))
        (list ,@(--map `(cons ',it ,it) fields)))))
 
 (provide 'org-taskforecast-util)

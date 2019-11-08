@@ -20,7 +20,7 @@
 
 ;;;; Alist utility
 
-(org-taskforecast-defalist defalist-test a b c)
+(org-taskforecast-defalist defalist-test (a b c))
 (ert-deftest org-taskforecast-defalist ()
   ;; constructor
   (should (eq nil (alist-get 'a (defalist-test))))
