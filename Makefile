@@ -22,19 +22,11 @@ clean:
 	-rm $(SRC_ELC) $(TEST_ELC)
 
 $(SRC)/%.elc: $(SRC)/%.el
-	$(CASK) exec $(EMACS) -Q -batch -L $(SRC) -eval \
-	"(progn \
-	   (when (version<= \"24.3\" emacs-version) \
-	     (setq byte-compile-error-on-warn t)) \
-	   (batch-byte-compile))" $<
+	$(CASK) exec $(EMACS) -Q -batch -L $(SRC) -f batch-byte-compile $<
 
 # the only difference from SRC is including test directory to load-path.
 $(TEST)/%.elc: $(TEST)/%.el
-	$(CASK) exec $(EMACS) -Q -batch -L $(SRC) -L $(TEST) -eval \
-	"(progn \
-	   (when (version<= \"24.3\" emacs-version) \
-	     (setq byte-compile-error-on-warn t)) \
-	   (batch-byte-compile))" $<
+	$(CASK) exec $(EMACS) -Q -batch -L $(SRC) -L $(TEST) -f batch-byte-compile $<
 
 compile: ${SRC_ELC} ${TEST_ELC}
 
