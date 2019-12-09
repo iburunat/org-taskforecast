@@ -95,6 +95,14 @@ Non-nil means valid." name)
                  ,docstring))
        (list ,@(--map `(cons ',it ,it) fields)))))
 
+
+;;;; Custom
+
+(defgroup org-taskforecast nil
+  "Manage closed task list and forecast time flow with org-mode."
+  :group 'org
+  :prefix "org-taskforecast")
+
 
 (provide 'org-taskforecast)
 ;;; org-taskforecast.el ends here
