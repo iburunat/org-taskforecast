@@ -41,6 +41,20 @@ This string is expanded by `format-time-string'."
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-day-start 0000
+  "A start time of a day.
+
+It is an integer as hhmm.
+The value is less than zero, which means yesterday or older.
+The value is over than 2359, which means tommorow or more future.
+
+Example of a range of today:
+   0300 => 03:00 ~ 27:00 (03:00 of tomorrow)
+  -0100 => 23:00 of yesterday ~ 23:00 of today"
+  :type 'integer
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
 
 ;;;; Lisp Utility
 
@@ -111,9 +125,49 @@ Non-nil means valid." name)
                  ,docstring))
        (list ,@(--map `(cons ',it ,it) fields)))))
 
+;;; Time
+
+(defun org-taskforecast--encode-hhmm (hhmm day)
+  "Return an encoded time from HHMM as a time of DAY.
+
+HHMM is an integer like `org-taskforecast-day-start'.
+DAY is an encoded time."
+  (org-taskforecast-assert (integerp hhmm))
+  (let ((hour (/ hhmm 100))
+        (minute (% hhmm 100))
+        (time (decode-time day)))
+    (setf (decoded-time-hour time) hour
+          (decoded-time-minute time) minute)
+    (encode-time time)))
+
+(defun org-taskforecast-today (day-start)
+  "Get today's date when the day starts at DAY-START.
+
+DAY-START is an integer like `org-taskforecast-day-start'.
+This function returns an encoded time as a date of today."
+  (org-taskforecast-assert (integerp day-start))
+  (let* ((now (current-time))
+         (nowd (decode-time now))
+         (start-time (org-taskforecast--encode-hhmm day-start now))
+         (dsec (time-to-seconds (time-subtract now start-time))))
+    (setf (decoded-time-hour nowd) 0
+          (decoded-time-minute nowd) 0
+          (decoded-time-second nowd) dsec)
+    (encode-time nowd)))
+
+;;; File
+
+(defun org-taskforecast-get-dailylist-file ()
+  "Get the path of today's daily task list file.
+
+This function depends on:
+- `org-taskforecast-dailylist-file' as a file format
+- `org-taskforecast-day-start' to determine the date of today"
+  (let ((today (org-taskforecast-today org-taskforecast-day-start)))
+    (expand-file-name
+     (format-time-string org-taskforecast-dailylist-file today))))
+
 
-
-
 
 (provide 'org-taskforecast)
 ;;; org-taskforecast.el ends here
