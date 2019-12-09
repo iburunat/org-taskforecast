@@ -26,7 +26,23 @@
 
 (require 'dash)
 
-;;;; Utility
+;;;; Custom
+
+(defgroup org-taskforecast nil
+  "Manage closed task list and forecast time flow with org-mode."
+  :group 'org
+  :prefix "org-taskforecast")
+
+(defcustom org-taskforecast-dailylist-file "~/org-taskforecast/%Y/%Y-%m-%d.org"
+  "A file name which indicates the location to store daily task list.
+
+This string is expanded by `format-time-string'."
+  :type 'string
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
+
+;;;; Lisp Utility
 
 ;;; Debug
 
@@ -42,7 +58,7 @@ If `org-taskforecast-enable-assert' is nil, this assertion is disabled."
        (error ,(or message
                    (format "Assertion failed: %s" expr))))))
 
-;;; Alist Utility
+;;; Alist
 
 (defmacro org-taskforecast-defalist (name fields &optional docstring)
   "Define an alist type.
@@ -96,12 +112,7 @@ Non-nil means valid." name)
        (list ,@(--map `(cons ',it ,it) fields)))))
 
 
-;;;; Custom
 
-(defgroup org-taskforecast nil
-  "Manage closed task list and forecast time flow with org-mode."
-  :group 'org
-  :prefix "org-taskforecast")
 
 
 (provide 'org-taskforecast)
