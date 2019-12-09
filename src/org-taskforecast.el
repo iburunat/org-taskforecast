@@ -25,6 +25,9 @@
 ;;; Code:
 
 (require 'dash)
+(require 'cl-lib)
+(require 'org)
+(require 'org-id)
 
 ;;;; Custom
 
@@ -37,6 +40,12 @@
   "A file name which indicates the location to store daily task list.
 
 This string is expanded by `format-time-string'."
+  :type 'string
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
+(defcustom org-taskforecast-default-todo "TODO"
+  "A todo state for task link."
   :type 'string
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
@@ -157,15 +166,78 @@ This function returns an encoded time as a date of today."
 
 ;;; File
 
-(defun org-taskforecast-get-dailylist-file ()
+(defun org-taskforecast-get-dailylist-file (&optional create)
   "Get the path of today's daily task list file.
+
+When CREATE is set, this function creates the file and its directory.
 
 This function depends on:
 - `org-taskforecast-dailylist-file' as a file format
 - `org-taskforecast-day-start' to determine the date of today"
-  (let ((today (org-taskforecast-today org-taskforecast-day-start)))
-    (expand-file-name
+  (let* ((today (org-taskforecast-today org-taskforecast-day-start))
+         (file (expand-file-name
      (format-time-string org-taskforecast-dailylist-file today))))
+    (when (and create (not (file-exists-p file)))
+      (make-directory (file-name-directory file) t)
+      (write-region "" nil file))
+    file))
+
+;;; Org-mode
+
+(defmacro org-taskforecast--at-id (id &rest body)
+  "Eval BODY at a heading of ID."
+  (declare (indent 1))
+  `(save-window-excursion
+     (save-excursion
+       (-let (((file . pos) (org-id-find id)))
+         (with-current-buffer (find-file file)
+           (save-excursion
+             (goto-char pos)
+             ,@body))))))
+
+(org-taskforecast-defalist org-taskforecast--task-alist
+    (id title)
+  "Alist of a task.
+
+The task is a heading linked from daily task list file.
+- ID is an id of org-id
+- TITLE is a heading title")
+
+(defun org-taskforecast--get-task-by-id (id)
+  "Get a task alist by ID.
+
+A returned value is an alist of `org-taskforecast--task-alist'."
+  (org-taskforecast--at-id id
+    (let ((title (org-get-heading t t t t)))
+      (org-taskforecast--task-alist
+       :id id
+       :title title))))
+
+(defun org-taskforecast--insert-task-link (id file todo)
+  "Insert a task link for ID at the end of FILE.
+
+The todo state of the task link heading is set to TODO."
+  (-let (((&alist 'title title) (org-taskforecast--get-task-by-id id)))
+    (with-current-buffer (find-file file)
+      (save-excursion
+        (goto-char (point-max))
+        (unless (bolp)
+          (insert "\n"))
+        (insert (concat "* [[id:" id "][" title "]]\n"))
+        (org-todo todo)))))
+
+
+;;;; General Commands
+
+;;; Registration
+
+(defun org-taskforecast-register-task ()
+  "Register a task at point as a task for today."
+  (interactive)
+  (org-taskforecast--insert-task-link
+   (org-id-get-create)
+   (org-taskforecast-get-dailylist-file t)
+   org-taskforecast-default-todo))
 
 
 
