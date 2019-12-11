@@ -200,12 +200,13 @@ This function depends on:
                  (org-link-display-format title)))
 
 (org-taskforecast-defalist org-taskforecast--task-alist
-    (id title)
+    (id title effort)
   "Alist of a task.
 
 The task is a heading linked from daily task list file.
 - ID is an id of org-id
-- TITLE is a heading title")
+- TITLE is a heading title
+- EFFORT is a value of effort property")
 
 (defun org-taskforecast--get-task ()
   "Get a task as an alist.
@@ -213,10 +214,12 @@ The task is a heading linked from daily task list file.
 A returned value is an alist of `org-taskforecast--task-alist'."
   (let ((id (org-id-get-create))
         (title (org-taskforecast--normalize-title
-                (substring-no-properties (org-get-heading t t t t)))))
+                (substring-no-properties (org-get-heading t t t t))))
+        (effort (org-entry-get nil org-effort-property)))
     (org-taskforecast--task-alist
      :id id
-     :title title)))
+     :title title
+     :effort effort)))
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task alist by ID.
