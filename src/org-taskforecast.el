@@ -65,6 +65,24 @@ Example of a range of today:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-list-task-formatters
+  (list #'org-taskforecast-list-format-effort
+        #'org-taskforecast-list-format-link-todo
+        #'org-taskforecast-list-format-title)
+  "Function list for formatting a task link.
+
+The results of the functions are joind with \" \" and
+empty strings are ignored..
+The functions should have no parameter.
+The functions are obtained information as global variables below:
+- `org-taskforecast-list-info-task-link' as an alist of
+  `org-taskforecast--task-link-alist'
+- `org-taskforecast-list-info-task' as an alist of
+  `org-taskforecast--task-alist'"
+  :type '(repeat function)
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
 
 ;;;; Lisp Utility
 
@@ -323,24 +341,72 @@ When there is no task link data, this function returns nil."
   (get-text-property (point)
                      org-taskforecast--list-task-link-property))
 
+(defvar org-taskforecast-list-info-task-link nil
+  "This variable is used to pass a task link data to formatters.
+
+This value will be a `org-taskforecast--task-link-alist'.
+See `org-taskforecast-list-task-formatters' for more detail.")
+
+(defvar org-taskforecast-list-info-task nil
+  "This variable is used to pass a task data to formatters.
+
+This value will be a `org-taskforecast--task-alist'.
+See `org-taskforecast-list-task-formatters' for more detail.")
+
+(defun org-taskforecast-list-format-effort ()
+  "Format effort property of a task.
+
+This function is used for `org-taskforecast-list-task-formatters'."
+  (org-taskforecast-assert
+   (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
+  (-let (((&alist 'effort effort) org-taskforecast-list-info-task))
+    (format "%5s" (or effort "-:--"))))
+
+(defun org-taskforecast-list-format-link-todo ()
+  "Format task link's todo state.
+
+This function is used for `org-taskforecast-list-task-formatters'."
+  (org-taskforecast-assert
+   (org-taskforecast--task-link-alist-type-p
+    org-taskforecast-list-info-task-link))
+  (-when-let ((&alist 'todo todo 'todo-type todo-type)
+              org-taskforecast-list-info-task-link)
+    (propertize todo
+                ;; TODO: define face
+                'face (cl-case todo-type
+                        ('todo 'org-todo)
+                        ('done 'org-done)))))
+
+(defun org-taskforecast-list-format-title ()
+  "Format task's title.
+
+This function is used for `org-taskforecast-list-task-formatters'."
+  (org-taskforecast-assert
+   (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
+  (-let (((&alist 'title title) org-taskforecast-list-info-task))
+    (propertize title
+                ;; TODO: define face
+                'face 'org-scheduled-today)))
+
 (defun org-taskforecast--create-task-list (file)
   "Create a today's task list for a task list file, FILE.
 
 This function returns a string as contents of `org-taskforecast-list-mode'.
 Task list data are stored at each line of listed task.
 To get them, use `org-taskforecast--list-get-task-link-at-point'."
-  (let* ((task-links (org-taskforecast--get-task-links file))
-         (task-link-lines
-          (--map
-           (-let* (((&alist 'original-id original-id) it)
-                   ((&alist 'title title)
-                    (org-taskforecast--get-task-by-id original-id)))
-             ;; TODO: Imprement here, now for demo.
-             (org-taskforecast--list-propertize-link-data
-              (format "- %s" title)
-              it))
-           task-links)))
-    (s-join "\n" task-link-lines)))
+  (-as-> (org-taskforecast--get-task-links file) links
+         (--map
+          (-let* (((&alist 'original-id original-id) it))
+            (let ((org-taskforecast-list-info-task-link it)
+                  (org-taskforecast-list-info-task
+                   (org-taskforecast--get-task-by-id original-id)))
+              (-as-> org-taskforecast-list-task-formatters x
+                     (-map #'funcall x)
+                     (-reject #'s-blank-p x)
+                     (s-join " " x)
+                     (org-taskforecast--list-propertize-link-data x it))))
+          links)
+         (s-join "\n" links)))
 
 (defun org-taskforecast--insert-task-list (file)
   "Insert a today's task list for a task list file, FILE.
