@@ -196,6 +196,11 @@ This function depends on:
              (goto-char pos)
              ,@body))))))
 
+(defun org-taskforecast--normalize-title (title)
+  "Normalize a TITLE of a heading."
+  (s-replace-all '(("[" . "{") ("]" . "}"))
+                 (org-link-display-format title)))
+
 (org-taskforecast-defalist org-taskforecast--task-alist
     (id title)
   "Alist of a task.
@@ -209,7 +214,7 @@ The task is a heading linked from daily task list file.
 
 A returned value is an alist of `org-taskforecast--task-alist'."
   (let ((id (org-id-get-create))
-        (title (org-link-display-format
+        (title (org-taskforecast--normalize-title
                 (substring-no-properties (org-get-heading t t t t)))))
     (org-taskforecast--task-alist
      :id id
@@ -257,13 +262,13 @@ If the heading is not a task link, this function returns nil."
 
 The todo state of the task link heading is set to TODO."
   (-let* (((&alist 'title title) (org-taskforecast--get-task-by-id id))
-          (link-unwrapped (org-link-display-format title)))
+          (normalized (org-taskforecast--normalize-title title)))
     (with-current-buffer (find-file-noselect file)
       (save-excursion
         (goto-char (point-max))
         (unless (bolp)
           (insert "\n"))
-        (insert (concat "* [[id:" id "][" link-unwrapped "]]\n"))
+        (insert (concat "* [[id:" id "][" normalized "]]\n"))
         (org-todo todo)))))
 
 (defun org-taskforecast--get-task-links (file)
