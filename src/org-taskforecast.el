@@ -302,17 +302,16 @@ The todo state of the task link heading is set to TODO."
   "Create a today's task list for a task list file, FILE.
 
 This function returns a string as contents of `org-taskforecast-list-mode'."
-  (save-window-excursion
-    (let* ((task-links (org-taskforecast--get-task-links file))
-           (task-link-lines
-            (--map
-             (-let* (((&alist 'original-id original-id) it)
-                     ((&alist 'title title)
-                      (org-taskforecast--get-task-by-id original-id)))
-               ;; TODO: Imprement here, now for demo.
-               (format "- %s" title))
-             task-links)))
-      (s-join "\n" task-link-lines))))
+  (let* ((task-links (org-taskforecast--get-task-links file))
+         (task-link-lines
+          (--map
+           (-let* (((&alist 'original-id original-id) it)
+                   ((&alist 'title title)
+                    (org-taskforecast--get-task-by-id original-id)))
+             ;; TODO: Imprement here, now for demo.
+             (format "- %s" title))
+           task-links)))
+    (s-join "\n" task-link-lines)))
 
 (defun org-taskforecast--insert-task-list (file)
   "Insert a today's task list for a task list file, FILE.
