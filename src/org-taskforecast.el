@@ -345,6 +345,8 @@ This function inserts contents of `org-taskforecast-list-mode'."
     (define-key map (kbd "O") #'org-taskforecast-list-clock-out)
     (define-key map (kbd "n") #'org-taskforecast-list-next-line)
     (define-key map (kbd "p") #'org-taskforecast-list-previous-line)
+    (define-key map (kbd "t") #'org-taskforecast-list-link-todo)
+    (define-key map (kbd "T") #'org-taskforecast-list-todo)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     map)
   "A key map for `org-taskforecast-list-mode'.")
@@ -427,6 +429,24 @@ FILE is a file of a daily task list file."
   (-if-let ((&alist 'original-id original-id)
             (org-taskforecast--list-get-task-link-at-point))
       (org-id-goto original-id)
+    (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-todo ()
+  "Change the TODO state of the task linked from the current line."
+  (interactive)
+  (-if-let ((&alist 'original-id original-id)
+            (org-taskforecast--list-get-task-link-at-point))
+      (org-taskforecast--at-id original-id
+        (org-todo))
+    (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-link-todo ()
+  "Change the TODO state of the task link at the current line."
+  (interactive)
+  (-if-let ((&alist 'id id)
+            (org-taskforecast--list-get-task-link-at-point))
+      (org-taskforecast--at-id id
+        (org-todo))
     (user-error "Task link not found at the current line")))
 
 
