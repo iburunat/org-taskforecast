@@ -188,13 +188,11 @@ This function depends on:
 (defmacro org-taskforecast--at-id (id &rest body)
   "Eval BODY at a heading of ID."
   (declare (indent 1))
-  `(save-window-excursion
-     (save-excursion
-       (-let (((file . pos) (org-id-find id)))
-         (with-current-buffer (find-file file)
-           (save-excursion
-             (goto-char pos)
-             ,@body))))))
+  `(-let (((file . pos) (org-id-find ,id)))
+     (with-current-buffer (find-file-noselect file)
+       (save-excursion
+         (goto-char pos)
+         ,@body))))
 
 (defun org-taskforecast--normalize-title (title)
   "Normalize a TITLE of a heading."
@@ -298,10 +296,29 @@ The todo state of the task link heading is set to TODO."
 
 ;;;; task-forecast-list mode
 
+(defvar org-taskforecast--list-task-link-property 'task-link
+  "A property symbol for a task link data to propertize string.")
+
+(defun org-taskforecast--list-propertize-link-data (str task-link)
+  "Put a task link data, TASK-LINK, into STR."
+  (org-taskforecast-assert (org-taskforecast--task-link-alist-type-p task-link))
+  (propertize str
+              org-taskforecast--list-task-link-property
+              task-link))
+
+(defun org-taskforecast--list-get-task-link-at-point ()
+  "Get a task link data via text property from current point.
+
+When there is no task link data, this function returns nil."
+  (get-text-property (point)
+                     org-taskforecast--list-task-link-property))
+
 (defun org-taskforecast--create-task-list (file)
   "Create a today's task list for a task list file, FILE.
 
-This function returns a string as contents of `org-taskforecast-list-mode'."
+This function returns a string as contents of `org-taskforecast-list-mode'.
+Task list data are stored at each line of listed task.
+To get them, use `org-taskforecast--list-get-task-link-at-point'."
   (let* ((task-links (org-taskforecast--get-task-links file))
          (task-link-lines
           (--map
@@ -309,7 +326,9 @@ This function returns a string as contents of `org-taskforecast-list-mode'."
                    ((&alist 'title title)
                     (org-taskforecast--get-task-by-id original-id)))
              ;; TODO: Imprement here, now for demo.
-             (format "- %s" title))
+             (org-taskforecast--list-propertize-link-data
+              (format "- %s" title)
+              it))
            task-links)))
     (s-join "\n" task-link-lines)))
 
@@ -321,6 +340,12 @@ This function inserts contents of `org-taskforecast-list-mode'."
 
 (defvar org-taskforecast-list-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "g") #'org-taskforecast-list-refresh)
+    (define-key map (kbd "I") #'org-taskforecast-list-clock-in)
+    (define-key map (kbd "O") #'org-taskforecast-list-clock-out)
+    (define-key map (kbd "n") #'org-taskforecast-list-next-line)
+    (define-key map (kbd "p") #'org-taskforecast-list-previous-line)
+    (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     map)
   "A key map for `org-taskforecast-list-mode'.")
 
@@ -342,8 +367,7 @@ When the buffer is not found, this function returns nil."
 
 If the buffer already exists, only returns the buffer.
 FILE is a file of a daily task list file."
-  (let ((buffer (org-taskforecast--get-list-buffer))
-        (file (org-taskforecast-get-dailylist-file)))
+  (let ((buffer (org-taskforecast--get-list-buffer)))
     (or buffer
         (with-current-buffer (get-buffer-create
                               org-taskforecast--list-buffer-name)
@@ -370,10 +394,40 @@ FILE is a file of a daily task list file."
           (save-excursion
             (erase-buffer)
             (org-taskforecast--insert-task-list file)))
-      (user-error
-       (concat
-        "List buffer (" org-taskforecast--list-buffer-name ") is not found.\n"
-        "Please call after `org-taskforecast-list'.")))))
+      (user-error "List buffer (%s) is not found"
+                  org-taskforecast--list-buffer-name))))
+
+(defun org-taskforecast-list-clock-in ()
+  "Start the clock on the task linked from the current line."
+  (interactive)
+  (-if-let ((&alist 'original-id original-id)
+            (org-taskforecast--list-get-task-link-at-point))
+      (org-taskforecast--at-id original-id
+        (org-clock-in))
+    (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-clock-out ()
+  "Stop the current running clock."
+  (interactive)
+  (org-clock-out))
+
+(defun org-taskforecast-list-next-line ()
+  "Go to the next line."
+  (interactive)
+  (call-interactively #'next-line))
+
+(defun org-taskforecast-list-previous-line ()
+  "Go to the previous line."
+  (interactive)
+  (call-interactively #'previous-line))
+
+(defun org-taskforecast-list-goto-task ()
+  "Go to the task linked from the current line."
+  (interactive)
+  (-if-let ((&alist 'original-id original-id)
+            (org-taskforecast--list-get-task-link-at-point))
+      (org-id-goto original-id)
+    (user-error "Task link not found at the current line")))
 
 
 
