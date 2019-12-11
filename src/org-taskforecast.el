@@ -229,12 +229,14 @@ A returned value is an alist of `org-taskforecast--task-alist'."
     (org-taskforecast--get-task)))
 
 (org-taskforecast-defalist org-taskforecast--task-link-alist
-    (id original-id)
+    (id original-id todo todo-type)
   "Alist of a task link.
 
 It links to a task heading.
 - ID is an id of org-id
-- ORIGINAL-ID is where this links to")
+- ORIGINAL-ID is where this links to
+- TODO is a string of a todo state (optional)
+- TODO-TYPE is a symbol of a type of todo (optional)")
 
 (defun org-taskforecast--get-link-id (str)
   "Get a link id from STR.
@@ -251,12 +253,17 @@ If STR is not a org-id link string, this function returns nil."
 
 A returned value is an alist of `org-taskforecast--task-link-alist'.
 If the heading is not a task link, this function returns nil."
-  (-when-let* ((title (org-get-heading t t t t))
-               (original-id (org-taskforecast--get-link-id title))
-               ;; Create id when this heading is a task link.
-               (id (org-id-get-create)))
-    (org-taskforecast--task-link-alist :id id
-                                       :original-id original-id)))
+  (let* ((element (org-element-at-point))
+         (title (org-element-property :title element))
+         (todo (org-element-property :todo-keyword element))
+         (todo-type (org-element-property :todo-type element)))
+    (-when-let* ((original-id (org-taskforecast--get-link-id title))
+                 ;; Create id when this heading is a task link.
+                 (id (org-id-get-create)))
+      (org-taskforecast--task-link-alist :id id
+                                         :original-id original-id
+                                         :todo todo
+                                         :todo-type todo-type))))
 
 (defun org-taskforecast--append-task-link (id file todo)
   "Append a task link for ID to the end of FILE.
