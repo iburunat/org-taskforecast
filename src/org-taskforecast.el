@@ -24,10 +24,11 @@
 
 ;;; Code:
 
-(require 'dash)
 (require 'cl-lib)
 (require 'org)
 (require 'org-id)
+(require 'dash)
+(require 's)
 
 ;;;; Custom
 
@@ -176,7 +177,7 @@ This function depends on:
 - `org-taskforecast-day-start' to determine the date of today"
   (let* ((today (org-taskforecast-today org-taskforecast-day-start))
          (file (expand-file-name
-     (format-time-string org-taskforecast-dailylist-file today))))
+                (format-time-string org-taskforecast-dailylist-file today))))
     (when (and create (not (file-exists-p file)))
       (make-directory (file-name-directory file) t)
       (write-region "" nil file))
@@ -203,41 +204,172 @@ The task is a heading linked from daily task list file.
 - ID is an id of org-id
 - TITLE is a heading title")
 
+(defun org-taskforecast--get-task ()
+  "Get a task as an alist.
+
+A returned value is an alist of `org-taskforecast--task-alist'."
+  (let ((id (org-id-get-create))
+        (title (org-link-display-format
+                (substring-no-properties (org-get-heading t t t t)))))
+    (org-taskforecast--task-alist
+     :id id
+     :title title)))
+
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task alist by ID.
 
 A returned value is an alist of `org-taskforecast--task-alist'."
   (org-taskforecast--at-id id
-    (let ((title (org-get-heading t t t t)))
-      (org-taskforecast--task-alist
-       :id id
-       :title title))))
+    (org-taskforecast--get-task)))
 
-(defun org-taskforecast--insert-task-link (id file todo)
-  "Insert a task link for ID at the end of FILE.
+(org-taskforecast-defalist org-taskforecast--task-link-alist
+    (id original-id)
+  "Alist of a task link.
+
+It links to a task heading.
+- ID is an id of org-id
+- ORIGINAL-ID is where this links to")
+
+(defun org-taskforecast--get-link-id (str)
+  "Get a link id from STR.
+
+STR is a org-id link string like \"[[id:1234][foo]]\".
+If STR is not a org-id link string, this function returns nil."
+  (let ((re (rx bos "[[id:" (group (+ (not (any "]")))) "]["
+                (+ (not (any "]"))) "]]" eos)))
+    (-when-let (((_ id)) (s-match-strings-all re str))
+      id)))
+
+(defun org-taskforecast--get-task-link ()
+  "Get a task link as an alist.
+
+A returned value is an alist of `org-taskforecast--task-link-alist'.
+If the heading is not a task link, this function returns nil."
+  (-when-let* ((title (org-get-heading t t t t))
+               (original-id (org-taskforecast--get-link-id title))
+               ;; Create id when this heading is a task link.
+               (id (org-id-get-create)))
+    (org-taskforecast--task-link-alist :id id
+                                       :original-id original-id)))
+
+(defun org-taskforecast--append-task-link (id file todo)
+  "Append a task link for ID to the end of FILE.
 
 The todo state of the task link heading is set to TODO."
-  (-let (((&alist 'title title) (org-taskforecast--get-task-by-id id)))
-    (with-current-buffer (find-file file)
+  (-let* (((&alist 'title title) (org-taskforecast--get-task-by-id id))
+          (link-unwrapped (org-link-display-format title)))
+    (with-current-buffer (find-file-noselect file)
       (save-excursion
         (goto-char (point-max))
         (unless (bolp)
           (insert "\n"))
-        (insert (concat "* [[id:" id "][" title "]]\n"))
+        (insert (concat "* [[id:" id "][" link-unwrapped "]]\n"))
         (org-todo todo)))))
+
+(defun org-taskforecast--get-task-links (file)
+  "Get a task link list from FILE."
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (-non-nil
+       (org-map-entries
+        (lambda ()
+          (org-taskforecast--get-task-link))
+        nil 'file)))))
 
 
 ;;;; General Commands
 
 ;;; Registration
 
+;;;###autoload
 (defun org-taskforecast-register-task ()
   "Register a task at point as a task for today."
   (interactive)
-  (org-taskforecast--insert-task-link
+  (org-taskforecast--append-task-link
    (org-id-get-create)
    (org-taskforecast-get-dailylist-file t)
    org-taskforecast-default-todo))
+
+
+;;;; task-forecast-list mode
+
+(defun org-taskforecast--create-task-list (file)
+  "Create a today's task list for a task list file, FILE.
+
+This function returns a string as contents of `org-taskforecast-list-mode'."
+  (save-window-excursion
+    (let* ((task-links (org-taskforecast--get-task-links file))
+           (task-link-lines
+            (--map
+             (-let* (((&alist 'original-id original-id) it)
+                     ((&alist 'title title)
+                      (org-taskforecast--get-task-by-id original-id)))
+               ;; TODO: Imprement here, now for demo.
+               (format "- %s" title))
+             task-links)))
+      (s-join "\n" task-link-lines))))
+
+(defun org-taskforecast--insert-task-list (file)
+  "Insert a today's task list for a task list file, FILE.
+
+This function inserts contents of `org-taskforecast-list-mode'."
+  (insert (org-taskforecast--create-task-list file)))
+
+(defvar org-taskforecast-list-mode-map
+  (let ((map (make-sparse-keymap)))
+    map)
+  "A key map for `org-taskforecast-list-mode'.")
+
+(define-derived-mode org-taskforecast-list-mode nil "org-taskforecast list"
+  "A major-mode to manage today's tasks."
+  :group 'org-taskforecast)
+
+(defvar org-taskforecast--list-buffer-name "*org-taskforecast list*"
+  "A buffer name for `org-taskforecast-list-mode'.")
+
+(defun org-taskforecast--get-list-buffer ()
+  "Get the buffer for `org-taskforecast-list-mode'.
+
+When the buffer is not found, this function returns nil."
+  (get-buffer org-taskforecast--list-buffer-name))
+
+(defun org-taskforecast--create-list-buffer (file)
+  "Create a buffer for `org-taskforecast-list-mode'.
+
+If the buffer already exists, only returns the buffer.
+FILE is a file of a daily task list file."
+  (let ((buffer (org-taskforecast--get-list-buffer))
+        (file (org-taskforecast-get-dailylist-file)))
+    (or buffer
+        (with-current-buffer (get-buffer-create
+                              org-taskforecast--list-buffer-name)
+          (org-taskforecast-list-mode)
+          (save-excursion
+            (org-taskforecast--insert-task-list file))
+          (current-buffer)))))
+
+;;;###autoload
+(defun org-taskforecast-list ()
+  "Show the buffer of `org-taskforecast-list-mode'."
+  (interactive)
+  (switch-to-buffer
+   (org-taskforecast--create-list-buffer
+    (org-taskforecast-get-dailylist-file))))
+
+(defun org-taskforecast-list-refresh ()
+  "Refresh `org-taskforecast-list-mode' buffer."
+  (interactive)
+  ;; TODO: reproduce cursor position
+  (let ((file (org-taskforecast-get-dailylist-file)))
+    (-if-let (buffer (org-taskforecast--get-list-buffer))
+        (with-current-buffer buffer
+          (save-excursion
+            (erase-buffer)
+            (org-taskforecast--insert-task-list file)))
+      (user-error
+       (concat
+        "List buffer (" org-taskforecast--list-buffer-name ") is not found.\n"
+        "Please call after `org-taskforecast-list'.")))))
 
 
 
