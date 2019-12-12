@@ -300,17 +300,15 @@ The task is a heading linked from daily task list file.
 
 ELEMENT is a clock element of org element api."
   (let* ((timestamp (org-element-property :value element))
-         (start-exists-p (org-element-property :year-start timestamp))
-         (end-exists-p (org-element-property :year-end timestamp))
-         (start (and start-exists-p
-                     (encode-time
-                      0
-                      (org-element-property :minute-start timestamp)
-                      (org-element-property :hour-start timestamp)
-                      (org-element-property :day-start timestamp)
-                      (org-element-property :month-start timestamp)
-                      (org-element-property :year-start timestamp))))
-         (end (and end-exists-p
+         (runnigp (eq 'running (org-element-property :status element)))
+         (start (encode-time
+                 0
+                 (org-element-property :minute-start timestamp)
+                 (org-element-property :hour-start timestamp)
+                 (org-element-property :day-start timestamp)
+                 (org-element-property :month-start timestamp)
+                 (org-element-property :year-start timestamp)))
+         (end (and (not runnigp)
                    (encode-time
                     0
                     (org-element-property :minute-end timestamp)
@@ -318,7 +316,6 @@ ELEMENT is a clock element of org element api."
                     (org-element-property :day-end timestamp)
                     (org-element-property :month-end timestamp)
                     (org-element-property :year-end timestamp)))))
-    (org-taskforecast-assert start-exists-p)
     (org-taskforecast--clock-alist :start start :end end)))
 
 (defun org-taskforecast--get-task ()
