@@ -26,6 +26,7 @@
 
 (require 'cl-lib)
 (require 'org)
+(require 'org-element)
 (require 'org-id)
 (require 'dash)
 (require 's)
@@ -67,6 +68,7 @@ Example of a range of today:
 
 (defcustom org-taskforecast-list-task-formatters
   (list #'org-taskforecast-list-format-effort
+        #'org-taskforecast-list-format-task-start
         #'org-taskforecast-list-format-link-todo
         #'org-taskforecast-list-format-title)
   "Function list for formatting a task link.
@@ -78,7 +80,9 @@ The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-task-link' as an alist of
   `org-taskforecast--task-link-alist'
 - `org-taskforecast-list-info-task' as an alist of
-  `org-taskforecast--task-alist'"
+  `org-taskforecast--task-alist'
+- `org-taskforecast-list-info-last-task-done-time' as an encoded time
+- `org-taskforecast-list-info-today' as an encoded time"
   :type '(repeat function)
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
@@ -165,36 +169,83 @@ DAY is an encoded time."
         (minute (% hhmm 100))
         (time (decode-time day)))
     (setf (decoded-time-hour time) hour
-          (decoded-time-minute time) minute)
+          (decoded-time-minute time) minute
+          (decoded-time-second time) 0)
     (encode-time time)))
 
-(defun org-taskforecast-today (day-start)
-  "Get today's date when the day starts at DAY-START.
+(defun org-taskforecast--time-as-date (time)
+  "Set hour, minute and second of TIME to zero.
 
+TIME is an encoded time.
+A returned value is an encoded time."
+  (let ((decoded (decode-time time)))
+    (setf (decoded-time-hour decoded) 0
+          (decoded-time-minute decoded) 0
+          (decoded-time-second decoded) 0)
+    (encode-time decoded)))
+
+(defun org-taskforecast--today (time day-start)
+  "Get today's date of TIME when the day starts at DAY-START.
+
+TIME is an encoded time.
 DAY-START is an integer like `org-taskforecast-day-start'.
 This function returns an encoded time as a date of today."
   (org-taskforecast-assert (integerp day-start))
-  (let* ((now (current-time))
-         (nowd (decode-time now))
-         (start-time (org-taskforecast--encode-hhmm day-start now))
-         (dsec (time-to-seconds (time-subtract now start-time))))
-    (setf (decoded-time-hour nowd) 0
-          (decoded-time-minute nowd) 0
-          (decoded-time-second nowd) dsec)
-    (encode-time nowd)))
+  (let* ((decoded (decode-time time))
+         (start-time (org-taskforecast--encode-hhmm day-start time))
+         (dsec (time-to-seconds (time-subtract time start-time))))
+    (setf (decoded-time-hour decoded) 0
+          (decoded-time-minute decoded) 0
+          (decoded-time-second decoded) dsec)
+    (org-taskforecast--time-as-date
+     (encode-time decoded))))
+
+(defun org-taskforecast-today ()
+  "Get today's date of now.
+
+This function depends on:
+- `org-taskforecast-day-start'"
+  (org-taskforecast--today (current-time)
+                           org-taskforecast-day-start))
+
+(org-taskforecast-defalist org-taskforecast--hhmm-alist (hour minute)
+  "A pair of hour and minute.
+
+HOUR and MINUTE are integers.")
+
+(defun org-taskforecast--time-to-hhmm (time today)
+  "Convert TIME to hour and minute as time of TODAY."
+  (let* ((today (org-taskforecast--time-as-date today))
+         (dsec (floor (time-to-seconds (time-subtract time today))))
+         (dmin (/ dsec 60))
+         (hour (/ dmin 60))
+         (minute (% dmin 60)))
+    (org-taskforecast-assert (<= 0 dsec))
+    (org-taskforecast--hhmm-alist :hour hour :minute minute)))
+
+(defun org-taskforecast--today-p (time today day-start)
+  "Return non-nil if TIME is in range of TODAY.
+
+- TIME is an encoded time
+- TODAY is an encoded time
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (let ((start (org-taskforecast--encode-hhmm day-start today))
+        (end (org-taskforecast--encode-hhmm (+ day-start 2400) today)))
+    (and (time-less-p time end)
+         (or (time-equal-p start time)
+             (time-less-p start time)))))
 
 ;;; File
 
-(defun org-taskforecast-get-dailylist-file (&optional create)
-  "Get the path of today's daily task list file.
+(defun org-taskforecast-get-dailylist-file (today &optional create)
+  "Get the path of today's daily task list file for TODAY.
 
 When CREATE is set, this function creates the file and its directory.
 
 This function depends on:
 - `org-taskforecast-dailylist-file' as a file format
 - `org-taskforecast-day-start' to determine the date of today"
-  (let* ((today (org-taskforecast-today org-taskforecast-day-start))
-         (file (expand-file-name
+  (let* ((file (expand-file-name
                 (format-time-string org-taskforecast-dailylist-file today))))
     (when (and create (not (file-exists-p file)))
       (make-directory (file-name-directory file) t)
@@ -217,27 +268,87 @@ This function depends on:
   (s-replace-all '(("[" . "{") ("]" . "}"))
                  (org-link-display-format title)))
 
+(defun org-taskforecast--parse-heading ()
+  "Parse heading at point by org element api."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (org-narrow-to-subtree)
+      (org-element-parse-buffer nil t))))
+
+(org-taskforecast-defalist org-taskforecast--clock-alist
+    (start end)
+  "A clock data.
+
+- START is the start time as an encoded time
+- END is the end time as an encoded time (optional)")
+
 (org-taskforecast-defalist org-taskforecast--task-alist
-    (id title effort)
+    (id title effort status clocks)
   "Alist of a task.
 
 The task is a heading linked from daily task list file.
 - ID is an id of org-id
 - TITLE is a heading title
-- EFFORT is a value of effort property")
+- EFFORT is a value of effort property
+- STATUS is a symbol of todo, running and done
+- CLOCKS is a list of clock data, each element is an alist of
+  `org-taskforecast--clock-alist'")
+
+(defun org-taskforecast--get-clock-from-element (element)
+  "Get a clock from ELEMENT.
+
+ELEMENT is a clock element of org element api."
+  (let* ((timestamp (org-element-property :value element))
+         (start-exists-p (org-element-property :year-start timestamp))
+         (end-exists-p (org-element-property :year-end timestamp))
+         (start (and start-exists-p
+                     (encode-time
+                      0
+                      (org-element-property :minute-start timestamp)
+                      (org-element-property :hour-start timestamp)
+                      (org-element-property :day-start timestamp)
+                      (org-element-property :month-start timestamp)
+                      (org-element-property :year-start timestamp))))
+         (end (and end-exists-p
+                   (encode-time
+                    0
+                    (org-element-property :minute-end timestamp)
+                    (org-element-property :hour-end timestamp)
+                    (org-element-property :day-end timestamp)
+                    (org-element-property :month-end timestamp)
+                    (org-element-property :year-end timestamp)))))
+    (org-taskforecast-assert start-exists-p)
+    (org-taskforecast--clock-alist :start start :end end)))
 
 (defun org-taskforecast--get-task ()
   "Get a task as an alist.
 
 A returned value is an alist of `org-taskforecast--task-alist'."
-  (let ((id (org-id-get-create))
-        (title (org-taskforecast--normalize-title
-                (substring-no-properties (org-get-heading t t t t))))
-        (effort (org-entry-get nil org-effort-property)))
+  (let* ((id (org-id-get-create))
+         (element (org-element-at-point))
+         (title (org-taskforecast--normalize-title
+                 (substring-no-properties (org-element-property :title element))))
+         (effort (org-entry-get nil org-effort-property))
+         (todo-type (org-element-property :todo-type element))
+         (helement (org-taskforecast--parse-heading))
+         (running-p (-contains-p
+                     (org-element-map helement 'clock
+                       (lambda (x) (org-element-property :status x)))
+                     'running))
+         (clocks (org-element-map helement 'clock
+                   #'org-taskforecast--get-clock-from-element))
+         (status (cond
+                  ((and (eq todo-type 'todo) running-p) 'running)
+                  ((and (eq todo-type 'todo) (not running-p)) 'todo)
+                  ((eq todo-type 'done) 'done)
+                  (t (error "Not a task heading")))))
     (org-taskforecast--task-alist
      :id id
      :title title
-     :effort effort)))
+     :effort effort
+     :status status
+     :clocks clocks)))
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task alist by ID.
@@ -307,6 +418,45 @@ The todo state of the task link heading is set to TODO."
           (org-taskforecast--get-task-link))
         nil 'file)))))
 
+(defun org-taskforecast--get-first-clock-of-day (clocks date day-start &optional start-after)
+  "Get the first clock for DATE from CLOCKS.
+
+When START-AFTER is non-nil, this function returns the first clock
+that starts after START-AFTER.
+When no clock is matched, this function returns nil.
+
+- CLOCKS is a list of `org-taskforecast--clock-alist'
+- DATE is an encoded time
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- START-AFTER is an encoded time"
+  (-some--> clocks
+    (--reject (-let (((&alist 'start start) it))
+                (or
+                 (and start-after (time-less-p start start-after))
+                 (not (org-taskforecast--today-p start date day-start))))
+              it)
+    (--min-by (-let (((&alist 'start a) it)
+                     ((&alist 'start b) other))
+                (not (time-less-p a b)))
+              it)))
+
+(defun org-taskforecast--get-last-clock-of-day (clocks date day-start)
+  "Get the last clock for DATE from CLOCKS.
+
+When no clock is matched, this function returns nil.
+
+- CLOCKS is a list of `org-taskforecast--clock-alist'
+- DATE is an encoded time
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (-some--> clocks
+    (--reject (-let (((&alist 'start start) it))
+                (not (org-taskforecast--today-p start date day-start)))
+              it)
+    (--max-by (-let (((&alist 'start a) it)
+                     ((&alist 'start b) other))
+                (not (time-less-p a b)))
+              it)))
+
 
 ;;;; General Commands
 
@@ -318,7 +468,7 @@ The todo state of the task link heading is set to TODO."
   (interactive)
   (org-taskforecast--append-task-link
    (org-id-get-create)
-   (org-taskforecast-get-dailylist-file t)
+   (org-taskforecast-get-dailylist-file (org-taskforecast-today) t)
    org-taskforecast-default-todo))
 
 
@@ -353,6 +503,19 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 This value will be a `org-taskforecast--task-alist'.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
+(defvar org-taskforecast-list-info-last-task-done-time nil
+  "This variable is used to pass a last task done time to formatters.
+
+This value will be an encoded time.
+See `org-taskforecast-list-task-formatters' for more detail.")
+
+(defvar org-taskforecast-list-info-today nil
+  "This variable is used to pass a date of today to formatters.
+
+This value will be an encoded time.
+Its hour, minute and second are set to zero.
+See `org-taskforecast-list-task-formatters' for more detail.")
+
 (defun org-taskforecast-list-format-effort ()
   "Format effort property of a task.
 
@@ -361,6 +524,35 @@ This function is used for `org-taskforecast-list-task-formatters'."
    (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
   (-let (((&alist 'effort effort) org-taskforecast-list-info-task))
     (format "%5s" (or effort "-:--"))))
+
+(defun org-taskforecast-list-format-task-start ()
+  "Format time when a task was started.
+
+This function is used for `org-taskforecast-list-task-formatters'."
+  (org-taskforecast-assert
+   (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
+  (org-taskforecast-assert
+   (let ((decoded (decode-time org-taskforecast-list-info-today)))
+     (and (= (decoded-time-hour decoded)
+             (decoded-time-minute decoded)
+             (decoded-time-second decoded)
+             0))))
+  (-let* (((&alist 'clocks clocks) org-taskforecast-list-info-task)
+          ((&alist 'start first-start)
+           (org-taskforecast--get-first-clock-of-day
+            clocks
+            org-taskforecast-list-info-today
+            org-taskforecast-day-start
+            org-taskforecast-list-info-last-task-done-time))
+          (start (or first-start
+                     org-taskforecast-list-info-last-task-done-time))
+          ((&alist 'hour hour 'minute minute)
+           (org-taskforecast--time-to-hhmm
+            start
+            org-taskforecast-list-info-today)))
+    (org-taskforecast-assert
+     (--all-p (>= it 0) (list hour minute)))
+    (format "%02s:%02s" hour minute)))
 
 (defun org-taskforecast-list-format-link-todo ()
   "Format task link's todo state.
@@ -388,31 +580,54 @@ This function is used for `org-taskforecast-list-task-formatters'."
                 ;; TODO: define face
                 'face 'org-scheduled-today)))
 
-(defun org-taskforecast--create-task-list (file)
-  "Create a today's task list for a task list file, FILE.
+(defun org-taskforecast--create-task-list (today day-start)
+  "Create a today's task list for TODAY.
 
 This function returns a string as contents of `org-taskforecast-list-mode'.
-Task list data are stored at each line of listed task.
-To get them, use `org-taskforecast--list-get-task-link-at-point'."
-  (-as-> (org-taskforecast--get-task-links file) links
-         (--map
-          (-let* (((&alist 'original-id original-id) it))
-            (let ((org-taskforecast-list-info-task-link it)
-                  (org-taskforecast-list-info-task
-                   (org-taskforecast--get-task-by-id original-id)))
-              (-as-> org-taskforecast-list-task-formatters x
-                     (-map #'funcall x)
-                     (-reject #'s-blank-p x)
-                     (s-join " " x)
-                     (org-taskforecast--list-propertize-link-data x it))))
-          links)
+Task list data are stored at each line of listed tasks.
+To get them, use `org-taskforecast--list-get-task-link-at-point'.
+
+- TODAY is an encoded time
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (-as-> (org-taskforecast--get-task-links
+          (org-taskforecast-get-dailylist-file today))
+         links
+         (let ((org-taskforecast-list-info-last-task-done-time
+                (org-taskforecast--encode-hhmm
+                 org-taskforecast-day-start
+                 today)))
+           (--map
+            (-let* (((&alist 'original-id original-id) it)
+                    (task (org-taskforecast--get-task-by-id original-id))
+                    ((&alist 'clocks clocks) task))
+              (prog1
+                  (let ((org-taskforecast-list-info-task-link it)
+                        (org-taskforecast-list-info-task task)
+                        (org-taskforecast-list-info-today today))
+                    (-as-> org-taskforecast-list-task-formatters x
+                           (-map #'funcall x)
+                           (-reject #'s-blank-p x)
+                           (s-join " " x)
+                           (org-taskforecast--list-propertize-link-data x it)))
+                ;; update last done time
+                (-when-let ((&alist 'end end)
+                            (org-taskforecast--get-last-clock-of-day
+                             clocks
+                             today
+                             day-start))
+                  ;; TODO: consider effort for not done tasks
+                  (setq org-taskforecast-list-info-last-task-done-time end))))
+            links))
          (s-join "\n" links)))
 
-(defun org-taskforecast--insert-task-list (file)
-  "Insert a today's task list for a task list file, FILE.
+(defun org-taskforecast--insert-task-list (today day-start)
+  "Insert a TODAY's task list.
 
-This function inserts contents of `org-taskforecast-list-mode'."
-  (insert (org-taskforecast--create-task-list file)))
+This function inserts contents of `org-taskforecast-list-mode'.
+
+- TODAY is an encoded time
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (insert (org-taskforecast--create-task-list today day-start)))
 
 (defvar org-taskforecast-list-mode-map
   (let ((map (make-sparse-keymap)))
@@ -440,18 +655,20 @@ This function inserts contents of `org-taskforecast-list-mode'."
 When the buffer is not found, this function returns nil."
   (get-buffer org-taskforecast--list-buffer-name))
 
-(defun org-taskforecast--create-list-buffer (file)
+(defun org-taskforecast--create-list-buffer (today day-start)
   "Create a buffer for `org-taskforecast-list-mode'.
 
 If the buffer already exists, only returns the buffer.
-FILE is a file of a daily task list file."
+
+- TODAY is an encoded time
+- DAY-START is an integer, see `org-taskforecast-day-start'"
   (let ((buffer (org-taskforecast--get-list-buffer)))
     (or buffer
         (with-current-buffer (get-buffer-create
                               org-taskforecast--list-buffer-name)
           (org-taskforecast-list-mode)
           (save-excursion
-            (org-taskforecast--insert-task-list file))
+            (org-taskforecast--insert-task-list today day-start))
           (current-buffer)))))
 
 ;;;###autoload
@@ -460,20 +677,22 @@ FILE is a file of a daily task list file."
   (interactive)
   (switch-to-buffer
    (org-taskforecast--create-list-buffer
-    (org-taskforecast-get-dailylist-file))))
+    (org-taskforecast-today)
+    org-taskforecast-day-start)))
 
 (defun org-taskforecast-list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
   (interactive)
   ;; TODO: reproduce cursor position
-  (let ((file (org-taskforecast-get-dailylist-file)))
-    (-if-let (buffer (org-taskforecast--get-list-buffer))
-        (with-current-buffer buffer
-          (save-excursion
-            (erase-buffer)
-            (org-taskforecast--insert-task-list file)))
-      (user-error "List buffer (%s) is not found"
-                  org-taskforecast--list-buffer-name))))
+  (-if-let (buffer (org-taskforecast--get-list-buffer))
+      (with-current-buffer buffer
+        (save-excursion
+          (erase-buffer)
+          (org-taskforecast--insert-task-list
+           (org-taskforecast-today)
+           org-taskforecast-day-start)))
+    (user-error "List buffer (%s) is not found"
+                org-taskforecast--list-buffer-name)))
 
 (defun org-taskforecast-list-clock-in ()
   "Start the clock on the task linked from the current line."
