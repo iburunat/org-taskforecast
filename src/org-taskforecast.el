@@ -69,6 +69,7 @@ Example of a range of today:
 (defcustom org-taskforecast-list-task-formatters
   (list #'org-taskforecast-list-format-effort
         #'org-taskforecast-list-format-task-start
+        #'org-taskforecast-list-format-task-end
         #'org-taskforecast-list-format-link-todo
         #'org-taskforecast-list-format-title)
   "Function list for formatting a task link.
@@ -82,7 +83,11 @@ The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-task' as an alist of
   `org-taskforecast--task-alist'
 - `org-taskforecast-list-info-last-task-done-time' as an encoded time
-- `org-taskforecast-list-info-today' as an encoded time"
+- `org-taskforecast-list-info-today' as an encoded time
+- `org-taskforecast-list-info-now' as an encoded time
+
+Other global variables also are set for formatting:
+- `org-taskforecast-day-start'"
   :type '(repeat function)
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
@@ -283,6 +288,14 @@ This function depends on:
 - START is the start time as an encoded time
 - END is the end time as an encoded time (optional)")
 
+(defun org-taskforecast--clock-start-less-p (a b)
+  "Compare start-times of A and B by `time-less-p'.
+
+A and B are `org-taskforecast--clock-alist's."
+  (-let (((&alist 'start as) a)
+         ((&alist 'start bs) b))
+    (time-less-p as bs)))
+
 (org-taskforecast-defalist org-taskforecast--task-alist
     (id title effort status clocks)
   "Alist of a task.
@@ -415,44 +428,80 @@ The todo state of the task link heading is set to TODO."
           (org-taskforecast--get-task-link))
         nil 'file)))))
 
-(defun org-taskforecast--get-first-clock-of-day (clocks date day-start &optional start-after)
-  "Get the first clock for DATE from CLOCKS.
+(defun org-taskforecast--effort-to-second (effort-str)
+  "Convert string of effort property to second.
 
-When START-AFTER is non-nil, this function returns the first clock
-that starts after START-AFTER.
-When no clock is matched, this function returns nil.
+EFFORT-STR is a string of a value of an effort property.
+If effort-str invalid, this function returns nil."
+  (-let* ((re (rx bos (? (group (+ num)) ":") (group (+ num)) eos))
+          (((_ h m)) (s-match-strings-all re effort-str)))
+    ;; Effort property sometimes has no colon format like "0".
+    (when m
+      (+ (* 60 60 (if h (string-to-number h) 0))
+         (* 60 (string-to-number m))))))
 
-- CLOCKS is a list of `org-taskforecast--clock-alist'
-- DATE is an encoded time
+(org-taskforecast-defalist org-taskforecast--task-satrt-end-time-alist
+    (start end start-estimated-p end-estimated-p)
+  "An information of start and end time of a task.
+
+- START is an encoded time that indicates the start time of the task of today.
+  If the start time is not found, the value will be an estimated time.
+- END is an encoded time that indicates the end time of the task of today.
+  If the end time is not found, the value will be an estimated time.
+- START-ESTIMATED-P is a boolean.
+  If the start time is estimated, its value is non-nil.
+- END-ESTIMATED-P is a boolean.
+  If the end time is estimated, its value is non-nil.")
+
+(defun org-taskforecast--get-task-start-end-time (task date day-start
+                                                       &optional start-after)
+  "Get the start and end time of a TASK.
+
+This function returns a `org-taskforecast--task-satrt-end-time-alist'.
+
+- TASK is an alist of `org-taskforecast--task-alist'
+- DATE is an encoded time as the date of today
 - DAY-START is an integer, see `org-taskforecast-day-start'
-- START-AFTER is an encoded time"
-  (-some--> clocks
-    (--reject (-let (((&alist 'start start) it))
-                (or
-                 (and start-after (time-less-p start start-after))
-                 (not (org-taskforecast--today-p start date day-start))))
-              it)
-    (--min-by (-let (((&alist 'start a) it)
-                     ((&alist 'start b) other))
-                (not (time-less-p a b)))
-              it)))
-
-(defun org-taskforecast--get-last-clock-of-day (clocks date day-start)
-  "Get the last clock for DATE from CLOCKS.
-
-When no clock is matched, this function returns nil.
-
-- CLOCKS is a list of `org-taskforecast--clock-alist'
-- DATE is an encoded time
-- DAY-START is an integer, see `org-taskforecast-day-start'"
-  (-some--> clocks
-    (--reject (-let (((&alist 'start start) it))
-                (not (org-taskforecast--today-p start date day-start)))
-              it)
-    (--max-by (-let (((&alist 'start a) it)
-                     ((&alist 'start b) other))
-                (not (time-less-p a b)))
-              it)))
+- START-AFTER is an encoded time.
+  If it is set, ignore clocks whose start time is earlier than it."
+  (org-taskforecast-assert (org-taskforecast--task-alist-type-p task))
+  (-let* ((day-start-time (org-taskforecast--encode-hhmm day-start date))
+          (start-after (or start-after day-start-time))
+          ((&alist 'effort effort 'clocks clocks 'status status) task)
+          (target-clocks
+           (--filter
+            (-let (((&alist 'start start) it))
+              (and (org-taskforecast--today-p start date day-start)
+                   (not (time-less-p start start-after))))
+            clocks))
+          (start-time
+           (-let (((&alist 'start)
+                   (when target-clocks
+                     (--min-by (not (org-taskforecast--clock-start-less-p
+                                     it other))
+                               target-clocks))))
+             start))
+          (end-time
+           (-let (((&alist 'end)
+                   (when target-clocks
+                     (--max-by (not (org-taskforecast--clock-start-less-p
+                                     it other))
+                               target-clocks))))
+             end))
+          (start-estimated-p (null start-time))
+          (end-estimated-p (or (null end-time) (memq status '(todo running))))
+          (start (if start-estimated-p start-after start-time))
+          (end (if end-estimated-p
+                   (time-add start
+                             (seconds-to-time
+                              (or (org-taskforecast--effort-to-second effort)
+                                  0)))
+                 end-time)))
+    (org-taskforecast--task-satrt-end-time-alist
+     :start start
+     :end end
+     :start-estimated-p start-estimated-p
+     :end-estimated-p end-estimated-p)))
 
 
 ;;;; General Commands
@@ -513,6 +562,12 @@ This value will be an encoded time.
 Its hour, minute and second are set to zero.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
+(defvar org-taskforecast-list-info-now nil
+  "This variable is used to pass the current time to formatters.
+
+This value will be an encoded time.
+See `org-taskforecast-list-task-formatters' for more detail.")
+
 (defun org-taskforecast-list-format-effort ()
   "Format effort property of a task.
 
@@ -523,7 +578,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
     (format "%5s" (or effort "-:--"))))
 
 (defun org-taskforecast-list-format-task-start ()
-  "Format time when a task was started.
+  "Format time when a task has been started.
 
 This function is used for `org-taskforecast-list-task-formatters'."
   (org-taskforecast-assert
@@ -534,22 +589,54 @@ This function is used for `org-taskforecast-list-task-formatters'."
              (decoded-time-minute decoded)
              (decoded-time-second decoded)
              0))))
-  (-let* (((&alist 'clocks clocks) org-taskforecast-list-info-task)
-          ((&alist 'start first-start)
-           (org-taskforecast--get-first-clock-of-day
-            clocks
+  (-let* (((&alist 'start start 'start-estimated-p start-estimated-p)
+           (org-taskforecast--get-task-start-end-time
+            org-taskforecast-list-info-task
             org-taskforecast-list-info-today
             org-taskforecast-day-start
             org-taskforecast-list-info-last-task-done-time))
-          (start (or first-start
-                     org-taskforecast-list-info-last-task-done-time))
           ((&alist 'hour hour 'minute minute)
            (org-taskforecast--time-to-hhmm
             start
             org-taskforecast-list-info-today)))
-    (org-taskforecast-assert
-     (--all-p (>= it 0) (list hour minute)))
-    (format "%02s:%02s" hour minute)))
+    (org-taskforecast-assert (--all-p (>= it 0) (list hour minute)))
+    (propertize (format "%02d:%02d" hour minute)
+                ;; TODO: define face
+                'face (if start-estimated-p 'org-scheduled 'default))))
+
+(defun org-taskforecast-list-format-task-end ()
+  "Format time when a task has been closed.
+
+This function is used for `org-taskforecast-list-task-formatters'."
+  (org-taskforecast-assert
+   (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
+  (org-taskforecast-assert
+   (let ((decoded (decode-time org-taskforecast-list-info-today)))
+     (and (= (decoded-time-hour decoded)
+             (decoded-time-minute decoded)
+             (decoded-time-second decoded)
+             0))))
+  (-let* (((&alist 'todo-type todo-type)
+           org-taskforecast-list-info-task-link)
+          ((&alist 'end end 'end-estimated-p end-estimated-p)
+           (org-taskforecast--get-task-start-end-time
+            org-taskforecast-list-info-task
+            org-taskforecast-list-info-today
+            org-taskforecast-day-start
+            org-taskforecast-list-info-last-task-done-time))
+          (overrunp (and end-estimated-p
+                         (eq todo-type 'todo)
+                         (time-less-p end org-taskforecast-list-info-now)))
+          ((&alist 'hour hour 'minute minute)
+           (org-taskforecast--time-to-hhmm
+            (if overrunp org-taskforecast-list-info-now end)
+            org-taskforecast-list-info-today)))
+    (propertize (format "%02d:%02d" hour minute)
+                ;; TODO: define face
+                'face (cond
+                       (overrunp 'org-warning)
+                       (end-estimated-p 'org-scheduled)
+                       (t 'default)))))
 
 (defun org-taskforecast-list-format-link-todo ()
   "Format task link's todo state.
@@ -590,30 +677,35 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
           (org-taskforecast-get-dailylist-file today))
          links
          (let ((org-taskforecast-list-info-last-task-done-time
-                (org-taskforecast--encode-hhmm
-                 org-taskforecast-day-start
-                 today)))
+                (org-taskforecast--encode-hhmm day-start today))
+               (org-taskforecast-list-info-today today)
+               (org-taskforecast-list-info-now (current-time))
+               (org-taskforecast-day-start day-start))
            (--map
-            (-let* (((&alist 'original-id original-id) it)
-                    (task (org-taskforecast--get-task-by-id original-id))
-                    ((&alist 'clocks clocks) task))
+            (-let* (((&alist 'original-id original-id 'todo-type todo-type) it)
+                    (task (org-taskforecast--get-task-by-id original-id)))
               (prog1
                   (let ((org-taskforecast-list-info-task-link it)
-                        (org-taskforecast-list-info-task task)
-                        (org-taskforecast-list-info-today today))
+                        (org-taskforecast-list-info-task task))
                     (-as-> org-taskforecast-list-task-formatters x
                            (-map #'funcall x)
                            (-reject #'s-blank-p x)
                            (s-join " " x)
                            (org-taskforecast--list-propertize-link-data x it)))
                 ;; update last done time
-                (-when-let ((&alist 'end end)
-                            (org-taskforecast--get-last-clock-of-day
-                             clocks
-                             today
-                             day-start))
-                  ;; TODO: consider effort for not done tasks
-                  (setq org-taskforecast-list-info-last-task-done-time end))))
+                (-let* (((&alist 'end end 'end-estimated-p end-estimated-p)
+                         (org-taskforecast--get-task-start-end-time
+                          task
+                          today
+                          day-start
+                          org-taskforecast-list-info-last-task-done-time))
+                        (overrunp
+                         (and end-estimated-p
+                              (eq todo-type 'todo)
+                              (time-less-p end
+                                           org-taskforecast-list-info-now))))
+                  (setq org-taskforecast-list-info-last-task-done-time
+                        (if overrunp org-taskforecast-list-info-now end)))))
             links))
          (s-join "\n" links)))
 
