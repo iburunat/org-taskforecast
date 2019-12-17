@@ -769,18 +769,23 @@ If the buffer already exists, only returns the buffer.
     (org-taskforecast-today)
     org-taskforecast-day-start)))
 
+(defun org-taskforecast--list-refresh ()
+  "Refresh `org-taskforecast-list-mode' buffer."
+  ;; TODO: reproduce cursor position
+  (-when-let (buffer (org-taskforecast--get-list-buffer))
+    (with-current-buffer buffer
+      (save-excursion
+        (erase-buffer)
+        (org-taskforecast--insert-task-list
+         (org-taskforecast-today)
+         org-taskforecast-day-start)))))
+
 (defun org-taskforecast-list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
   (interactive)
-  ;; TODO: reproduce cursor position
-  (-if-let (buffer (org-taskforecast--get-list-buffer))
-      (with-current-buffer buffer
-        (save-excursion
-          (erase-buffer)
-          (org-taskforecast--insert-task-list
-           (org-taskforecast-today)
-           org-taskforecast-day-start)))
-    (user-error "List buffer (%s) is not found"
+  (if (org-taskforecast--get-list-buffer)
+      (org-taskforecast--list-refresh)
+    (user-error "List buffer, %s, is not found"
                 org-taskforecast--list-buffer-name)))
 
 (defun org-taskforecast-list-clock-in ()
@@ -788,14 +793,17 @@ If the buffer already exists, only returns the buffer.
   (interactive)
   (-if-let ((&alist 'original-id original-id)
             (org-taskforecast--list-get-task-link-at-point))
-      (org-taskforecast--at-id original-id
-        (org-clock-in))
+      (progn
+        (org-taskforecast--at-id original-id
+          (org-clock-in))
+        (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
 
 (defun org-taskforecast-list-clock-out ()
   "Stop the current running clock."
   (interactive)
-  (org-clock-out))
+  (org-clock-out)
+  (org-taskforecast--list-refresh))
 
 (defun org-taskforecast-list-next-line ()
   "Go to the next line."
@@ -820,8 +828,10 @@ If the buffer already exists, only returns the buffer.
   (interactive)
   (-if-let ((&alist 'original-id original-id)
             (org-taskforecast--list-get-task-link-at-point))
-      (org-taskforecast--at-id original-id
-        (org-todo))
+      (prongn
+       (org-taskforecast--at-id original-id
+         (org-todo))
+       (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
 
 (defun org-taskforecast-list-link-todo ()
@@ -829,8 +839,10 @@ If the buffer already exists, only returns the buffer.
   (interactive)
   (-if-let ((&alist 'id id)
             (org-taskforecast--list-get-task-link-at-point))
-      (org-taskforecast--at-id id
-        (org-todo))
+      (progn
+        (org-taskforecast--at-id id
+          (org-todo))
+        (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
 
 
