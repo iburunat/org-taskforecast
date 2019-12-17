@@ -728,6 +728,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "p") #'org-taskforecast-list-previous-line)
     (define-key map (kbd "t") #'org-taskforecast-list-link-todo)
     (define-key map (kbd "T") #'org-taskforecast-list-todo)
+    (define-key map (kbd "e") #'org-taskforecast-list-set-effort)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     map)
   "A key map for `org-taskforecast-list-mode'.")
@@ -853,6 +854,17 @@ If the buffer already exists, only returns the buffer.
       (progn
         (org-taskforecast--at-id id
           (org-todo))
+        (org-taskforecast--list-refresh))
+    (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-set-effort ()
+  "Change Effort property of the task at the current line."
+  (interactive)
+  (-if-let ((&alist 'original-id original-id)
+            (org-taskforecast--list-get-task-link-at-point))
+      (progn
+        (org-taskforecast--at-id original-id
+          (org-set-effort))
         (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
 
