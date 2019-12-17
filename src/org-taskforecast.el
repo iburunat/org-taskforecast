@@ -729,6 +729,8 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "t") #'org-taskforecast-list-link-todo)
     (define-key map (kbd "T") #'org-taskforecast-list-todo)
     (define-key map (kbd "e") #'org-taskforecast-list-set-effort)
+    (define-key map (kbd "U") #'org-taskforecast-list-move-link-up)
+    (define-key map (kbd "D") #'org-taskforecast-list-move-link-down)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     (define-key map (kbd "q") #'org-taskforecast-list-quit)
     map)
@@ -868,6 +870,22 @@ If the buffer already exists, only returns the buffer.
           (org-set-effort))
         (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-move-link-up (&optional arg)
+  "Move task link at the current line up past ARG others."
+  (interactive "p")
+  (-if-let ((&alist 'id id)
+            (org-taskforecast--list-get-task-link-at-point))
+      (progn
+        (org-taskforecast--at-id id
+          (org-move-subtree-up arg))
+        (org-taskforecast--list-refresh))
+    (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-move-link-down (&optional arg)
+  "Move task link at the current line down past ARG others."
+  (interactive "p")
+  (org-taskforecast-list-move-link-up (- arg)))
 
 (defun org-taskforecast-list-quit ()
   "Quit the today's task list buffer."
