@@ -840,7 +840,7 @@ If the buffer already exists, only returns the buffer.
   (interactive)
   (-if-let ((&alist 'original-id original-id)
             (org-taskforecast--list-get-task-link-at-point))
-      (prongn
+      (progn
        (org-taskforecast--at-id original-id
          (org-todo))
        (org-taskforecast--list-refresh))
