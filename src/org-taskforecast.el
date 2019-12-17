@@ -772,14 +772,24 @@ If the buffer already exists, only returns the buffer.
 
 (defun org-taskforecast--list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
-  ;; TODO: reproduce cursor position
   (-when-let (buffer (org-taskforecast--get-list-buffer))
     (with-current-buffer buffer
-      (save-excursion
+      (let ((current-link (org-taskforecast--list-get-task-link-at-point)))
         (erase-buffer)
         (org-taskforecast--insert-task-list
          (org-taskforecast-today)
-         org-taskforecast-day-start)))))
+         org-taskforecast-day-start)
+        ;; Restore the line position of the cursor
+        (goto-char (point-min))
+        (-when-let* ((current-link current-link)
+                     (pmatch (text-property-search-forward
+                              org-taskforecast--list-task-link-property
+                              current-link
+                              (lambda (a b)
+                                (-when-let* (((&alist 'id aid) a)
+                                             ((&alist 'id bid) b))
+                                  (string-equal aid bid))))))
+          (goto-char (prop-match-beginning pmatch)))))))
 
 (defun org-taskforecast-list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
