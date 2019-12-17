@@ -25,6 +25,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'text-property-search)
 (require 'org)
 (require 'org-element)
 (require 'org-id)
