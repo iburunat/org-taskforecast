@@ -515,7 +515,8 @@ This function returns a `org-taskforecast--task-satrt-end-time-alist'.
   (org-taskforecast--append-task-link
    (org-id-get-create)
    (org-taskforecast-get-dailylist-file (org-taskforecast-today) t)
-   org-taskforecast-default-todo))
+   org-taskforecast-default-todo)
+  (org-taskforecast--list-refresh))
 
 
 ;;;; task-forecast-list mode
