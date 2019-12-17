@@ -730,6 +730,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "T") #'org-taskforecast-list-todo)
     (define-key map (kbd "e") #'org-taskforecast-list-set-effort)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
+    (define-key map (kbd "q") #'org-taskforecast-list-quit)
     map)
   "A key map for `org-taskforecast-list-mode'.")
 
@@ -867,6 +868,11 @@ If the buffer already exists, only returns the buffer.
           (org-set-effort))
         (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-quit ()
+  "Quit the today's task list buffer."
+  (interactive)
+  (quit-window))
 
 
 
