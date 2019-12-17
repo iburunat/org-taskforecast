@@ -280,7 +280,7 @@ This function depends on:
     (save-restriction
       (widen)
       (org-narrow-to-subtree)
-      (org-element-parse-buffer nil t))))
+      (org-element-parse-buffer))))
 
 (org-taskforecast-defalist org-taskforecast--clock-alist
     (start end)
