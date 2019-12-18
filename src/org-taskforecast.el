@@ -557,6 +557,18 @@ When this function failed, returns nil."
             (buffer-substring begin end)
           (delete-region begin end))))))
 
+(defun org-taskforecast--move-task-link-to-todo-head (link-id file)
+  "Move a task link of LINK-ID to the head of todo task links of FILE."
+  (when (org-taskforecast--at-id link-id
+          (org-taskforecast--get-task-link))
+    (error "Not a task link ID: %s" link-id))
+  (let ((task-link (org-taskforecast--cut-heading-by-id link-id))
+        (head (org-taskforecast--get-todo-link-head-pos file)))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (goto-char head)
+        (insert task-link)))))
+
 
 ;;;; General Commands
 
