@@ -530,6 +530,19 @@ This function returns a `org-taskforecast--task-satrt-end-time-alist'.
          'file)
         (or pos (point-max))))))
 
+(defun org-taskforecast--cut-heading-by-id (id)
+  "Cut a heading by ID.
+
+Return a string of the heading.
+When this function failed, returns nil."
+  (org-taskforecast--at-id id
+    (-when-let* ((helement (org-element-at-point))
+                 (begin (org-element-property :begin helement))
+                 (end (org-element-property :end helement)))
+      (prog1
+          (buffer-substring begin end)
+        (delete-region begin end)))))
+
 
 ;;;; General Commands
 
