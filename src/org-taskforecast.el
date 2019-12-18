@@ -824,7 +824,15 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-next-line ()
   "Go to the next line."
   (interactive)
-  (call-interactively #'next-line))
+  (let ((lastpos (point)))
+    ;; Prevent moving cursor to the end of line when the current line is
+    ;; the last line of the current buffer.
+    ;; When that condition, `next-line' signals an error from `line-move'.
+    (condition-case err
+        (call-interactively #'next-line)
+      ((end-of-buffer)
+       (goto-char lastpos)
+       (signal (car err) (cdr err))))))
 
 (defun org-taskforecast-list-previous-line ()
   "Go to the previous line."
