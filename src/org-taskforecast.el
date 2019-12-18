@@ -509,11 +509,10 @@ This function returns a `org-taskforecast--task-satrt-end-time-alist'.
 
 - TASK-ID is a string
 - FILE is a today's daily task list file name"
-  (when (file-exists-p file)
-    (--filter
-     (-let (((&alist 'original-id original-id) it))
-       (string= task-id original-id))
-     (org-taskforecast--get-task-links file))))
+  (--filter
+   (-let (((&alist 'original-id original-id) it))
+     (string= task-id original-id))
+   (org-taskforecast--get-task-links file)))
 
 
 ;;;; General Commands
