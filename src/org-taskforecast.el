@@ -406,6 +406,13 @@ If the heading is not a task link, this function returns nil."
                                          :todo todo
                                          :todo-type todo-type))))
 
+(defun org-taskforecast--get-task-link-by-id (id)
+  "Get a task link alist by ID.
+
+A returned value is an alist of `org-taskforecast--task-link-alist'."
+  (org-taskforecast--at-id id
+    (org-taskforecast--get-task-link)))
+
 (defun org-taskforecast--append-task-link (id file todo)
   "Append a task link for ID to the end of FILE.
 
@@ -429,8 +436,8 @@ The todo state of the task link heading is set to TODO.
 If a task link corresponding to ID already exists, this function does nothing.
 This function returns an ID of the task link corresponding to the task."
   (-if-let* ((links (org-taskforecast--get-task-links-for-task id file))
-             (&alist 'id id) (-first-item links))
-      id
+             ((&alist 'id link-id) (-first-item links)))
+      link-id
     (org-taskforecast--append-task-link id file todo)))
 
 (defun org-taskforecast--push-task-link-maybe (id file todo)
@@ -438,9 +445,15 @@ This function returns an ID of the task link corresponding to the task."
 
 The todo state of the task link heading is set to TODO.
 If a task link corresponding to ID already exists, this function moves it.
+If the existing task link is done, this function does not move it.
 This function returns an ID of the task link corresponding to the task."
-  (let ((link-id (org-taskforecast--append-task-link-maybe id file todo)))
-    (org-taskforecast--move-task-link-to-todo-head link-id file)))
+  ;; TODO: consider a case that the task of ID is already done
+  (-let* ((link-id (org-taskforecast--append-task-link-maybe id file todo))
+          ((&alist 'todo-type todo-type)
+           (org-taskforecast--get-task-link-by-id link-id)))
+    (when (eq todo-type 'todo)
+      (org-taskforecast--move-task-link-to-todo-head link-id file))
+    link-id))
 
 (defun org-taskforecast--get-task-links (file)
   "Get a task link list from FILE."
@@ -569,8 +582,7 @@ When this function failed, returns nil."
 
 (defun org-taskforecast--move-task-link-to-todo-head (link-id file)
   "Move a task link of LINK-ID to the head of todo task links of FILE."
-  (when (org-taskforecast--at-id link-id
-          (org-taskforecast--get-task-link))
+  (unless (org-taskforecast--at-id link-id (org-taskforecast--get-task-link))
     (error "Not a task link ID: %s" link-id))
   (let ((task-link (org-taskforecast--cut-heading-by-id link-id))
         (head (org-taskforecast--get-todo-link-head-pos file)))
@@ -989,12 +1001,16 @@ If the buffer already exists, only returns the buffer.
 
 (defun org-taskforecast--track-register-task ()
   "Register clock-in task."
-  (org-taskforecast--push-task-link-maybe
-   (org-id-get-create)
-   (org-taskforecast-get-dailylist-file (org-taskforecast-today))
-   org-taskforecast-default-todo)
-  (when (org-taskforecast--get-list-buffer)
-    (org-taskforecast--list-refresh)))
+  (-let (((&alist 'todo-type todo-type) (org-taskforecast--get-task)))
+    ;; TODO: should consider a case that a done task is clocked?
+    (when (eq todo-type 'todo)
+      (org-taskforecast--push-task-link-maybe
+       (org-id-get-create)
+       (org-taskforecast-get-dailylist-file (org-taskforecast-today))
+       org-taskforecast-default-todo)
+      ;; update list buffer
+      (when (org-taskforecast--get-list-buffer)
+        (org-taskforecast--list-refresh)))))
 
 (defvar org-taskforecast-track-mode nil
   "Track changes of original tasks and update today's task list.")
