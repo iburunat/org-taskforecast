@@ -504,6 +504,17 @@ This function returns a `org-taskforecast--task-satrt-end-time-alist'.
      :start-estimated-p start-estimated-p
      :end-estimated-p end-estimated-p)))
 
+(defun org-taskforecast--get-task-links-for-task (task-id file)
+  "Get task links for the task of TASK-ID in FILE.
+
+- TASK-ID is a string
+- FILE is a today's daily task list file name"
+  (when (file-exists-p file)
+    (--filter
+     (-let (((&alist 'original-id original-id) it))
+       (string= task-id original-id))
+     (org-taskforecast--get-task-links file))))
+
 
 ;;;; General Commands
 
