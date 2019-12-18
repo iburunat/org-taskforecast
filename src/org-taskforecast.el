@@ -514,6 +514,22 @@ This function returns a `org-taskforecast--task-satrt-end-time-alist'.
      (string= task-id original-id))
    (org-taskforecast--get-task-links file)))
 
+(defun org-taskforecast--get-todo-link-head-pos (file)
+  "Get the point of head of todo task links in FILE."
+  (let ((pos nil))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (org-map-entries
+         (lambda ()
+           (unless pos
+             (--> (org-element-at-point)
+                  (org-element-property :todo-type it)
+                  (when (eq it 'todo)
+                    (setq pos (point))))))
+         nil
+         'file)
+        (or pos (point-max))))))
+
 
 ;;;; General Commands
 
