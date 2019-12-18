@@ -408,7 +408,8 @@ If the heading is not a task link, this function returns nil."
 (defun org-taskforecast--append-task-link (id file todo)
   "Append a task link for ID to the end of FILE.
 
-The todo state of the task link heading is set to TODO."
+The todo state of the task link heading is set to TODO.
+This function returns an ID of the new task link."
   (-let* (((&alist 'title title) (org-taskforecast--get-task-by-id id))
           (normalized (org-taskforecast--normalize-title title)))
     (with-current-buffer (find-file-noselect file)
@@ -417,7 +418,8 @@ The todo state of the task link heading is set to TODO."
         (unless (bolp)
           (insert "\n"))
         (insert (concat "* [[id:" id "][" normalized "]]\n"))
-        (org-todo todo)))))
+        (org-todo todo)
+        (org-id-get-create)))))
 
 (defun org-taskforecast--get-task-links (file)
   "Get a task link list from FILE."
