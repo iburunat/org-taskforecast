@@ -550,13 +550,21 @@ When this function failed, returns nil."
 
 ;;;###autoload
 (defun org-taskforecast-register-task ()
-  "Register a task at point as a task for today."
+  "Register a task at point as a task for today.
+
+When the task is already registered, this command does nothing."
   (interactive)
-  (org-taskforecast--append-task-link
-   (org-id-get-create)
-   (org-taskforecast-get-dailylist-file (org-taskforecast-today) t)
-   org-taskforecast-default-todo)
-  (org-taskforecast--list-refresh))
+  (let ((id (org-id-get-create))
+        (file (org-taskforecast-get-dailylist-file
+               (org-taskforecast-today)
+               t)))
+    (if (org-taskforecast--get-task-links-for-task id file)
+        (message "The task is already registered.")
+      (org-taskforecast--append-task-link
+       id
+       file
+       org-taskforecast-default-todo)
+      (org-taskforecast--list-refresh))))
 
 
 ;;;; task-forecast-list mode
