@@ -299,7 +299,7 @@ A and B are `org-taskforecast--clock-alist's."
     (time-less-p as bs)))
 
 (org-taskforecast-defalist org-taskforecast--task-alist
-    (id title effort status clocks)
+    (id title effort status clocks todo todo-type)
   "Alist of a task.
 
 The task is a heading linked from daily task list file.
@@ -308,7 +308,9 @@ The task is a heading linked from daily task list file.
 - EFFORT is a value of effort property
 - STATUS is a symbol of todo, running and done
 - CLOCKS is a list of clock data, each element is an alist of
-  `org-taskforecast--clock-alist'")
+  `org-taskforecast--clock-alist'
+- TODO is a string of a todo state (optional)
+- TODO-TYPE is a symbol of a type of todo (optional)")
 
 (defun org-taskforecast--get-clock-from-element (element)
   "Get a clock from ELEMENT.
@@ -337,30 +339,36 @@ ELEMENT is a clock element of org element api."
   "Get a task as an alist.
 
 A returned value is an alist of `org-taskforecast--task-alist'."
-  (let* ((id (org-id-get-create))
-         (element (org-element-at-point))
-         (title (org-taskforecast--normalize-title
-                 (substring-no-properties (org-element-property :title element))))
-         (effort (org-entry-get nil org-effort-property))
-         (todo-type (org-element-property :todo-type element))
-         (helement (org-taskforecast--parse-heading))
-         (running-p (-contains-p
-                     (org-element-map helement 'clock
-                       (lambda (x) (org-element-property :status x)))
-                     'running))
-         (clocks (org-element-map helement 'clock
-                   #'org-taskforecast--get-clock-from-element))
-         (status (cond
-                  ((and (eq todo-type 'todo) running-p) 'running)
-                  ((and (eq todo-type 'todo) (not running-p)) 'todo)
-                  ((eq todo-type 'done) 'done)
-                  (t (error "Not a task heading")))))
-    (org-taskforecast--task-alist
-     :id id
-     :title title
-     :effort effort
-     :status status
-     :clocks clocks)))
+  (save-excursion
+    ;; go to heading line for `org-element-at-point' to get a headline element
+    (org-back-to-heading)
+    (let* ((id (org-id-get-create))
+           (element (org-element-at-point))
+           (title (org-taskforecast--normalize-title
+                   (substring-no-properties (org-element-property :title element))))
+           (effort (org-entry-get nil org-effort-property))
+           (todo (org-element-property :todo-keyword element))
+           (todo-type (org-element-property :todo-type element))
+           (helement (org-taskforecast--parse-heading))
+           (running-p (-contains-p
+                       (org-element-map helement 'clock
+                         (lambda (x) (org-element-property :status x)))
+                       'running))
+           (clocks (org-element-map helement 'clock
+                     #'org-taskforecast--get-clock-from-element))
+           (status (cond
+                    ((and (eq todo-type 'todo) running-p) 'running)
+                    ((and (eq todo-type 'todo) (not running-p)) 'todo)
+                    ((eq todo-type 'done) 'done)
+                    (t (error "Not a task heading")))))
+      (org-taskforecast--task-alist
+       :id id
+       :title title
+       :effort effort
+       :status status
+       :clocks clocks
+       :todo todo
+       :todo-type todo-type))))
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task alist by ID.
@@ -394,17 +402,20 @@ If STR is not a org-id link string, this function returns nil."
 
 A returned value is an alist of `org-taskforecast--task-link-alist'.
 If the heading is not a task link, this function returns nil."
-  (let* ((element (org-element-at-point))
-         (title (org-element-property :title element))
-         (todo (org-element-property :todo-keyword element))
-         (todo-type (org-element-property :todo-type element)))
-    (-when-let* ((original-id (org-taskforecast--get-link-id title))
-                 ;; Create id when this heading is a task link.
-                 (id (org-id-get-create)))
-      (org-taskforecast--task-link-alist :id id
-                                         :original-id original-id
-                                         :todo todo
-                                         :todo-type todo-type))))
+  (save-excursion
+    ;; go to heading line for `org-element-at-point' to get a headline element
+    (org-back-to-heading)
+    (let* ((element (org-element-at-point))
+           (title (org-element-property :title element))
+           (todo (org-element-property :todo-keyword element))
+           (todo-type (org-element-property :todo-type element)))
+      (-when-let* ((original-id (org-taskforecast--get-link-id title))
+                   ;; Create id when this heading is a task link.
+                   (id (org-id-get-create)))
+        (org-taskforecast--task-link-alist :id id
+                                           :original-id original-id
+                                           :todo todo
+                                           :todo-type todo-type)))))
 
 (defun org-taskforecast--get-task-link-by-id (id)
   "Get a task link alist by ID.
