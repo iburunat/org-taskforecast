@@ -1000,7 +1000,10 @@ If the buffer already exists, only returns the buffer.
   "Track changes of original tasks and update today's task list.")
 
 (define-minor-mode org-taskforecast-track-mode
-  "Track changes of original tasks and update today's task list."
+  "Track changes of original tasks and update today's task list.
+
+Features:
+- Register a task when it has been started by `org-clock-in'"
   :group 'org-taskforecast
   :global nil
   (if org-taskforecast-track-mode
