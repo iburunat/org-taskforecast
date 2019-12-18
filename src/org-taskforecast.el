@@ -27,6 +27,7 @@
 (require 'cl-lib)
 (require 'text-property-search)
 (require 'org)
+(require 'org-clock)
 (require 'org-element)
 (require 'org-id)
 (require 'dash)
@@ -431,6 +432,15 @@ This function returns an ID of the task link corresponding to the task."
              (&alist 'id id) (-first-item links))
       id
     (org-taskforecast--append-task-link id file todo)))
+
+(defun org-taskforecast--push-task-link-maybe (id file todo)
+  "Add a task link for ID to the head of todo task links in FILE.
+
+The todo state of the task link heading is set to TODO.
+If a task link corresponding to ID already exists, this function moves it.
+This function returns an ID of the task link corresponding to the task."
+  (let ((link-id (org-taskforecast--append-task-link-maybe id file todo)))
+    (org-taskforecast--move-task-link-to-todo-head link-id file)))
 
 (defun org-taskforecast--get-task-links (file)
   "Get a task link list from FILE."
@@ -975,6 +985,33 @@ If the buffer already exists, only returns the buffer.
   (quit-window))
 
 
+;;;; org-taskforecast-track-mode
+
+(defun org-taskforecast--track-register-task ()
+  "Register clock-in task."
+  (org-taskforecast--push-task-link-maybe
+   (org-id-get-create)
+   (org-taskforecast-get-dailylist-file (org-taskforecast-today))
+   org-taskforecast-default-todo)
+  (when (org-taskforecast--get-list-buffer)
+    (org-taskforecast--list-refresh)))
+
+(defvar org-taskforecast-track-mode nil
+  "Track changes of original tasks and update today's task list.")
+
+(define-minor-mode org-taskforecast-track-mode
+  "Track changes of original tasks and update today's task list."
+  :group 'org-taskforecast
+  :global nil
+  (if org-taskforecast-track-mode
+      (progn
+        (add-hook 'org-clock-in-hook
+                  #'org-taskforecast--track-register-task
+                  nil
+                  t))
+    (remove-hook 'org-clock-in-hook
+                 #'org-taskforecast--track-register-task
+                 t)))
 
 (provide 'org-taskforecast)
 ;;; org-taskforecast.el ends here
