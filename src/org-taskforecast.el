@@ -421,6 +421,17 @@ This function returns an ID of the new task link."
         (org-todo todo)
         (org-id-get-create)))))
 
+(defun org-taskforecast--append-task-link-maybe (id file todo)
+  "Append a task link for ID to the end of FILE.
+
+The todo state of the task link heading is set to TODO.
+If a task link corresponding to ID already exists, this function does nothing.
+This function returns an ID of the task link corresponding to the task."
+  (-if-let* ((links (org-taskforecast--get-task-links-for-task id file))
+             (&alist 'id id) (-first-item links))
+      id
+    (org-taskforecast--append-task-link id file todo)))
+
 (defun org-taskforecast--get-task-links (file)
   "Get a task link list from FILE."
   (with-current-buffer (find-file-noselect file)
