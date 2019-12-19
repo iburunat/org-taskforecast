@@ -298,6 +298,24 @@ A and B are `org-taskforecast--clock-alist's."
          ((&alist 'start bs) b))
     (time-less-p as bs)))
 
+(org-taskforecast-defalist org-taskforecast--schedule-alist
+    (start-time date-only-p repeatp)
+  "Alst of a SCHEDULED property of a task.
+
+- START-TIME is an encoded time of the start time of schedule
+- DATE-ONLY-P is a boolean, it is non-nil if the start time stamp has
+  no hour and minute
+- REPEATP is a boolean, it is non-nil if the time stamp has a repeater")
+
+(org-taskforecast-defalist org-taskforecast--deadline-alist
+    (time date-only-p repeatp)
+  "Alst of a DEADLINE property of a task.
+
+- TIME is an encoded time of the deadline
+- DATE-ONLY-P is a boolean, it is non-nil if the time stamp has
+  no hour and minute
+- REPEATP is a boolean, it is non-nil if the time stamp has a repeater")
+
 (org-taskforecast-defalist org-taskforecast--task-alist
     (id title effort status clocks todo todo-type)
   "Alist of a task.
