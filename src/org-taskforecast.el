@@ -496,6 +496,18 @@ This function returns a symbol, todo or done.
             'todo
           'done)))))
 
+(defun org-taskforecast--get-task-link-todo-state-for-today (task-link date day-start)
+  "Get todo state of TASK-LINK for today.
+
+This function returns a symbol, todo or done.
+- TASK-LINK is an alist of `org-taskforecast--task-link-alist'
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (org-taskforecast-assert (org-taskforecast--task-link-alist-type-p task-link))
+  (-let* (((&alist 'original-id original-id) task-link)
+          (task (org-taskforecast--get-task-by-id original-id)))
+    (org-taskforecast--get-task-todo-state-for-today task date day-start)))
+
 (defun org-taskforecast--get-task-link ()
   "Get a task link as an alist.
 
