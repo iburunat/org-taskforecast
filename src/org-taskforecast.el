@@ -317,7 +317,7 @@ A and B are `org-taskforecast--clock-alist's."
 - REPEATP is a boolean, it is non-nil if the time stamp has a repeater")
 
 (org-taskforecast-defalist org-taskforecast--task-alist
-    (id title effort status clocks todo todo-type)
+    (id title effort status clocks todo todo-type scheduled deadline)
   "Alist of a task.
 
 The task is a heading linked from daily task list file.
@@ -328,7 +328,11 @@ The task is a heading linked from daily task list file.
 - CLOCKS is a list of clock data, each element is an alist of
   `org-taskforecast--clock-alist'
 - TODO is a string of a todo state (optional)
-- TODO-TYPE is a symbol of a type of todo (optional)")
+- TODO-TYPE is a symbol of a type of todo (optional)
+- SCHEDULED is a schedule infomaton as an alist of
+  `org-taskforecast--schedule-alist' (optional)
+- DEADLINE is a deadline information as an alist of
+  `org-taskforecast--deadline-alist' (optional)")
 
 (defun org-taskforecast--get-clock-from-element (element)
   "Get a clock from ELEMENT.
