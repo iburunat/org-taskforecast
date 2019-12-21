@@ -48,12 +48,6 @@ This string is expanded by `format-time-string'."
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
-(defcustom org-taskforecast-default-todo "TODO"
-  "A todo state for task link."
-  :type 'string
-  :group 'org-taskforecast
-  :package-version '(org-taskforecast . "0.1.0"))
-
 (defcustom org-taskforecast-day-start 0000
   "A start time of a day.
 
@@ -531,10 +525,9 @@ A returned value is an alist of `org-taskforecast--task-link-alist'."
   (org-taskforecast--at-id id
     (org-taskforecast--get-task-link)))
 
-(defun org-taskforecast--append-task-link (id file todo)
+(defun org-taskforecast--append-task-link (id file)
   "Append a task link for ID to the end of FILE.
 
-The todo state of the task link heading is set to TODO.
 This function returns an ID of the new task link."
   (-let* (((&alist 'title title) (org-taskforecast--get-task-by-id id))
           (normalized (org-taskforecast--normalize-title title)))
@@ -544,33 +537,36 @@ This function returns an ID of the new task link."
         (unless (bolp)
           (insert "\n"))
         (insert (concat "* [[id:" id "][" normalized "]]\n"))
-        (org-todo todo)
         (org-id-get-create)))))
 
-(defun org-taskforecast--append-task-link-maybe (id file todo)
+(defun org-taskforecast--append-task-link-maybe (id file)
   "Append a task link for ID to the end of FILE.
 
-The todo state of the task link heading is set to TODO.
 If a task link corresponding to ID already exists, this function does nothing.
 This function returns an ID of the task link corresponding to the task."
   (-if-let* ((links (org-taskforecast--get-task-links-for-task id file))
              ((&alist 'id link-id) (-first-item links)))
       link-id
-    (org-taskforecast--append-task-link id file todo)))
+    (org-taskforecast--append-task-link id file)))
 
-(defun org-taskforecast--push-task-link-maybe (id file todo)
+(defun org-taskforecast--push-task-link-maybe (id file date day-start)
   "Add a task link for ID to the head of todo task links in FILE.
 
-The todo state of the task link heading is set to TODO.
 If a task link corresponding to ID already exists, this function moves it.
 If the existing task link is done, this function does not move it.
-This function returns an ID of the task link corresponding to the task."
+This function returns an ID of the task link corresponding to the task.
+
+- ID is a task id
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
   ;; TODO: consider a case that the task of ID is already done
-  (-let* ((link-id (org-taskforecast--append-task-link-maybe id file todo))
-          ((&alist 'todo-type todo-type)
-           (org-taskforecast--get-task-link-by-id link-id)))
+  (let* ((link-id (org-taskforecast--append-task-link-maybe id file))
+         (task-link (org-taskforecast--get-task-link-by-id link-id))
+         (todo-type (org-taskforecast--get-task-link-todo-state-for-today
+                     task-link date day-start)))
     (when (eq todo-type 'todo)
-      (org-taskforecast--move-task-link-to-todo-head link-id file))
+      (org-taskforecast--move-task-link-to-todo-head link-id file date day-start))
     link-id))
 
 (defun org-taskforecast--get-task-links (file)
@@ -668,16 +664,21 @@ This function returns a `org-taskforecast--task-satrt-end-time-alist'.
      (string= task-id original-id))
    (org-taskforecast--get-task-links file)))
 
-(defun org-taskforecast--get-todo-link-head-pos (file)
-  "Get the point of head of todo task links in FILE."
+(defun org-taskforecast--get-todo-link-head-pos (file date day-start)
+  "Get the point of head of todo task links in FILE.
+
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
   (let ((pos nil))
     (with-current-buffer (find-file-noselect file)
       (save-excursion
         (org-map-entries
          (lambda ()
            (unless pos
-             (--> (org-element-at-point)
-                  (org-element-property :todo-type it)
+             (--> (org-taskforecast--get-task-link)
+                  (org-taskforecast--get-task-link-todo-state-for-today
+                   it date day-start)
                   (when (eq it 'todo)
                     (setq pos (point))))))
          nil
@@ -698,12 +699,17 @@ When this function failed, returns nil."
             (buffer-substring begin end)
           (delete-region begin end))))))
 
-(defun org-taskforecast--move-task-link-to-todo-head (link-id file)
-  "Move a task link of LINK-ID to the head of todo task links of FILE."
+(defun org-taskforecast--move-task-link-to-todo-head (link-id file date day-start)
+  "Move a task link of LINK-ID to the head of todo task links of FILE.
+
+- ID is an id of org-id of a task link
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
   (unless (org-taskforecast--at-id link-id (org-taskforecast--get-task-link))
     (error "Not a task link ID: %s" link-id))
   (let ((task-link (org-taskforecast--cut-heading-by-id link-id))
-        (head (org-taskforecast--get-todo-link-head-pos file)))
+        (head (org-taskforecast--get-todo-link-head-pos file date day-start)))
     (with-current-buffer (find-file-noselect file)
       (save-excursion
         (goto-char head)
@@ -726,10 +732,7 @@ When the task is already registered, this command does nothing."
                t)))
     (if (org-taskforecast--get-task-links-for-task id file)
         (message "The task is already registered.")
-      (org-taskforecast--append-task-link
-       id
-       file
-       org-taskforecast-default-todo)
+      (org-taskforecast--append-task-link id file)
       (org-taskforecast--list-refresh))))
 
 
@@ -831,8 +834,11 @@ This function is used for `org-taskforecast-list-task-formatters'."
              (decoded-time-minute decoded)
              (decoded-time-second decoded)
              0))))
-  (-let* (((&alist 'todo-type todo-type)
-           org-taskforecast-list-info-task-link)
+  (-let* ((todo-type
+           (org-taskforecast--get-task-link-todo-state-for-today
+            org-taskforecast-list-info-task-link
+            org-taskforecast-list-info-today
+            org-taskforecast-day-start))
           ((&alist 'end end 'end-estimated-p end-estimated-p)
            (org-taskforecast--get-task-start-end-time
             org-taskforecast-list-info-task
@@ -860,9 +866,14 @@ This function is used for `org-taskforecast-list-task-formatters'."
   (org-taskforecast-assert
    (org-taskforecast--task-link-alist-type-p
     org-taskforecast-list-info-task-link))
-  (-when-let ((&alist 'todo todo 'todo-type todo-type)
-              org-taskforecast-list-info-task-link)
-    (propertize todo
+  (let ((todo-type
+         (org-taskforecast--get-task-link-todo-state-for-today
+          org-taskforecast-list-info-task-link
+          org-taskforecast-list-info-today
+          org-taskforecast-day-start)))
+    (propertize (cl-case todo-type
+                  ('todo "TODO")
+                  ('done "DONE"))
                 ;; TODO: define face
                 'face (cl-case todo-type
                         ('todo 'org-todo)
@@ -897,7 +908,9 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                (org-taskforecast-list-info-now (current-time))
                (org-taskforecast-day-start day-start))
            (--map
-            (-let* (((&alist 'original-id original-id 'todo-type todo-type) it)
+            (-let* (((&alist 'original-id original-id) it)
+                    (todo-type (org-taskforecast--get-task-link-todo-state-for-today
+                                it today day-start))
                     (task (org-taskforecast--get-task-by-id original-id)))
               (prog1
                   (let ((org-taskforecast-list-info-task-link it)
@@ -1119,13 +1132,15 @@ If the buffer already exists, only returns the buffer.
 
 (defun org-taskforecast--track-register-task ()
   "Register clock-in task."
-  (-let (((&alist 'todo-type todo-type) (org-taskforecast--get-task)))
+  (-let (((&alist 'todo-type todo-type) (org-taskforecast--get-task))
+         (today (org-taskforecast-today)))
     ;; TODO: should consider a case that a done task is clocked?
     (when (eq todo-type 'todo)
       (org-taskforecast--push-task-link-maybe
        (org-id-get-create)
-       (org-taskforecast-get-dailylist-file (org-taskforecast-today))
-       org-taskforecast-default-todo)
+       (org-taskforecast-get-dailylist-file today)
+       today
+       org-taskforecast-day-start)
       ;; update list buffer
       (when (org-taskforecast--get-list-buffer)
         (org-taskforecast--list-refresh)))))
