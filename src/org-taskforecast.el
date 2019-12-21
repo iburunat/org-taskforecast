@@ -298,7 +298,7 @@ A and B are `org-taskforecast--clock-alist's."
          ((&alist 'start bs) b))
     (time-less-p as bs)))
 
-(org-taskforecast-defalist org-taskforecast--schedule-alist
+(org-taskforecast-defalist org-taskforecast--scheduled-alist
     (start-time date-only-p repeatp)
   "Alst of a SCHEDULED property of a task.
 
@@ -330,7 +330,7 @@ The task is a heading linked from daily task list file.
 - TODO is a string of a todo state (optional)
 - TODO-TYPE is a symbol of a type of todo (optional)
 - SCHEDULED is a schedule infomaton as an alist of
-  `org-taskforecast--schedule-alist' (optional)
+  `org-taskforecast--scheduled-alist' (optional)
 - DEADLINE is a deadline information as an alist of
   `org-taskforecast--deadline-alist' (optional)")
 
