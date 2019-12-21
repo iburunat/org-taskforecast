@@ -298,6 +298,34 @@ A and B are `org-taskforecast--clock-alist's."
          ((&alist 'start bs) b))
     (time-less-p as bs)))
 
+(defun org-taskforecast--timestamp-start-time (timestamp)
+  "Get an encoded time of the start time of TIMESTAMP.
+
+TIMESTAMP is an element of timestamp of org element api.
+The second part of a returned time is set to zero.
+If hour and minute part do not exist, they are set to zero."
+  (encode-time
+   0
+   (or (org-element-property :minute-start timestamp) 0)
+   (or (org-element-property :hour-start timestamp) 0)
+   (org-element-property :day-start timestamp)
+   (org-element-property :month-start timestamp)
+   (org-element-property :year-start timestamp)))
+
+(defun org-taskforecast--timestamp-end-time (timestamp)
+  "Get an encoded time of the end time of TIMESTAMP.
+
+TIMESTAMP is an element of timestamp of org element api.
+The second part of a returned time is set to zero.
+If hour and minute part do not exist, they are set to zero."
+  (encode-time
+   0
+   (or (org-element-property :minute-end timestamp) 0)
+   (or (org-element-property :hour-end timestamp) 0)
+   (org-element-property :day-end timestamp)
+   (org-element-property :month-end timestamp)
+   (org-element-property :year-end timestamp)))
+
 (org-taskforecast-defalist org-taskforecast--scheduled-alist
     (start-time date-only-p repeatp)
   "Alst of a SCHEDULED property of a task.
@@ -340,21 +368,9 @@ The task is a heading linked from daily task list file.
 ELEMENT is a clock element of org element api."
   (let* ((timestamp (org-element-property :value element))
          (runnigp (eq 'running (org-element-property :status element)))
-         (start (encode-time
-                 0
-                 (org-element-property :minute-start timestamp)
-                 (org-element-property :hour-start timestamp)
-                 (org-element-property :day-start timestamp)
-                 (org-element-property :month-start timestamp)
-                 (org-element-property :year-start timestamp)))
+         (start (org-taskforecast--timestamp-start-time timestamp))
          (end (and (not runnigp)
-                   (encode-time
-                    0
-                    (org-element-property :minute-end timestamp)
-                    (org-element-property :hour-end timestamp)
-                    (org-element-property :day-end timestamp)
-                    (org-element-property :month-end timestamp)
-                    (org-element-property :year-end timestamp)))))
+                   (org-taskforecast--timestamp-end-time timestamp))))
     (org-taskforecast--clock-alist :start start :end end)))
 
 (defun org-taskforecast--get-task ()
