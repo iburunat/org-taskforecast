@@ -359,6 +359,21 @@ This function returns an alist of `org-taskforecast--scheduled-alist'."
   no hour and minute
 - REPEATP is a boolean, it is non-nil if the time stamp has a repeater")
 
+(defun org-taskforecast--get-deadline-from-timestamp (timestamp)
+  "Get a deadline information from TIMESTAMP.
+
+TIMESTAMP is a timestamp element of a deadline property of a heading
+of org element api.
+This function returns an alist of `org-taskforecast--deadline-alist'."
+  (let ((time (org-taskforecast--timestamp-start-time timestamp))
+        (date-only-p (not (or (org-element-property :hour-start timestamp)
+                              (org-element-property :minute-start timestamp))))
+        (repeatp (and (org-element-property :repeater-type timestamp) t)))
+    (org-taskforecast--deadline-alist
+     :time time
+     :date-only-p date-only-p
+     :repeatp repeatp)))
+
 (org-taskforecast-defalist org-taskforecast--task-alist
     (id title effort status clocks todo todo-type scheduled deadline)
   "Alist of a task.
@@ -404,6 +419,8 @@ A returned value is an alist of `org-taskforecast--task-alist'."
            (todo-type (org-element-property :todo-type element))
            (scheduled (-some--> (org-element-property :scheduled element)
                         (org-taskforecast--get-scheduled-from-timestamp it)))
+           (deadline (-some--> (org-element-property :deadline element)
+                       (org-taskforecast--get-deadline-from-timestamp it)))
            (helement (org-taskforecast--parse-heading))
            (running-p (-contains-p
                        (org-element-map helement 'clock
@@ -424,7 +441,8 @@ A returned value is an alist of `org-taskforecast--task-alist'."
        :clocks clocks
        :todo todo
        :todo-type todo-type
-       :scheduled scheduled))))
+       :scheduled scheduled
+       :deadline deadline))))
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task alist by ID.
