@@ -452,14 +452,12 @@ A returned value is an alist of `org-taskforecast--task-alist'."
     (org-taskforecast--get-task)))
 
 (org-taskforecast-defalist org-taskforecast--task-link-alist
-    (id original-id todo todo-type)
+    (id original-id)
   "Alist of a task link.
 
 It links to a task heading.
 - ID is an id of org-id
-- ORIGINAL-ID is where this links to
-- TODO is a string of a todo state (optional)
-- TODO-TYPE is a symbol of a type of todo (optional)")
+- ORIGINAL-ID is where this links to")
 
 (defun org-taskforecast--get-link-id (str)
   "Get a link id from STR.
@@ -507,16 +505,12 @@ If the heading is not a task link, this function returns nil."
     ;; go to heading line for `org-element-at-point' to get a headline element
     (org-back-to-heading)
     (let* ((element (org-element-at-point))
-           (title (org-element-property :title element))
-           (todo (org-element-property :todo-keyword element))
-           (todo-type (org-element-property :todo-type element)))
+           (title (org-element-property :title element)))
       (-when-let* ((original-id (org-taskforecast--get-link-id title))
                    ;; Create id when this heading is a task link.
                    (id (org-id-get-create)))
         (org-taskforecast--task-link-alist :id id
-                                           :original-id original-id
-                                           :todo todo
-                                           :todo-type todo-type)))))
+                                           :original-id original-id)))))
 
 (defun org-taskforecast--get-task-link-by-id (id)
   "Get a task link alist by ID.
