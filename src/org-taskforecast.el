@@ -471,6 +471,33 @@ If STR is not a org-id link string, this function returns nil."
     (-when-let (((_ id)) (s-match-strings-all re str))
       id)))
 
+(defun org-taskforecast--get-task-todo-state-for-today (task date day-start)
+  "Get todo state of TASK for today.
+
+This function returns a symbol, todo or done.
+- TASK is an alist of `org-taskforecast--task-alist'
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (org-taskforecast-assert (org-taskforecast--task-alist-type-p task))
+  (-let* (((&alist 'todo-type todo-type 'scheduled scheduled 'deadline deadline) task)
+          ((&alist 'start-time stime 'repeatp srepeatp) scheduled)
+          ((&alist 'time dtime 'repeatp drepeatp) deadline)
+          (repeatp (or (and scheduled srepeatp) (and deadline drepeatp)))
+          (times (-non-nil (list (and scheduled stime) (and deadline dtime))))
+          (next-day-start
+           (org-taskforecast--encode-hhmm (+ day-start 2400) date)))
+    (unless todo-type
+      (error "Task is not a todo heading"))
+    (if (eq todo-type 'done)
+        'done
+      (org-taskforecast-assert (eq todo-type 'todo))
+      (if (not repeatp)
+          'todo
+        (org-taskforecast-assert (not (null times)))
+        (if (--some (time-less-p it next-day-start) times)
+            'todo
+          'done)))))
+
 (defun org-taskforecast--get-task-link ()
   "Get a task link as an alist.
 
