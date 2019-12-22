@@ -78,7 +78,6 @@ The functions are obtained information as global variables below:
   `org-taskforecast--task-link-alist'
 - `org-taskforecast-list-info-task' as an alist of
   `org-taskforecast--task-alist'
-- `org-taskforecast-list-info-last-task-done-time' as an encoded time
 - `org-taskforecast-list-info-today' as an encoded time
 - `org-taskforecast-list-info-now' as an encoded time
 - `org-taskforecast-list-info-task-start-end-time' as an alist of
@@ -769,12 +768,6 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 This value will be a `org-taskforecast--task-alist'.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
-(defvar org-taskforecast-list-info-last-task-done-time nil
-  "This variable is used to pass a last task done time to formatters.
-
-This value will be an encoded time.
-See `org-taskforecast-list-task-formatters' for more detail.")
-
 (defvar org-taskforecast-list-info-today nil
   "This variable is used to pass a date of today to formatters.
 
@@ -902,7 +895,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
   (-as-> (org-taskforecast--get-task-links
           (org-taskforecast-get-dailylist-file today))
          links
-         (let ((org-taskforecast-list-info-last-task-done-time
+         (let ((last-task-done-time
                 (org-taskforecast--encode-hhmm day-start today))
                (org-taskforecast-list-info-today today)
                (org-taskforecast-list-info-now (current-time))
@@ -917,7 +910,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                       task
                       today
                       day-start
-                      org-taskforecast-list-info-last-task-done-time)))
+                      last-task-done-time)))
               (prog1
                   (let ((org-taskforecast-list-info-task-link it)
                         (org-taskforecast-list-info-task task))
@@ -934,7 +927,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                               (eq todo-type 'todo)
                               (time-less-p end
                                            org-taskforecast-list-info-now))))
-                  (setq org-taskforecast-list-info-last-task-done-time
+                  (setq last-task-done-time
                         (if overrunp org-taskforecast-list-info-now end)))))
             links))
          (s-join "\n" links)))
