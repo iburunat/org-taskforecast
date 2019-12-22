@@ -605,21 +605,25 @@ If effort-str invalid, this function returns nil."
 - END-ESTIMATED-P is a boolean.
   If the end time is estimated, its value is non-nil.")
 
-(defun org-taskforecast--get-task-start-end-time (task date day-start
-                                                       &optional start-after)
-  "Get the start and end time of a TASK.
+(defun org-taskforecast--get-task-link-start-end-time (task-link date day-start &optional start-after)
+  "Get the start and end time of a TASK-LINK.
 
 This function returns a `org-taskforecast--task-satrt-end-time-alist'.
 
-- TASK is an alist of `org-taskforecast--task-alist'
+- TASK-LINK is an alist of `org-taskforecast--task-link-alist'
 - DATE is an encoded time as the date of today
 - DAY-START is an integer, see `org-taskforecast-day-start'
 - START-AFTER is an encoded time.
   If it is set, ignore clocks whose start time is earlier than it."
-  (org-taskforecast-assert (org-taskforecast--task-alist-type-p task))
+  (org-taskforecast-assert
+   (org-taskforecast--task-link-alist-type-p task-link))
   (-let* ((day-start-time (org-taskforecast--encode-hhmm day-start date))
           (start-after (or start-after day-start-time))
-          ((&alist 'effort effort 'clocks clocks 'status status) task)
+          ((&alist 'original-id original-id) task-link)
+          (todo (org-taskforecast--get-task-link-todo-state-for-today
+                 task-link date day-start))
+          (task (org-taskforecast--get-task-by-id original-id))
+          ((&alist 'effort effort 'clocks clocks) task)
           (target-clocks
            (--filter
             (-let (((&alist 'start start) it))
@@ -641,7 +645,7 @@ This function returns a `org-taskforecast--task-satrt-end-time-alist'.
                                target-clocks))))
              end))
           (start-estimated-p (null start-time))
-          (end-estimated-p (or (null end-time) (memq status '(todo running))))
+          (end-estimated-p (or (null end-time) (eq todo 'todo)))
           (start (if start-estimated-p start-after start-time))
           (end (if end-estimated-p
                    (time-add start
@@ -906,8 +910,8 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                                 it today day-start))
                     (task (org-taskforecast--get-task-by-id original-id))
                     (org-taskforecast-list-info-task-start-end-time
-                     (org-taskforecast--get-task-start-end-time
-                      task
+                     (org-taskforecast--get-task-link-start-end-time
+                      it
                       today
                       day-start
                       last-task-done-time)))
