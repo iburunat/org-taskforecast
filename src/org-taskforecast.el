@@ -627,14 +627,14 @@ This function returns a `org-taskforecast--task-satrt-end-time-alist'.
                    (not (time-less-p start start-after))))
             clocks))
           (start-time
-           (-let (((&alist 'start)
+           (-let (((&alist 'start start)
                    (when target-clocks
                      (--min-by (not (org-taskforecast--clock-start-less-p
                                      it other))
                                target-clocks))))
              start))
           (end-time
-           (-let (((&alist 'end)
+           (-let (((&alist 'end end)
                    (when target-clocks
                      (--max-by (not (org-taskforecast--clock-start-less-p
                                      it other))
