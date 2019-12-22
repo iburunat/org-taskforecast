@@ -81,6 +81,8 @@ The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-last-task-done-time' as an encoded time
 - `org-taskforecast-list-info-today' as an encoded time
 - `org-taskforecast-list-info-now' as an encoded time
+- `org-taskforecast-list-info-task-start-end-time' as an alist of
+  `org-taskforecast--task-satrt-end-time-alist'
 
 Other global variables also are set for formatting:
 - `org-taskforecast-day-start'"
@@ -786,6 +788,12 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 This value will be an encoded time.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
+(defvar org-taskforecast-list-info-task-start-end-time nil
+  "This variable is used to pass the start and end time to formatters.
+
+This value will be an alist of `org-taskforecast--task-satrt-end-time-alist'.
+See `org-taskforecast-list-task-formatters' for more detail.")
+
 (defun org-taskforecast-list-format-effort ()
   "Format effort property of a task.
 
@@ -808,11 +816,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
              (decoded-time-second decoded)
              0))))
   (-let* (((&alist 'start start 'start-estimated-p start-estimated-p)
-           (org-taskforecast--get-task-start-end-time
-            org-taskforecast-list-info-task
-            org-taskforecast-list-info-today
-            org-taskforecast-day-start
-            org-taskforecast-list-info-last-task-done-time))
+           org-taskforecast-list-info-task-start-end-time)
           ((&alist 'hour hour 'minute minute)
            (org-taskforecast--time-to-hhmm
             start
@@ -840,11 +844,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
             org-taskforecast-list-info-today
             org-taskforecast-day-start))
           ((&alist 'end end 'end-estimated-p end-estimated-p)
-           (org-taskforecast--get-task-start-end-time
-            org-taskforecast-list-info-task
-            org-taskforecast-list-info-today
-            org-taskforecast-day-start
-            org-taskforecast-list-info-last-task-done-time))
+           org-taskforecast-list-info-task-start-end-time)
           (overrunp (and end-estimated-p
                          (eq todo-type 'todo)
                          (time-less-p end org-taskforecast-list-info-now)))
@@ -911,7 +911,13 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
             (-let* (((&alist 'original-id original-id) it)
                     (todo-type (org-taskforecast--get-task-link-todo-state-for-today
                                 it today day-start))
-                    (task (org-taskforecast--get-task-by-id original-id)))
+                    (task (org-taskforecast--get-task-by-id original-id))
+                    (org-taskforecast-list-info-task-start-end-time
+                     (org-taskforecast--get-task-start-end-time
+                      task
+                      today
+                      day-start
+                      org-taskforecast-list-info-last-task-done-time)))
               (prog1
                   (let ((org-taskforecast-list-info-task-link it)
                         (org-taskforecast-list-info-task task))
@@ -922,11 +928,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                            (org-taskforecast--list-propertize-link-data x it)))
                 ;; update last done time
                 (-let* (((&alist 'end end 'end-estimated-p end-estimated-p)
-                         (org-taskforecast--get-task-start-end-time
-                          task
-                          today
-                          day-start
-                          org-taskforecast-list-info-last-task-done-time))
+                         org-taskforecast-list-info-task-start-end-time)
                         (overrunp
                          (and end-estimated-p
                               (eq todo-type 'todo)
