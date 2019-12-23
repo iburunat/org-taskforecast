@@ -605,7 +605,7 @@ If effort-str invalid, this function returns nil."
 - END-ESTIMATED-P is a boolean.
   If the end time is estimated, its value is non-nil.")
 
-(defun org-taskforecast--get-task-link-start-end-time (task-link date day-start &optional start-after)
+(defun org-taskforecast--get-task-link-start-end-time (task-link date day-start &optional start-after now)
   "Get the start and end time of a TASK-LINK.
 
 This function returns a `org-taskforecast--task-start-end-time-alist'.
@@ -613,8 +613,11 @@ This function returns a `org-taskforecast--task-start-end-time-alist'.
 - TASK-LINK is an alist of `org-taskforecast--task-link-alist'
 - DATE is an encoded time as the date of today
 - DAY-START is an integer, see `org-taskforecast-day-start'
-- START-AFTER is an encoded time.
-  If it is set, ignore clocks whose start time is earlier than it."
+- START-AFTER is an encoded time (optional).
+  If it is set, ignore clocks whose start time is earlier than it.
+- NOW is an encoded time (optional).
+  If it is set, use it instead of an estimated time of start or end
+  when the estimated time is earlier than it."
   (org-taskforecast-assert
    (org-taskforecast--task-link-alist-type-p task-link))
   (-let* ((day-start-time (org-taskforecast--encode-hhmm day-start date))
@@ -624,6 +627,9 @@ This function returns a `org-taskforecast--task-start-end-time-alist'.
                  task-link date day-start))
           (task (org-taskforecast--get-task-by-id original-id))
           ((&alist 'effort effort 'clocks clocks) task)
+          (clock-start-greater-p
+           (lambda (a b) (org-taskforecast--clock-start-less-p b a)))
+          (time-greater-p (lambda (a b) (time-less-p b a)))
           (target-clocks
            (--filter
             (-let (((&alist 'start start) it))
@@ -633,25 +639,24 @@ This function returns a `org-taskforecast--task-start-end-time-alist'.
           (start-time
            (-let (((&alist 'start start)
                    (when target-clocks
-                     (--min-by (not (org-taskforecast--clock-start-less-p
-                                     it other))
-                               target-clocks))))
+                     (-min-by clock-start-greater-p target-clocks))))
              start))
           (end-time
            (-let (((&alist 'end end)
                    (when target-clocks
-                     (--max-by (not (org-taskforecast--clock-start-less-p
-                                     it other))
-                               target-clocks))))
+                     (-max-by clock-start-greater-p target-clocks))))
              end))
           (start-estimated-p (null start-time))
           (end-estimated-p (or (null end-time) (eq todo 'todo)))
-          (start (if start-estimated-p start-after start-time))
+          (start (if start-estimated-p
+                     (-max-by time-greater-p (list start-after now))
+                   start-time))
+          (start-plus-effort
+           (time-add start
+                     (seconds-to-time
+                      (or (org-taskforecast--effort-to-second effort) 0))))
           (end (if end-estimated-p
-                   (time-add start
-                             (seconds-to-time
-                              (or (org-taskforecast--effort-to-second effort)
-                                  0)))
+                   (-max-by time-greater-p (list start-plus-effort now))
                  end-time)))
     (org-taskforecast--task-start-end-time-alist
      :start start
@@ -914,7 +919,9 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                       it
                       today
                       day-start
-                      last-task-done-time)))
+                      last-task-done-time
+                      (and (eq todo-type 'todo)
+                           org-taskforecast-list-info-now))))
               (prog1
                   (let ((org-taskforecast-list-info-task-link it)
                         (org-taskforecast-list-info-task task))
@@ -924,15 +931,8 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                            (s-join " " x)
                            (org-taskforecast--list-propertize-link-data x it)))
                 ;; update last done time
-                (-let* (((&alist 'end end 'end-estimated-p end-estimated-p)
-                         org-taskforecast-list-info-task-start-end-time)
-                        (overrunp
-                         (and end-estimated-p
-                              (eq todo-type 'todo)
-                              (time-less-p end
-                                           org-taskforecast-list-info-now))))
-                  (setq last-task-done-time
-                        (if overrunp org-taskforecast-list-info-now end)))))
+                (-let (((&alist 'end end) org-taskforecast-list-info-task-start-end-time))
+                  (setq last-task-done-time end))))
             links))
          (s-join "\n" links)))
 
