@@ -651,16 +651,20 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
              end))
           (start-estimated-p (null start-time))
           (end-estimated-p (or (null end-time) (eq todo 'todo)))
-          (start (if start-estimated-p
-                     (-max-by time-greater-p (list start-after now))
-                   start-time))
+          (start
+           (cond ((and start-estimated-p (eq todo 'todo) now)
+                  (-max-by time-greater-p (list start-after now)))
+                 (start-estimated-p start-after)
+                 (t start-time)))
           (start-plus-effort
            (time-add start
                      (seconds-to-time
                       (or (org-taskforecast--effort-to-second effort) 0))))
-          (end (if end-estimated-p
-                   (-max-by time-greater-p (list start-plus-effort now))
-                 end-time))
+          (end
+           (cond ((and end-estimated-p (eq todo 'todo) now)
+                  (-max-by time-greater-p (list start-plus-effort now)))
+                 (end-estimated-p start-plus-effort)
+                 (t end-time)))
           (overrunp (time-less-p start-plus-effort end)))
     (org-taskforecast--task-link-start-end-time-alist
      :start start
