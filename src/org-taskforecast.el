@@ -593,7 +593,7 @@ If effort-str invalid, this function returns nil."
          (* 60 (string-to-number m))))))
 
 (org-taskforecast-defalist org-taskforecast--task-start-end-time-alist
-    (start end start-estimated-p end-estimated-p)
+    (start end start-estimated-p end-estimated-p overrunp)
   "An information of start and end time of a task.
 
 - START is an encoded time that indicates the start time of the task of today.
@@ -603,7 +603,10 @@ If effort-str invalid, this function returns nil."
 - START-ESTIMATED-P is a boolean.
   If the start time is estimated, its value is non-nil.
 - END-ESTIMATED-P is a boolean.
-  If the end time is estimated, its value is non-nil.")
+  If the end time is estimated, its value is non-nil.
+- OVERRUNP is a boolean.
+  If the end time is over the time of the start time plus effort,
+  its value is non-nil.")
 
 (defun org-taskforecast--get-task-link-start-end-time (task-link date day-start &optional start-after now)
   "Get the start and end time of a TASK-LINK.
@@ -657,12 +660,14 @@ This function returns a `org-taskforecast--task-start-end-time-alist'.
                       (or (org-taskforecast--effort-to-second effort) 0))))
           (end (if end-estimated-p
                    (-max-by time-greater-p (list start-plus-effort now))
-                 end-time)))
+                 end-time))
+          (overrunp (time-less-p start-plus-effort end)))
     (org-taskforecast--task-start-end-time-alist
      :start start
      :end end
      :start-estimated-p start-estimated-p
-     :end-estimated-p end-estimated-p)))
+     :end-estimated-p end-estimated-p
+     :overrunp overrunp)))
 
 (defun org-taskforecast--get-task-links-for-task (task-id file)
   "Get task links for the task of TASK-ID in FILE.
@@ -845,11 +850,11 @@ This function is used for `org-taskforecast-list-task-formatters'."
             org-taskforecast-list-info-task-link
             org-taskforecast-list-info-today
             org-taskforecast-day-start))
-          ((&alist 'end end 'end-estimated-p end-estimated-p)
+          ((&alist 'end end 'end-estimated-p end-estimated-p 'overrunp _overrunp)
            org-taskforecast-list-info-task-start-end-time)
           (overrunp (and end-estimated-p
                          (eq todo-type 'todo)
-                         (time-less-p end org-taskforecast-list-info-now)))
+                         _overrunp))
           ((&alist 'hour hour 'minute minute)
            (org-taskforecast--time-to-hhmm
             (if overrunp org-taskforecast-list-info-now end)
