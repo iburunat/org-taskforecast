@@ -855,11 +855,13 @@ This function is used for `org-taskforecast-list-task-formatters'."
             org-taskforecast-list-info-task-link
             org-taskforecast-list-info-today
             org-taskforecast-day-start))
-          ((&alist 'end end 'end-estimated-p end-estimated-p 'overrunp _overrunp)
+          ((&alist 'end end
+                   'end-estimated-p end-estimated-p
+                   'overrunp overrunp_)
            org-taskforecast-list-info-task-start-end-time)
           (overrunp (and end-estimated-p
                          (eq todo-type 'todo)
-                         _overrunp))
+                         overrunp_))
           ((&alist 'hour hour 'minute minute)
            (org-taskforecast--time-to-hhmm
             (if overrunp org-taskforecast-list-info-now end)
