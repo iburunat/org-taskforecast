@@ -81,7 +81,7 @@ The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-today' as an encoded time
 - `org-taskforecast-list-info-now' as an encoded time
 - `org-taskforecast-list-info-task-start-end-time' as an alist of
-  `org-taskforecast--task-start-end-time-alist'
+  `org-taskforecast--task-link-start-end-time-alist'
 
 Other global variables also are set for formatting:
 - `org-taskforecast-day-start'"
@@ -592,7 +592,7 @@ If effort-str invalid, this function returns nil."
       (+ (* 60 60 (if h (string-to-number h) 0))
          (* 60 (string-to-number m))))))
 
-(org-taskforecast-defalist org-taskforecast--task-start-end-time-alist
+(org-taskforecast-defalist org-taskforecast--task-link-start-end-time-alist
     (start end start-estimated-p end-estimated-p overrunp)
   "An information of start and end time of a task.
 
@@ -611,7 +611,7 @@ If effort-str invalid, this function returns nil."
 (defun org-taskforecast--get-task-link-start-end-time (task-link date day-start &optional start-after now)
   "Get the start and end time of a TASK-LINK.
 
-This function returns a `org-taskforecast--task-start-end-time-alist'.
+This function returns a `org-taskforecast--task-link-start-end-time-alist'.
 
 - TASK-LINK is an alist of `org-taskforecast--task-link-alist'
 - DATE is an encoded time as the date of today
@@ -662,7 +662,7 @@ This function returns a `org-taskforecast--task-start-end-time-alist'.
                    (-max-by time-greater-p (list start-plus-effort now))
                  end-time))
           (overrunp (time-less-p start-plus-effort end)))
-    (org-taskforecast--task-start-end-time-alist
+    (org-taskforecast--task-link-start-end-time-alist
      :start start
      :end end
      :start-estimated-p start-estimated-p
@@ -798,7 +798,8 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 (defvar org-taskforecast-list-info-task-start-end-time nil
   "This variable is used to pass the start and end time to formatters.
 
-This value will be an alist of `org-taskforecast--task-start-end-time-alist'.
+This value will be an alist of
+`org-taskforecast--task-link-start-end-time-alist'.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
 (defun org-taskforecast-list-format-effort ()
