@@ -31,3 +31,7 @@
   (should-not (defalist-test-type-p'((a) (b)))))
 
 ;;; org-taskforecast-test.el ends here
+
+;; Local Variables:
+;; byte-compile-error-on-warn: t
+;; End:

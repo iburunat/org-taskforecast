@@ -1191,3 +1191,9 @@ If the buffer already exists, only returns the buffer.
 
 (provide 'org-taskforecast)
 ;;; org-taskforecast.el ends here
+
+;; Local Variables:
+;; eval: (when (fboundp 'flycheck-mode) (flycheck-mode 1))
+;; eval: (when (fboundp 'flycheck-package-setup) (flycheck-package-setup))
+;; byte-compile-error-on-warn: t
+;; End:
