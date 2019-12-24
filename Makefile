@@ -2,7 +2,7 @@ EMACS ?= emacs
 CASK  ?= cask
 
 # directories
-SRC = ./src
+SRC = .
 TEST = ./test
 
 # files
