@@ -292,6 +292,10 @@ This function depends on:
   "Compare start-times of A and B by `time-less-p'.
 
 A and B are `org-taskforecast--clock-alist's."
+  (org-taskforecast-assert
+   (org-taskforecast--clock-alist-type-p a))
+  (org-taskforecast-assert
+   (org-taskforecast--clock-alist-type-p b))
   (-let (((&alist 'start as) a)
          ((&alist 'start bs) b))
     (time-less-p as bs)))
