@@ -1,4 +1,4 @@
-;;; org-taskforecast.el --- Manage closed task list and forecast time flow with org-mode. -*- lexical-binding: t; -*-
+;;; org-taskforecast.el --- Manage closed task list and forecast time flow with org-mode -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2019  Hiroki YAMAKAWA
 
