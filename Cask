@@ -1,15 +1,13 @@
 (source gnu)
 (source melpa)
 
-(package
- "org-taskforecast"
- "0.1.0"
- "Manage closed task list and forecast time flow with org-mode.")
+(package-file "org-taskforecast.el")
 
-(files "src/*.el")
+(files "org-taskforecast.el")
 
 (depends-on "emacs" "25")
 (depends-on "dash" "2.16.0")
+(depends-on "s" "1.12.0")
 
 (development
  (depends-on "ert-runner" "0.7.0")
