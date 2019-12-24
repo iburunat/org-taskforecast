@@ -1,7 +1,7 @@
 ;; -*- lexical-binding: t; -*-
 
 (require 'ert)
-(require 'org-taskforecast-util)
+(require 'org-taskforecast)
 
 (defmacro should-not-error (form) form)
 
@@ -30,4 +30,4 @@
   (should (defalist-test-type-p'((c) (a) (b))))
   (should-not (defalist-test-type-p'((a) (b)))))
 
-;;; org-taskforecast-util-test.el ends here
+;;; org-taskforecast-test.el ends here
