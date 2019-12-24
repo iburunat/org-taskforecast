@@ -261,7 +261,7 @@ This function depends on:
 
 (defmacro org-taskforecast--at-id (id &rest body)
   "Eval BODY at a heading of ID."
-  (declare (indent 1))
+  (declare (indent 1) (debug t))
   `(-let (((file . pos) (org-id-find ,id)))
      (with-current-buffer (find-file-noselect file)
        (save-excursion
