@@ -472,9 +472,18 @@ This function returns a symbol, todo or done.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (org-taskforecast-assert (org-taskforecast--task-alist-type-p task))
-  (-let* (((&alist 'todo-type todo-type 'scheduled scheduled 'deadline deadline) task)
-          ((&alist 'start-time stime 'repeatp srepeatp) scheduled)
-          ((&alist 'time dtime 'repeatp drepeatp) deadline)
+  (-let* (((&alist 'todo-type todo-type 'scheduled scheduled
+                   'deadline deadline) task)
+          ((&alist 'start-time stime_ 'repeatp srepeatp
+                   'date-only-p sdate-only-p) scheduled)
+          ((&alist 'time dtime_ 'repeatp drepeatp
+                   'date-only-p ddate-only-p) deadline)
+          (stime (if (and stime_ sdate-only-p)
+                     (org-taskforecast--encode-hhmm day-start stime_)
+                   stime_))
+          (dtime (if (and dtime_ ddate-only-p)
+                     (org-taskforecast--encode-hhmm day-start dtime_)
+                   dtime_))
           (repeatp (or (and scheduled srepeatp) (and deadline drepeatp)))
           (times (-non-nil (list (and scheduled stime) (and deadline dtime))))
           (next-day-start
