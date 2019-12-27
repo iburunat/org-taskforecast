@@ -242,20 +242,14 @@ HOUR and MINUTE are integers.")
 
 ;;; File
 
-(defun org-taskforecast-get-dailylist-file (today &optional create)
+(defun org-taskforecast-get-dailylist-file (today)
   "Get the path of today's daily task list file for TODAY.
-
-When CREATE is set, this function creates the file and its directory.
 
 This function depends on:
 - `org-taskforecast-dailylist-file' as a file format
 - `org-taskforecast-day-start' to determine the date of today"
-  (let* ((file (expand-file-name
-                (format-time-string org-taskforecast-dailylist-file today))))
-    (when (and create (not (file-exists-p file)))
-      (make-directory (file-name-directory file) t)
-      (write-region "" nil file))
-    file))
+  (expand-file-name
+   (format-time-string org-taskforecast-dailylist-file today)))
 
 ;;; Org-mode
 
@@ -554,7 +548,15 @@ This function returns an ID of the new task link."
         (unless (bolp)
           (insert "\n"))
         (insert (concat "* [[id:" id "][" normalized "]]\n"))
-        (org-id-get-create)))))
+        (prog1
+            (org-id-get-create)
+          ;; The reason of saving buffer here are:
+          ;; - to find headnig by org-id properly,
+          ;;   org-id doesn't return control when the file doesn't exist
+          ;; - to avoid asking about non-existent agenda file by
+          ;;   `org-check-agenda-file' called from `org-map-entries'
+          ;;   when the file of the current buffer doesn't exist
+          (save-buffer))))))
 
 (defun org-taskforecast--append-task-link-maybe (id file)
   "Append a task link for ID to the end of FILE.
@@ -762,9 +764,7 @@ When this function failed, returns nil."
 When the task is already registered, this command does nothing."
   (interactive)
   (let ((id (org-id-get-create))
-        (file (org-taskforecast-get-dailylist-file
-               (org-taskforecast-today)
-               t)))
+        (file (org-taskforecast-get-dailylist-file (org-taskforecast-today))))
     (if (org-taskforecast--get-task-links-for-task id file)
         (message "The task is already registered.")
       (org-taskforecast--append-task-link id file)
