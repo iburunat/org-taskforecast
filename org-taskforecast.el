@@ -260,6 +260,9 @@ This function depends on:
      (with-current-buffer (find-file-noselect file)
        (save-excursion
          (goto-char pos)
+         ;; To parse with org element api properly
+         ;; even when the heading is folded and invisible.
+         (org-show-context)
          ,@body))))
 
 (defun org-taskforecast--normalize-title (title)
