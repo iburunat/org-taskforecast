@@ -553,12 +553,9 @@ This function returns an ID of the new task link."
         (insert (concat "* [[id:" id "][" normalized "]]\n"))
         (prog1
             (org-id-get-create)
-          ;; The reason of saving buffer here are:
-          ;; - to find headnig by org-id properly,
-          ;;   org-id doesn't return control when the file doesn't exist
-          ;; - to avoid asking about non-existent agenda file by
-          ;;   `org-check-agenda-file' called from `org-map-entries'
-          ;;   when the file of the current buffer doesn't exist
+          ;; The reason of saving buffer here is to find headnig
+          ;; by org-id properly, org-id doesn't return control when
+          ;; the file doesn't exist.
           (save-buffer))))))
 
 (defun org-taskforecast--append-task-link-maybe (id file)
@@ -591,15 +588,24 @@ This function returns an ID of the task link corresponding to the task.
       (org-taskforecast--move-task-link-to-todo-head link-id file date day-start))
     link-id))
 
+(defun org-taskforecast--map-headings (fn)
+  "Call FN on headings in the current buffer.
+
+This function returns a list of results of FN.
+
+Why use this function instead of `org-map-entries' is to avoid asking
+about non-existent agenda file by `org-check-agenda-file' when
+the file of the current buffer doesn't exist."
+  (let* (results
+         (f (lambda () (push (funcall fn) results))))
+    (org-map-region f (point-min) (point-max))
+    (nreverse results)))
+
 (defun org-taskforecast--get-task-links (file)
   "Get a task link list from FILE."
   (with-current-buffer (find-file-noselect file)
-    (save-excursion
-      (-non-nil
-       (org-map-entries
-        (lambda ()
-          (org-taskforecast--get-task-link))
-        nil 'file)))))
+    (-non-nil
+     (org-taskforecast--map-headings #'org-taskforecast--get-task-link))))
 
 (defun org-taskforecast--effort-to-second (effort-str)
   "Convert string of effort property to second.
@@ -712,18 +718,15 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (let ((pos nil))
     (with-current-buffer (find-file-noselect file)
-      (save-excursion
-        (org-map-entries
-         (lambda ()
-           (unless pos
-             (--> (org-taskforecast--get-task-link)
-                  (org-taskforecast--get-task-link-todo-state-for-today
-                   it date day-start)
-                  (when (eq it 'todo)
-                    (setq pos (point))))))
-         nil
-         'file)
-        (or pos (point-max))))))
+      (org-taskforecast--map-headings
+       (lambda ()
+         (unless pos
+           (--> (org-taskforecast--get-task-link)
+                (org-taskforecast--get-task-link-todo-state-for-today
+                 it date day-start)
+                (when (eq it 'todo)
+                  (setq pos (point)))))))
+      (or pos (point-max)))))
 
 (defun org-taskforecast--cut-heading-by-id (id)
   "Cut a heading by ID.
