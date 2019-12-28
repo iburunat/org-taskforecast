@@ -998,7 +998,8 @@ This function inserts contents of `org-taskforecast-list-mode'.
 
 (define-derived-mode org-taskforecast-list-mode nil "org-taskforecast list"
   "A major-mode to manage today's tasks."
-  :group 'org-taskforecast)
+  :group 'org-taskforecast
+  (setq-local truncate-lines t))
 
 (defvar org-taskforecast--list-buffer-name "*org-taskforecast list*"
   "A buffer name for `org-taskforecast-list-mode'.")
