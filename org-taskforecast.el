@@ -92,6 +92,12 @@ Other global variables also are set for formatting:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-enable-interruption t
+  "Non-nil means enable inturruption representation."
+  :type 'boolean
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
 
 ;;;; Lisp Utility
 
@@ -562,9 +568,14 @@ This function returns a symbol, todo or done.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (org-taskforecast-assert (org-taskforecast--task-link-alist-type-p task-link))
-  (-let* (((&alist 'original-id original-id) task-link)
+  (-let* (((&alist 'original-id original-id
+                   'effective-end-time effective-end-time)
+           task-link)
           (task (org-taskforecast--get-task-by-id original-id)))
-    (org-taskforecast--get-task-todo-state-for-today task date day-start)))
+    (if effective-end-time
+        ;; interrupted if efective-end-time exists
+        'done
+      (org-taskforecast--get-task-todo-state-for-today task date day-start))))
 
 (defun org-taskforecast--get-task-link ()
   "Get a task link as an alist.
@@ -615,15 +626,86 @@ This function returns an ID of the new task link."
           ;; the file doesn't exist.
           (save-buffer))))))
 
-(defun org-taskforecast--append-task-link-maybe (id file)
+(defun org-taskforecast--append-task-link-maybe (id file date day-start)
   "Append a task link for ID to the end of FILE.
 
-If a task link corresponding to ID already exists, this function does nothing.
-This function returns an ID of the task link corresponding to the task."
-  (-if-let* ((links (org-taskforecast--get-task-links-for-task id file))
-             ((&alist 'id link-id) (-first-item links)))
-      link-id
-    (org-taskforecast--append-task-link id file)))
+If a todo task link corresponding to ID already exists,
+this function does nothing.
+This function returns an ID of the task link which was appended or already
+exists corresponding to the task.
+
+- ID is a task id
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (--> (org-taskforecast--get-task-links-for-task id file)
+       (--filter
+        (eq 'todo
+            (org-taskforecast--get-task-link-todo-state-for-today
+             it date day-start))
+        it)
+       (-if-let ((&alist 'id link-id) (-first-item it))
+           link-id
+         (org-taskforecast--append-task-link id file))))
+
+(defun org-taskforecast--get-first-todo-task-link (file date day-start)
+  "Get the first todo task link in FILE.
+
+A returned value is an alist of `org-taskforecast--task-link-alist'.
+If a first todo task is not found, this function returns nil.
+
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (goto-char (org-taskforecast--get-todo-link-head-pos file date day-start))
+      (org-taskforecast--get-task-link))))
+
+(defun org-taskforecast--has-effective-clock (task-link date day-start)
+  "Non-nil means TASK-LINK has some effective clocks.
+
+An effective clock is a clock information that clocked today.
+If the task link has effective start/end time, an effective clock satisfies
+the following conditions:
+- the clock was started after the effective start time
+- the clock was ended before the effective end time
+
+- TASK-LINK is an alist of `org-taskforecast--task-link-alist'
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (org-taskforecast-assert
+   (org-taskforecast--task-link-alist-type-p task-link))
+  (-let* (((&alist 'original-id original-id
+                   'effective-start-time effective-start-time
+                   'effective-end-time effective-end-time)
+           task-link)
+          ((&alist 'clocks clocks)
+           (org-taskforecast--get-task-by-id original-id)))
+    (--some
+     (-let (((&alist 'start start) it)
+            (today-start (org-taskforecast--encode-hhmm day-start date))
+            (next-day-start (org-taskforecast--encode-hhmm
+                             (+ day-start 2400) date)))
+       (and (not (time-less-p start today-start))
+            (time-less-p start next-day-start)
+            (or (null effective-start-time)
+                (not (time-less-p start effective-start-time)))
+            (or (null effective-end-time)
+                (time-less-p start effective-end-time))))
+     clocks)))
+
+(defun org-taskforecast--split-task-link (link-id time file)
+  "Split a task link of LINK-ID on FILE as interrupted at TIME."
+  (-let* (((&alist 'original-id original-id)
+           (org-taskforecast--get-task-link-by-id link-id))
+          (new-link-id (org-taskforecast--append-task-link original-id file))
+          (new-link-heading (org-taskforecast--cut-heading-by-id new-link-id)))
+    (org-taskforecast--at-id link-id
+      (org-taskforecast--set-task-link-effective-end-time time)
+      (outline-next-heading)
+      (insert new-link-heading)
+      (org-taskforecast--set-task-link-effective-start-time time))))
 
 (defun org-taskforecast--push-task-link-maybe (id file date day-start)
   "Add a task link for ID to the head of todo task links in FILE.
@@ -632,12 +714,32 @@ If a task link corresponding to ID already exists, this function moves it.
 If the existing task link is done, this function does not move it.
 This function returns an ID of the task link corresponding to the task.
 
+If the first todo task link of the task link list has effective clocks and
+its task is not the pushed task, this function splits the first todo task
+link as interrupted.
+This feature is enabled while `org-taskforecast-enable-interruption'
+is non-nil.
+
 - ID is a task id
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
+  ;; interruption
+  (when org-taskforecast-enable-interruption
+    (-when-let* ((first-todo-task-link
+                  (org-taskforecast--get-first-todo-task-link
+                   file date day-start))
+                 ((&alist 'original-id original-id 'id link-id)
+                  first-todo-task-link))
+      (when (and (not (equal id original-id))
+                 (org-taskforecast--has-effective-clock
+                  first-todo-task-link
+                  date
+                  day-start))
+        (org-taskforecast--split-task-link link-id (current-time) file))))
   ;; TODO: consider a case that the task of ID is already done
-  (let* ((link-id (org-taskforecast--append-task-link-maybe id file))
+  (let* ((link-id (org-taskforecast--append-task-link-maybe
+                   id file date day-start))
          (task-link (org-taskforecast--get-task-link-by-id link-id))
          (todo-type (org-taskforecast--get-task-link-todo-state-for-today
                      task-link date day-start)))
