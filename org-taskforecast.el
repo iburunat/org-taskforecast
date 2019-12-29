@@ -253,6 +253,52 @@ This function depends on:
 
 ;;; Org-mode
 
+(defconst org-taskforecast--task-link-effective-start-time-prop-name
+  "ORG_TASKFORECAST_TASK_LINK_EFFECTIVE_START_TIME"
+  "Property name of an effective start time of a task link.")
+
+(defconst org-taskforecast--task-link-effective-end-time-prop-name
+  "ORG_TASKFORECAST_TASK_LINK_EFFECTIVE_END_TIME"
+  "Property name of an effective end time of a task link.")
+
+(defun org-taskforecast--get-task-link-effective-start-time ()
+  "Get the task link's effective start time property from a heading.
+
+A returned value is an encoded time."
+  (-some-->
+      (org-entry-get
+       nil
+       org-taskforecast--task-link-effective-start-time-prop-name)
+    (org-parse-time-string it)
+    (encode-time it)))
+
+(defun org-taskforecast--get-task-link-effective-end-time ()
+  "Get the task link's effective end time property from a heading.
+
+A returned value is an encoded time."
+  (-some-->
+      (org-entry-get
+       nil
+       org-taskforecast--task-link-effective-end-time-prop-name)
+    (org-parse-time-string it)
+    (encode-time it)))
+
+(defun org-taskforecast--set-task-link-effective-start-time (time)
+  "Set the task link's effective start time property to TIME.
+
+TIME is an encoded time."
+  (org-entry-put nil
+                 org-taskforecast--task-link-effective-start-time-prop-name
+                 (format-time-string (org-time-stamp-format t t) time)))
+
+(defun org-taskforecast--set-task-link-effective-end-time (time)
+  "Set the task link's effective end time property to TIME.
+
+TIME is an encoded time."
+  (org-entry-put nil
+                 org-taskforecast--task-link-effective-end-time-prop-name
+                 (format-time-string (org-time-stamp-format t t) time)))
+
 (defmacro org-taskforecast--at-id (id &rest body)
   "Eval BODY at a heading of ID."
   (declare (indent 1) (debug t))
@@ -451,12 +497,16 @@ A returned value is an alist of `org-taskforecast--task-alist'."
     (org-taskforecast--get-task)))
 
 (org-taskforecast-defalist org-taskforecast--task-link-alist
-    (id original-id)
+    (id original-id effective-start-time effective-end-time)
   "Alist of a task link.
 
 It links to a task heading.
 - ID is an id of org-id
-- ORIGINAL-ID is where this links to")
+- ORIGINAL-ID is where this links to
+- EFFECTIVE-START-TIME is an encoded time when the task link is
+  effective after (optional)
+- EFFECTIVE-END-TIME is an encoded time when the task link is
+  effective before (optional)")
 
 (defun org-taskforecast--get-link-id (str)
   "Get a link id from STR.
@@ -525,12 +575,19 @@ If the heading is not a task link, this function returns nil."
     ;; go to heading line for `org-element-at-point' to get a headline element
     (org-back-to-heading)
     (let* ((element (org-element-at-point))
-           (title (org-element-property :title element)))
+           (title (org-element-property :title element))
+           (effective-start-time
+            (org-taskforecast--get-task-link-effective-start-time))
+           (effective-end-time
+            (org-taskforecast--get-task-link-effective-end-time)))
       (-when-let* ((original-id (org-taskforecast--get-link-id title))
                    ;; Create id when this heading is a task link.
                    (id (org-id-get-create)))
-        (org-taskforecast--task-link-alist :id id
-                                           :original-id original-id)))))
+        (org-taskforecast--task-link-alist
+         :id id
+         :original-id original-id
+         :effective-start-time effective-start-time
+         :effective-end-time effective-end-time)))))
 
 (defun org-taskforecast--get-task-link-by-id (id)
   "Get a task link alist by ID.
