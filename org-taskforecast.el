@@ -6,7 +6,7 @@
 ;; URL: https://github.com/HKey/org-taskforecast
 ;; Keywords: convenience
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "25") (dash "2.16.0") (s "1.12.0"))
+;; Package-Requires: ((emacs "25") (dash "2.16.0") (dash-functional "2.16.0") (s "1.12.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -34,6 +34,7 @@
 (require 'org-element)
 (require 'org-id)
 (require 'dash)
+(require 'dash-functional)
 (require 's)
 
 ;;;; Custom
@@ -675,6 +676,14 @@ If a first todo task is not found, this function returns nil.
                         task-link date day-start)))
           task-link)))))
 
+(defun org-taskforecast--get-clocks-in-range (clocks start end)
+  "Get clocks between START and END from CLOCKS."
+  (--filter
+   (-let (((&alist 'start cstart) it))
+     (and (not (time-less-p cstart start))
+          (time-less-p cstart end)))
+   clocks))
+
 (defun org-taskforecast--has-effective-clock (task-link date day-start)
   "Non-nil means TASK-LINK has some effective clocks.
 
@@ -707,6 +716,57 @@ the following conditions:
             (or (null effective-end-time)
                 (time-less-p start effective-end-time))))
      clocks)))
+
+(defun org-taskforecast--get-task-link-effort (task-link date day-start)
+  "Get effort value of TASK-LINK.
+
+A returned value is an effort second.
+
+- TASK-LINK is an alist of `org-taskforecast--task-link-alist'
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (-let* (((&alist 'original-id original-id
+                   'effective-start-time effective-start-time
+                   'effective-end-time effective-end-time)
+           task-link)
+          ((&alist 'clocks clocks 'effort effort)
+           (org-taskforecast--get-task-by-id original-id))
+          (effort-sec (org-taskforecast--effort-to-second effort))
+          (time-greater-p (-flip #'time-less-p))
+          (today-start (org-taskforecast--encode-hhmm day-start date))
+          (range-start
+           (-max-by time-greater-p
+                    (-non-nil (list today-start effective-start-time))))
+          (range-end
+           (-min-by time-greater-p
+                    (-non-nil
+                     (list effective-end-time
+                           (org-taskforecast--encode-hhmm (+ day-start 2400)
+                                                          date)))))
+          (dsec (lambda (clock)
+                  (-let (((&alist 'start start 'end end) clock))
+                    (time-to-seconds (time-subtract end start)))))
+          (used-sec-before
+           (--> (org-taskforecast--get-clocks-in-range
+                 clocks today-start range-start)
+                (-map dsec it)
+                (-sum it)))
+          (remaining-effort-sec
+           (when effort-sec (max (- effort-sec used-sec-before) 0)))
+          (used-sec
+           (--> (org-taskforecast--get-clocks-in-range
+                 clocks range-start range-end)
+                (-map dsec it)
+                (-sum it))))
+    (-some-->
+        (cond ((null effort-sec) nil)
+              (effective-end-time (min remaining-effort-sec used-sec))
+              (t remaining-effort-sec))
+      (floor it))))
+
+(defun org-taskforecast--format-second-to-hhmm (second)
+  "Format SECOND to HH:MM style string."
+  (format "%d:%02d" (/ second 3600) (/ (% second 3600) 60)))
 
 (defun org-taskforecast--split-task-link (link-id time file)
   "Split a task link of LINK-ID on FILE as interrupted at TIME."
@@ -822,22 +882,37 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
   when the estimated time is earlier than it."
   (org-taskforecast-assert
    (org-taskforecast--task-link-alist-type-p task-link))
-  (-let* ((day-start-time (org-taskforecast--encode-hhmm day-start date))
-          (start-after (or start-after day-start-time))
-          ((&alist 'original-id original-id) task-link)
+  (-let* ((day-start-time
+           (org-taskforecast--encode-hhmm day-start date))
+          (next-day-start-time
+           (org-taskforecast--encode-hhmm (+ day-start 2400) date))
+          ((&alist 'original-id original-id
+                   'effective-start-time effective-start-time
+                   'effective-end-time effective-end-time)
+           task-link)
           (todo (org-taskforecast--get-task-link-todo-state-for-today
                  task-link date day-start))
           (task (org-taskforecast--get-task-by-id original-id))
-          ((&alist 'effort effort 'clocks clocks) task)
+          (effort-sec (or
+                       (org-taskforecast--get-task-link-effort
+                        task-link date day-start)
+                       0))
+          ((&alist 'clocks clocks) task)
           (clock-start-greater-p
-           (lambda (a b) (org-taskforecast--clock-start-less-p b a)))
-          (time-greater-p (lambda (a b) (time-less-p b a)))
+           (-flip #'org-taskforecast--clock-start-less-p))
+          (time-greater-p (-flip #'time-less-p))
+          (start-after
+           (-max-by time-greater-p
+                    (-non-nil
+                     (list start-after day-start-time effective-start-time))))
+          (end-before
+           (-min-by time-greater-p
+                    (-non-nil
+                     (list next-day-start-time effective-end-time))))
           (target-clocks
-           (--filter
-            (-let (((&alist 'start start) it))
-              (and (org-taskforecast--today-p start date day-start)
-                   (not (time-less-p start start-after))))
-            clocks))
+           (org-taskforecast--get-clocks-in-range clocks
+                                                  start-after
+                                                  end-before))
           (start-time
            (-let (((&alist 'start start)
                    (when target-clocks
@@ -856,13 +931,11 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
                  (start-estimated-p start-after)
                  (t start-time)))
           (start-plus-effort
-           (time-add start
-                     (seconds-to-time
-                      (or (org-taskforecast--effort-to-second effort) 0))))
+           (time-add start (seconds-to-time effort-sec)))
           (end
            (cond ((and end-estimated-p (eq todo 'todo) now)
                   (-max-by time-greater-p (list start-plus-effort now)))
-                 (end-estimated-p start-plus-effort)
+                 ((and end-estimated-p (eq todo 'done)) start)
                  (t end-time)))
           (overrunp (time-less-p start-plus-effort end)))
     (org-taskforecast--task-link-start-end-time-alist
@@ -1006,8 +1079,14 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 This function is used for `org-taskforecast-list-task-formatters'."
   (org-taskforecast-assert
    (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
-  (-let (((&alist 'effort effort) org-taskforecast-list-info-task))
-    (format "%5s" (or effort "-:--"))))
+  (let ((effort (org-taskforecast--get-task-link-effort
+                 org-taskforecast-list-info-task-link
+                 org-taskforecast-list-info-today
+                 org-taskforecast-day-start)))
+    (format "%5s"
+            (if effort
+                (org-taskforecast--format-second-to-hhmm effort)
+              "-:--"))))
 
 (defun org-taskforecast-list-format-task-start ()
   "Format time when a task has been started.
