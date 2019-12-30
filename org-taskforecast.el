@@ -778,6 +778,9 @@ A returned value is an effort second.
       (org-taskforecast--set-task-link-effective-end-time time)
       (outline-next-heading)
       (insert new-link-heading)
+      ;; Now the corsor is at the next heading if it exists.
+      ;; So move the cursor backward.
+      (forward-char -1)
       (org-taskforecast--set-task-link-effective-start-time time))))
 
 (defun org-taskforecast--push-task-link-maybe (id file date day-start)
