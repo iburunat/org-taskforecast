@@ -659,8 +659,17 @@ If a first todo task is not found, this function returns nil.
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (with-current-buffer (find-file-noselect file)
     (save-excursion
-      (goto-char (org-taskforecast--get-todo-link-head-pos file date day-start))
-      (org-taskforecast--get-task-link))))
+      (goto-char
+       (org-taskforecast--get-todo-link-head-pos file date day-start))
+      ;; `org-taskforecast--get-todo-link-head-pos' returns the end
+      ;; of buffer if there is no todo task link.
+      ;; So checking that the returned task link is really todo task link.
+      (let ((task-link (org-taskforecast--get-task-link)))
+        (when (and task-link
+                   (eq 'todo
+                       (org-taskforecast--get-task-link-todo-state-for-today
+                        task-link date day-start)))
+          task-link)))))
 
 (defun org-taskforecast--has-effective-clock (task-link date day-start)
   "Non-nil means TASK-LINK has some effective clocks.
