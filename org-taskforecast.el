@@ -585,8 +585,10 @@ This function returns a symbol, todo or done.
 A returned value is an alist of `org-taskforecast--task-link-alist'.
 If the heading is not a task link, this function returns nil."
   (save-excursion
-    ;; go to heading line for `org-element-at-point' to get a headline element
-    (org-back-to-heading)
+    ;; Prevent error when there is no heading in a buffer.
+    (unless (org-before-first-heading-p)
+      ;; go to heading line for `org-element-at-point' to get a headline element
+      (org-back-to-heading))
     (let* ((element (org-element-at-point))
            (title (org-element-property :title element))
            (effective-start-time
