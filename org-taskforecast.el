@@ -322,12 +322,14 @@ TIME is an encoded time."
   (s-replace-all '(("[" . "{") ("]" . "}"))
                  (org-link-display-format title)))
 
-(defun org-taskforecast--parse-heading ()
-  "Parse heading at point by org element api."
+(defun org-taskforecast--parse-heading-without-subtree ()
+  "Parse heading at point without subtree by org element api."
   (save-excursion
     (save-restriction
       (widen)
-      (org-narrow-to-subtree)
+      (narrow-to-region
+       (progn (outline-back-to-heading) (point))
+       (progn (outline-next-heading) (point)))
       (org-element-parse-buffer))))
 
 (org-taskforecast-defalist org-taskforecast--clock-alist
@@ -472,7 +474,7 @@ A returned value is an alist of `org-taskforecast--task-alist'."
                         (org-taskforecast--get-scheduled-from-timestamp it)))
            (deadline (-some--> (org-element-property :deadline element)
                        (org-taskforecast--get-deadline-from-timestamp it)))
-           (helement (org-taskforecast--parse-heading))
+           (helement (org-taskforecast--parse-heading-without-subtree))
            (running-p (-contains-p
                        (org-element-map helement 'clock
                          (lambda (x) (org-element-property :status x)))
