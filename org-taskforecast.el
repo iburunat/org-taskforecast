@@ -99,6 +99,12 @@ Other global variables also are set for formatting:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-auto-refresh-list-buffer nil
+  "Non-nil means that refresh `org-taskforecast-list-mode' buffer when a task is registered."
+  :type 'boolean
+  :group 'rog-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
 
 ;;;; Lisp Utility
 
@@ -1040,7 +1046,7 @@ When the task is already registered, this command does nothing."
     (if (org-taskforecast--get-task-links-for-task id file)
         (message "The task is already registered.")
       (org-taskforecast--append-task-link id file)
-      (org-taskforecast--list-refresh))))
+      (org-taskforecast--list-refresh-maybe))))
 
 
 ;;;; task-forecast-list mode
@@ -1328,6 +1334,11 @@ If the buffer already exists, only returns the buffer.
                                   (string-equal aid bid))))))
           (goto-char (prop-match-beginning pmatch)))))))
 
+(defun org-taskforecast--list-refresh-maybe ()
+  "Refresh `org-taskforecast-list-mode' buffer if `org-taskforecast-auto-refresh-list-buffer' is non-nil."
+  (when org-taskforecast-auto-refresh-list-buffer
+    (org-taskforecast--list-refresh)))
+
 (defun org-taskforecast-list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
   (interactive)
@@ -1449,7 +1460,7 @@ If the buffer already exists, only returns the buffer.
        org-taskforecast-day-start)
       ;; update list buffer
       (when (org-taskforecast--get-list-buffer)
-        (org-taskforecast--list-refresh)))))
+        (org-taskforecast--list-refresh-maybe)))))
 
 (defvar org-taskforecast-track-mode nil
   "Track changes of original tasks and update today's task list.")
