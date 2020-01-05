@@ -1011,13 +1011,31 @@ When this function failed, returns nil."
 
 ;;; Registration
 
+(defmacro org-taskforecast--at-agenda-heading (&rest body)
+  "Eval BODY at a heading of the current line of `org-agenda' buffer."
+  (declare (indent 0) (debug t))
+  `(if (not (eq 'org-agenda-mode major-mode))
+       (error "Not an org-agenda buffer")
+     (let* ((marker (org-get-at-bol 'org-hd-marker))
+            (buffer (marker-buffer marker)))
+       (with-current-buffer buffer
+         (save-excursion
+           (save-restriction
+             (widen)
+             (goto-char marker)
+             (org-show-context)
+             ,@body))))))
+
 ;;;###autoload
 (defun org-taskforecast-register-task ()
   "Register a task at point as a task for today.
 
 When the task is already registered, this command does nothing."
   (interactive)
-  (let ((id (org-id-get-create))
+  (let ((id (if (eq 'org-agenda-mode major-mode)
+                (org-taskforecast--at-agenda-heading
+                  (org-id-get-create))
+              (org-id-get-create)))
         (file (org-taskforecast-get-dailylist-file (org-taskforecast-today))))
     (if (org-taskforecast--get-task-links-for-task id file)
         (message "The task is already registered.")
