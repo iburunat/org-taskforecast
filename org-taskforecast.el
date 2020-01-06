@@ -28,6 +28,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'eieio)
 (require 'text-property-search)
 (require 'org)
 (require 'org-clock)
@@ -339,24 +340,34 @@ TIME is an encoded time."
        (progn (outline-next-heading) (point)))
       (org-element-parse-buffer))))
 
-(org-taskforecast-defalist org-taskforecast--clock-alist
-    (start end)
-  "A clock data.
+(defclass org-taskforecast--clock ()
+  ((start
+    :initarg :start
+    :reader org-taskforecast--clock-start
+    :documentation
+    "A start time of a clock of a task as an encoded time.")
+   (end
+    :initform nil
+    :initarg :end
+    :reader org-taskforecast--clock-end
+    :documentation
+    "An end time of a clock of a task as an encoded time."))
+  :documentation
+  "A clock data.")
 
-- START is the start time as an encoded time
-- END is the end time as an encoded time (optional)")
+(defun org-taskforecast--clock-duration (clock)
+  "Duration of CLOCK as an encoded time.
+
+CLOCK is an instance of `org-taskforecast--clock'."
+  (time-subtract (org-taskforecast--clock-end clock)
+                 (org-taskforecast--clock-start clock)))
 
 (defun org-taskforecast--clock-start-less-p (a b)
   "Compare start-times of A and B by `time-less-p'.
 
-A and B are `org-taskforecast--clock-alist's."
-  (org-taskforecast-assert
-   (org-taskforecast--clock-alist-type-p a))
-  (org-taskforecast-assert
-   (org-taskforecast--clock-alist-type-p b))
-  (-let (((&alist 'start as) a)
-         ((&alist 'start bs) b))
-    (time-less-p as bs)))
+A and B are instances of `org-taskforecast--clock'."
+  (time-less-p (org-taskforecast--clock-start a)
+               (org-taskforecast--clock-start b)))
 
 (defun org-taskforecast--timestamp-start-time (timestamp)
   "Get an encoded time of the start time of TIMESTAMP.
@@ -443,8 +454,8 @@ The task is a heading linked from daily task list file.
 - TITLE is a heading title
 - EFFORT is a value of effort property
 - STATUS is a symbol of todo, running and done
-- CLOCKS is a list of clock data, each element is an alist of
-  `org-taskforecast--clock-alist'
+- CLOCKS is a list of clock data, each element is an instance of
+  `org-taskforecast--clock'
 - TODO is a string of a todo state (optional)
 - TODO-TYPE is a symbol of a type of todo (optional)
 - SCHEDULED is a schedule infomaton as an alist of
@@ -461,7 +472,7 @@ ELEMENT is a clock element of org element api."
          (start (org-taskforecast--timestamp-start-time timestamp))
          (end (and (not runnigp)
                    (org-taskforecast--timestamp-end-time timestamp))))
-    (org-taskforecast--clock-alist :start start :end end)))
+    (org-taskforecast--clock :start start :end end)))
 
 (defun org-taskforecast--get-task ()
   "Get a task as an alist.
@@ -683,9 +694,13 @@ If a first todo task is not found, this function returns nil.
           task-link)))))
 
 (defun org-taskforecast--get-clocks-in-range (clocks start end)
-  "Get clocks between START and END from CLOCKS."
+  "Get clocks between START and END from CLOCKS.
+
+- CLOCKS is a list of instances of `org-taskforecast--clock'
+- START is an encoded time
+- END is an encoded time"
   (--filter
-   (-let (((&alist 'start cstart) it))
+   (let ((cstart (org-taskforecast--clock-start it)))
      (and (not (time-less-p cstart start))
           (time-less-p cstart end)))
    clocks))
@@ -711,10 +726,10 @@ the following conditions:
           ((&alist 'clocks clocks)
            (org-taskforecast--get-task-by-id original-id)))
     (--some
-     (-let (((&alist 'start start) it)
-            (today-start (org-taskforecast--encode-hhmm day-start date))
-            (next-day-start (org-taskforecast--encode-hhmm
-                             (+ day-start 2400) date)))
+     (let ((start (org-taskforecast--clock-start it))
+           (today-start (org-taskforecast--encode-hhmm day-start date))
+           (next-day-start (org-taskforecast--encode-hhmm
+                            (+ day-start 2400) date)))
        (and (not (time-less-p start today-start))
             (time-less-p start next-day-start)
             (or (null effective-start-time)
@@ -749,9 +764,8 @@ A returned value is an effort second.
                      (list effective-end-time
                            (org-taskforecast--encode-hhmm (+ day-start 2400)
                                                           date)))))
-          (dsec (lambda (clock)
-                  (-let (((&alist 'start start 'end end) clock))
-                    (time-to-seconds (time-subtract end start)))))
+          (dsec (-compose #'time-to-seconds
+                          #'org-taskforecast--clock-duration))
           (used-sec-before
            (--> (org-taskforecast--get-clocks-in-range
                  clocks today-start range-start)
@@ -923,15 +937,13 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
                                                   start-after
                                                   end-before))
           (start-time
-           (-let (((&alist 'start start)
-                   (when target-clocks
-                     (-min-by clock-start-greater-p target-clocks))))
-             start))
+           (-some--> target-clocks
+             (-min-by clock-start-greater-p it)
+             (org-taskforecast--clock-start it)))
           (end-time
-           (-let (((&alist 'end end)
-                   (when target-clocks
-                     (-max-by clock-start-greater-p target-clocks))))
-             end))
+           (-some--> target-clocks
+             (-max-by clock-start-greater-p it)
+             (org-taskforecast--clock-end it)))
           (start-estimated-p (null start-time))
           (end-estimated-p (or (null end-time) (eq todo 'todo)))
           (start
