@@ -420,26 +420,38 @@ This function returns an alist of `org-taskforecast--scheduled-alist'."
      :date-only-p date-only-p
      :repeatp repeatp)))
 
-(org-taskforecast-defalist org-taskforecast--deadline-alist
-    (time date-only-p repeatp)
-  "Alst of a DEADLINE property of a task.
-
-- TIME is an encoded time of the deadline
-- DATE-ONLY-P is a boolean, it is non-nil if the time stamp has
-  no hour and minute
-- REPEATP is a boolean, it is non-nil if the time stamp has a repeater")
+(defclass org-taskforecast--deadline ()
+  ((time
+    :initarg :time
+    :reader org-taskforecast--deadline-time
+    :documentation
+    "An encoded time of a deadline.")
+   (date-only-p
+    :initarg :date-only-p
+    :reader org-taskforecast--deadline-date-only-p
+    :type boolean
+    :documentation
+    "Non-nil means the time stamp of a deadline has no hour and minute sections.")
+   (repeatp
+    :initarg :repeatp
+    :reader org-taskforecast--deadline-repeat-p
+    :type boolean
+    :documentation
+    "Non-nil means the time stamp of a deadline has a repeater."))
+  :documentation
+  "A deadline data.")
 
 (defun org-taskforecast--get-deadline-from-timestamp (timestamp)
   "Get a deadline information from TIMESTAMP.
 
 TIMESTAMP is a timestamp element of a deadline property of a heading
 of org element api.
-This function returns an alist of `org-taskforecast--deadline-alist'."
+This function returns an instance of `org-taskforecast--deadline'."
   (let ((time (org-taskforecast--timestamp-start-time timestamp))
         (date-only-p (not (or (org-element-property :hour-start timestamp)
                               (org-element-property :minute-start timestamp))))
         (repeatp (and (org-element-property :repeater-type timestamp) t)))
-    (org-taskforecast--deadline-alist
+    (org-taskforecast--deadline
      :time time
      :date-only-p date-only-p
      :repeatp repeatp)))
@@ -459,8 +471,8 @@ The task is a heading linked from daily task list file.
 - TODO-TYPE is a symbol of a type of todo (optional)
 - SCHEDULED is a schedule infomaton as an alist of
   `org-taskforecast--scheduled-alist' (optional)
-- DEADLINE is a deadline information as an alist of
-  `org-taskforecast--deadline-alist' (optional)")
+- DEADLINE is a deadline information as an instance of
+  `org-taskforecast--deadline' (optional)")
 
 (defun org-taskforecast--get-clock-from-element (element)
   "Get a clock from ELEMENT.
@@ -555,15 +567,16 @@ This function returns a symbol, todo or done.
                    'deadline deadline) task)
           ((&alist 'start-time stime_ 'repeatp srepeatp
                    'date-only-p sdate-only-p) scheduled)
-          ((&alist 'time dtime_ 'repeatp drepeatp
-                   'date-only-p ddate-only-p) deadline)
           (stime (if (and stime_ sdate-only-p)
                      (org-taskforecast--encode-hhmm day-start stime_)
                    stime_))
-          (dtime (if (and dtime_ ddate-only-p)
-                     (org-taskforecast--encode-hhmm day-start dtime_)
-                   dtime_))
-          (repeatp (or (and scheduled srepeatp) (and deadline drepeatp)))
+          (dtime (when deadline
+                   (let ((time (org-taskforecast--deadline-time deadline)))
+                     (if (org-taskforecast--deadline-date-only-p deadline)
+                         (org-taskforecast--encode-hhmm day-start time)
+                       time))))
+          (repeatp (or (and scheduled srepeatp)
+                       (and deadline (org-taskforecast--deadline-repeat-p deadline))))
           (times (-non-nil (list (and scheduled stime) (and deadline dtime))))
           (next-day-start
            (org-taskforecast--encode-hhmm (+ day-start 2400) date)))
