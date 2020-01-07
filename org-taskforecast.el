@@ -347,7 +347,6 @@ TIME is an encoded time."
     :documentation
     "A start time of a clock of a task as an encoded time.")
    (end
-    :initform nil
     :initarg :end
     :reader org-taskforecast--clock-end
     :documentation
