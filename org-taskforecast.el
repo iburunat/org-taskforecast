@@ -81,8 +81,8 @@ The functions should have no parameter.
 The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-task-link' as an alist of
   `org-taskforecast--task-link-alist'
-- `org-taskforecast-list-info-task' as an alist of
-  `org-taskforecast--task-alist'
+- `org-taskforecast-list-info-task' as an instance of
+  `org-taskforecast--task'
 - `org-taskforecast-list-info-today' as an encoded time
 - `org-taskforecast-list-info-now' as an encoded time
 - `org-taskforecast-list-info-task-start-end-time' as an alist of
@@ -466,23 +466,63 @@ This function returns an instance of `org-taskforecast--deadline'."
      :date-only-p date-only-p
      :repeatp repeatp)))
 
-(org-taskforecast-defalist org-taskforecast--task-alist
-    (id title effort status clocks todo todo-type scheduled deadline)
-  "Alist of a task.
-
-The task is a heading linked from daily task list file.
-- ID is an id of org-id
-- TITLE is a heading title
-- EFFORT is a value of effort property
-- STATUS is a symbol of todo, running and done
-- CLOCKS is a list of clock data, each element is an instance of
-  `org-taskforecast--clock'
-- TODO is a string of a todo state (optional)
-- TODO-TYPE is a symbol of a type of todo (optional)
-- SCHEDULED is a schedule infomaton as an instance of
-  `org-taskforecast--scheduled' (optional)
-- DEADLINE is a deadline information as an instance of
-  `org-taskforecast--deadline' (optional)")
+(defclass org-taskforecast--task ()
+  ((id
+    :initarg :id
+    :reader org-taskforecast--task-id
+    :type string
+    :documentation
+    "An ID of org-id.")
+   (title
+    :initarg :title
+    :reader org-taskforecast--task-title
+    :type string
+    :documentation
+    "A heading title.")
+   (effort
+    :initarg :effort
+    :reader org-taskforecast--task-effort
+    :type (or null string)
+    :documentation
+    "A value of Effort property.")
+   (state
+    :initarg :state
+    :reader org-taskforecast--task-state
+    :type symbol
+    :documentation
+    "A todo state as a symbol of todo, running or done.")
+   (clocks
+    :initarg :clocks
+    :reader org-taskforecast--task-clocks
+    :type list
+    :documentation
+    "A list of clock data, each element is an instance of `org-taskforecast--clock'.")
+   (todo
+    :initarg :todo
+    :reader org-taskforecast--task-todo
+    :type (or null string)
+    :documentation
+    "A todo state string.")
+   (todo-type
+    :initarg :todo-type
+    :reader org-taskforecast--task-todo-type
+    :type (or null symbol)
+    :documentation
+    "A type of todo as a symbol of todo or done.")
+   (scheduled
+    :initarg :scheduled
+    :reader org-taskforecast--task-scheduled
+    :type (or null org-taskforecast--scheduled)
+    :documentation
+    "A schedule infomaton.")
+   (deadline
+    :initarg :deadline
+    :reader org-taskforecast--task-deadline
+    :type (or null org-taskforecast--deadline)
+    :documentation
+    "A deadline information."))
+  :documentation
+  "A task heading data.")
 
 (defun org-taskforecast--get-clock-from-element (element)
   "Get a clock from ELEMENT.
@@ -498,7 +538,7 @@ ELEMENT is a clock element of org element api."
 (defun org-taskforecast--get-task ()
   "Get a task as an alist.
 
-A returned value is an alist of `org-taskforecast--task-alist'."
+A returned value is an instance of `org-taskforecast--task'."
   (save-excursion
     ;; go to heading line for `org-element-at-point' to get a headline element
     (org-back-to-heading)
@@ -520,16 +560,16 @@ A returned value is an alist of `org-taskforecast--task-alist'."
                        'running))
            (clocks (org-element-map helement 'clock
                      #'org-taskforecast--get-clock-from-element))
-           (status (cond
-                    ((and (eq todo-type 'todo) running-p) 'running)
-                    ((and (eq todo-type 'todo) (not running-p)) 'todo)
-                    ((eq todo-type 'done) 'done)
-                    (t (error "Not a task heading")))))
-      (org-taskforecast--task-alist
+           (state (cond
+                   ((and (eq todo-type 'todo) running-p) 'running)
+                   ((and (eq todo-type 'todo) (not running-p)) 'todo)
+                   ((eq todo-type 'done) 'done)
+                   (t (error "Not a task heading")))))
+      (org-taskforecast--task
        :id id
        :title title
        :effort effort
-       :status status
+       :state state
        :clocks clocks
        :todo todo
        :todo-type todo-type
@@ -539,7 +579,7 @@ A returned value is an alist of `org-taskforecast--task-alist'."
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task alist by ID.
 
-A returned value is an alist of `org-taskforecast--task-alist'."
+A returned value is an instance of `org-taskforecast--task'."
   (org-taskforecast--at-id id
     (org-taskforecast--get-task)))
 
@@ -569,27 +609,27 @@ If STR is not a org-id link string, this function returns nil."
   "Get todo state of TASK for today.
 
 This function returns a symbol, todo or done.
-- TASK is an alist of `org-taskforecast--task-alist'
+- TASK is an instance of `org-taskforecast--task'
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
-  (org-taskforecast-assert (org-taskforecast--task-alist-type-p task))
-  (-let* (((&alist 'todo-type todo-type 'scheduled scheduled
-                   'deadline deadline) task)
-          (stime (when scheduled
-                   (let ((time (org-taskforecast--scheduled-start-time scheduled)))
-                     (if (org-taskforecast--scheduled-date-only-p scheduled)
-                         (org-taskforecast--encode-hhmm day-start time)
-                       time))))
-          (dtime (when deadline
-                   (let ((time (org-taskforecast--deadline-time deadline)))
-                     (if (org-taskforecast--deadline-date-only-p deadline)
-                         (org-taskforecast--encode-hhmm day-start time)
-                       time))))
-          (repeatp (or (and scheduled (org-taskforecast--scheduled-repeat-p scheduled))
-                       (and deadline (org-taskforecast--deadline-repeat-p deadline))))
-          (times (-non-nil (list (and scheduled stime) (and deadline dtime))))
-          (next-day-start
-           (org-taskforecast--encode-hhmm (+ day-start 2400) date)))
+  (let* ((todo-type (org-taskforecast--task-todo-type task))
+         (scheduled (org-taskforecast--task-scheduled task))
+         (deadline (org-taskforecast--task-deadline task))
+         (stime (when scheduled
+                  (let ((time (org-taskforecast--scheduled-start-time scheduled)))
+                    (if (org-taskforecast--scheduled-date-only-p scheduled)
+                        (org-taskforecast--encode-hhmm day-start time)
+                      time))))
+         (dtime (when deadline
+                  (let ((time (org-taskforecast--deadline-time deadline)))
+                    (if (org-taskforecast--deadline-date-only-p deadline)
+                        (org-taskforecast--encode-hhmm day-start time)
+                      time))))
+         (repeatp (or (and scheduled (org-taskforecast--scheduled-repeat-p scheduled))
+                      (and deadline (org-taskforecast--deadline-repeat-p deadline))))
+         (times (-non-nil (list (and scheduled stime) (and deadline dtime))))
+         (next-day-start
+          (org-taskforecast--encode-hhmm (+ day-start 2400) date)))
     (unless todo-type
       (error "Task is not a todo heading"))
     (if (eq todo-type 'done)
@@ -655,14 +695,16 @@ A returned value is an alist of `org-taskforecast--task-link-alist'."
   "Append a task link for ID to the end of FILE.
 
 This function returns an ID of the new task link."
-  (-let* (((&alist 'title title) (org-taskforecast--get-task-by-id id))
-          (normalized (org-taskforecast--normalize-title title)))
+  (let ((normalized-title
+         (org-taskforecast--normalize-title
+          (org-taskforecast--task-title
+           (org-taskforecast--get-task-by-id id)))))
     (with-current-buffer (find-file-noselect file)
       (save-excursion
         (goto-char (point-max))
         (unless (bolp)
           (insert "\n"))
-        (insert (concat "* [[id:" id "][" normalized "]]\n"))
+        (insert (concat "* [[id:" id "][" normalized-title "]]\n"))
         (prog1
             (org-id-get-create)
           ;; The reason of saving buffer here is to find headnig
@@ -745,8 +787,9 @@ the following conditions:
                    'effective-start-time effective-start-time
                    'effective-end-time effective-end-time)
            task-link)
-          ((&alist 'clocks clocks)
-           (org-taskforecast--get-task-by-id original-id)))
+          (clocks
+           (org-taskforecast--task-clocks
+            (org-taskforecast--get-task-by-id original-id))))
     (--some
      (let ((start (org-taskforecast--clock-start it))
            (today-start (org-taskforecast--encode-hhmm day-start date))
@@ -772,9 +815,10 @@ A returned value is an effort second.
                    'effective-start-time effective-start-time
                    'effective-end-time effective-end-time)
            task-link)
-          ((&alist 'clocks clocks 'effort effort)
-           (org-taskforecast--get-task-by-id original-id))
-          (effort-sec (org-taskforecast--effort-to-second effort))
+          (task (org-taskforecast--get-task-by-id original-id))
+          (clocks (org-taskforecast--task-clocks task))
+          (effort-sec (org-taskforecast--effort-to-second
+                       (org-taskforecast--task-effort task)))
           (time-greater-p (-flip #'time-less-p))
           (today-start (org-taskforecast--encode-hhmm day-start date))
           (range-start
@@ -942,7 +986,6 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
                        (org-taskforecast--get-task-link-effort
                         task-link date day-start)
                        0))
-          ((&alist 'clocks clocks) task)
           (clock-start-greater-p
            (-flip #'org-taskforecast--clock-start-less-p))
           (time-greater-p (-flip #'time-less-p))
@@ -955,9 +998,10 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
                     (-non-nil
                      (list next-day-start-time effective-end-time))))
           (target-clocks
-           (org-taskforecast--get-clocks-in-range clocks
-                                                  start-after
-                                                  end-before))
+           (org-taskforecast--get-clocks-in-range
+            (org-taskforecast--task-clocks task)
+            start-after
+            end-before))
           (start-time
            (-some--> target-clocks
              (-min-by clock-start-greater-p it)
@@ -1111,7 +1155,7 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 (defvar org-taskforecast-list-info-task nil
   "This variable is used to pass a task data to formatters.
 
-This value will be a `org-taskforecast--task-alist'.
+This value will be an instance of `org-taskforecast--task'.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
 (defvar org-taskforecast-list-info-today nil
@@ -1138,8 +1182,6 @@ See `org-taskforecast-list-task-formatters' for more detail.")
   "Format effort property of a task.
 
 This function is used for `org-taskforecast-list-task-formatters'."
-  (org-taskforecast-assert
-   (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
   (let ((effort (org-taskforecast--get-task-link-effort
                  org-taskforecast-list-info-task-link
                  org-taskforecast-list-info-today
@@ -1153,8 +1195,6 @@ This function is used for `org-taskforecast-list-task-formatters'."
   "Format time when a task has been started.
 
 This function is used for `org-taskforecast-list-task-formatters'."
-  (org-taskforecast-assert
-   (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
   (org-taskforecast-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
      (and (= (decoded-time-hour decoded)
@@ -1176,8 +1216,6 @@ This function is used for `org-taskforecast-list-task-formatters'."
   "Format time when a task has been closed.
 
 This function is used for `org-taskforecast-list-task-formatters'."
-  (org-taskforecast-assert
-   (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
   (org-taskforecast-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
      (and (= (decoded-time-hour decoded)
@@ -1231,9 +1269,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
   "Format task's title.
 
 This function is used for `org-taskforecast-list-task-formatters'."
-  (org-taskforecast-assert
-   (org-taskforecast--task-alist-type-p org-taskforecast-list-info-task))
-  (-let (((&alist 'title title) org-taskforecast-list-info-task))
+  (let ((title (org-taskforecast--task-title org-taskforecast-list-info-task)))
     (propertize title
                 ;; TODO: define face
                 'face 'org-scheduled-today)))
@@ -1483,8 +1519,9 @@ If the buffer already exists, only returns the buffer.
 
 (defun org-taskforecast--track-register-task ()
   "Register clock-in task."
-  (-let (((&alist 'todo-type todo-type) (org-taskforecast--get-task))
-         (today (org-taskforecast-today)))
+  (let ((todo-type (org-taskforecast--task-todo-type
+                    (org-taskforecast--get-task)))
+        (today (org-taskforecast-today)))
     ;; TODO: should consider a case that a done task is clocked?
     (when (eq todo-type 'todo)
       (org-taskforecast--push-task-link-maybe
