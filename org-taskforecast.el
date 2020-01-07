@@ -393,26 +393,39 @@ If hour and minute part do not exist, they are set to zero."
    (org-element-property :month-end timestamp)
    (org-element-property :year-end timestamp)))
 
-(org-taskforecast-defalist org-taskforecast--scheduled-alist
-    (start-time date-only-p repeatp)
-  "Alst of a SCHEDULED property of a task.
 
-- START-TIME is an encoded time of the start time of schedule
-- DATE-ONLY-P is a boolean, it is non-nil if the start time stamp has
-  no hour and minute
-- REPEATP is a boolean, it is non-nil if the time stamp has a repeater")
+(defclass org-taskforecast--scheduled ()
+  ((start-time
+    :initarg :start-time
+    :reader org-taskforecast--scheduled-start-time
+    :documentation
+    "An encoded time of the start time of a schedule.")
+   (date-only-p
+    :initarg :date-only-p
+    :reader org-taskforecast--scheduled-date-only-p
+    :type boolean
+    :documentation
+    "Non-nil means the time stamp of a schedule has no hour and minute sections.")
+   (repeatp
+    :initarg :repeatp
+    :reader org-taskforecast--scheduled-repeat-p
+    :type boolean
+    :documentation
+    "Non-nil means the time stamp of a schedule has a repeater."))
+  :documentation
+  "A SCHEDULED property of a task.")
 
 (defun org-taskforecast--get-scheduled-from-timestamp (timestamp)
   "Get a scheduled information from TIMESTAMP.
 
 TIMESTAMP is a timestamp element of a scheduled property of a heading
 of org element api.
-This function returns an alist of `org-taskforecast--scheduled-alist'."
+This function returns an instance of `org-taskforecast--scheduled'."
   (let ((start-time (org-taskforecast--timestamp-start-time timestamp))
         (date-only-p (not (or (org-element-property :hour-start timestamp)
                               (org-element-property :minute-start timestamp))))
         (repeatp (and (org-element-property :repeater-type timestamp) t)))
-    (org-taskforecast--scheduled-alist
+    (org-taskforecast--scheduled
      :start-time start-time
      :date-only-p date-only-p
      :repeatp repeatp)))
@@ -436,7 +449,7 @@ This function returns an alist of `org-taskforecast--scheduled-alist'."
     :documentation
     "Non-nil means the time stamp of a deadline has a repeater."))
   :documentation
-  "A deadline data.")
+  "A DEADLINE property of a task.")
 
 (defun org-taskforecast--get-deadline-from-timestamp (timestamp)
   "Get a deadline information from TIMESTAMP.
@@ -466,8 +479,8 @@ The task is a heading linked from daily task list file.
   `org-taskforecast--clock'
 - TODO is a string of a todo state (optional)
 - TODO-TYPE is a symbol of a type of todo (optional)
-- SCHEDULED is a schedule infomaton as an alist of
-  `org-taskforecast--scheduled-alist' (optional)
+- SCHEDULED is a schedule infomaton as an instance of
+  `org-taskforecast--scheduled' (optional)
 - DEADLINE is a deadline information as an instance of
   `org-taskforecast--deadline' (optional)")
 
@@ -562,17 +575,17 @@ This function returns a symbol, todo or done.
   (org-taskforecast-assert (org-taskforecast--task-alist-type-p task))
   (-let* (((&alist 'todo-type todo-type 'scheduled scheduled
                    'deadline deadline) task)
-          ((&alist 'start-time stime_ 'repeatp srepeatp
-                   'date-only-p sdate-only-p) scheduled)
-          (stime (if (and stime_ sdate-only-p)
-                     (org-taskforecast--encode-hhmm day-start stime_)
-                   stime_))
+          (stime (when scheduled
+                   (let ((time (org-taskforecast--scheduled-start-time scheduled)))
+                     (if (org-taskforecast--scheduled-date-only-p scheduled)
+                         (org-taskforecast--encode-hhmm day-start time)
+                       time))))
           (dtime (when deadline
                    (let ((time (org-taskforecast--deadline-time deadline)))
                      (if (org-taskforecast--deadline-date-only-p deadline)
                          (org-taskforecast--encode-hhmm day-start time)
                        time))))
-          (repeatp (or (and scheduled srepeatp)
+          (repeatp (or (and scheduled (org-taskforecast--scheduled-repeat-p scheduled))
                        (and deadline (org-taskforecast--deadline-repeat-p deadline))))
           (times (-non-nil (list (and scheduled stime) (and deadline dtime))))
           (next-day-start
