@@ -227,20 +227,17 @@ This function depends on:
   (org-taskforecast--today (current-time)
                            org-taskforecast-day-start))
 
-(org-taskforecast-defalist org-taskforecast--hhmm-alist (hour minute)
-  "A pair of hour and minute.
-
-HOUR and MINUTE are integers.")
-
 (defun org-taskforecast--time-to-hhmm (time today)
-  "Convert TIME to hour and minute as time of TODAY."
+  "Convert TIME to hour and minute as time of TODAY.
+
+A returned value is a list like (hour minute)."
   (let* ((today (org-taskforecast--time-as-date today))
          (dsec (floor (time-to-seconds (time-subtract time today))))
          (dmin (/ dsec 60))
          (hour (/ dmin 60))
          (minute (% dmin 60)))
     (org-taskforecast-assert (<= 0 dsec))
-    (org-taskforecast--hhmm-alist :hour hour :minute minute)))
+    (list hour minute)))
 
 (defun org-taskforecast--today-p (time today day-start)
   "Return non-nil if TIME is in range of TODAY.
@@ -1153,7 +1150,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
              0))))
   (-let* (((&alist 'start start 'start-estimated-p start-estimated-p)
            org-taskforecast-list-info-task-start-end-time)
-          ((&alist 'hour hour 'minute minute)
+          ((hour minute)
            (org-taskforecast--time-to-hhmm
             start
             org-taskforecast-list-info-today)))
@@ -1186,7 +1183,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
           (overrunp (and end-estimated-p
                          (eq todo-type 'todo)
                          overrunp_))
-          ((&alist 'hour hour 'minute minute)
+          ((hour minute)
            (org-taskforecast--time-to-hhmm
             (if overrunp org-taskforecast-list-info-now end)
             org-taskforecast-list-info-today)))
