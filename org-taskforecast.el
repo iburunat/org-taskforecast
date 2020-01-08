@@ -759,7 +759,8 @@ exists corresponding to the task.
             (org-taskforecast--get-task-link-todo-state-for-today
              it date day-start))
         it)
-       (-if-let (link-id (org-taskforecast--tlink-id (-first-item it)))
+       (-if-let* ((task-link (-first-item it))
+                  (link-id (org-taskforecast--tlink-id task-link)))
            link-id
          (org-taskforecast--append-task-link id file))))
 
@@ -1514,7 +1515,7 @@ If the buffer already exists, only returns the buffer.
   "Change the TODO state of the task link at the current line."
   (interactive)
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-             (id (org-taskforecast--tlink-id task-link task-link)))
+             (id (org-taskforecast--tlink-id task-link)))
       (progn
         (org-taskforecast--at-id id
           (org-todo))
