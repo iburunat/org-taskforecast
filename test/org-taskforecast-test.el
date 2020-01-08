@@ -18,18 +18,6 @@
     (should-error (org-taskforecast-assert nil))))
 
 
-;;;; Alist utility
-
-(org-taskforecast-defalist defalist-test (a b c))
-(ert-deftest org-taskforecast-defalist ()
-  ;; constructor
-  (should (eq nil (alist-get 'a (defalist-test))))
-  (should (= 1 (alist-get 'b (defalist-test :a 0 :b 1 :c 2))))
-  ;; type checker
-  (should (defalist-test-type-p (defalist-test)))
-  (should (defalist-test-type-p'((c) (a) (b))))
-  (should-not (defalist-test-type-p'((a) (b)))))
-
 ;;; org-taskforecast-test.el ends here
 
 ;; Local Variables:
