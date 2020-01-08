@@ -588,7 +588,7 @@ If STR is not a org-id link string, this function returns nil."
     (-when-let (((_ id)) (s-match-strings-all re str))
       id)))
 
-(defun org-taskforecast--get-task-todo-state-for-today (task date day-start)
+(defun org-taskforecast--task-todo-state-for-today (task date day-start)
   "Get todo state of TASK for today.
 
 This function returns a symbol, todo or done.
@@ -625,7 +625,7 @@ This function returns a symbol, todo or done.
             'todo
           'done)))))
 
-(defun org-taskforecast--get-task-link-todo-state-for-today (task-link date day-start)
+(defun org-taskforecast--tlink-todo-state-for-today (task-link date day-start)
   "Get todo state of TASK-LINK for today.
 
 This function returns a symbol, todo or done.
@@ -640,7 +640,7 @@ This function returns a symbol, todo or done.
     (if effective-end-time
         ;; interrupted if efective-end-time exists
         'done
-      (org-taskforecast--get-task-todo-state-for-today task date day-start))))
+      (org-taskforecast--task-todo-state-for-today task date day-start))))
 
 (defun org-taskforecast--get-task-link ()
   "Get a task link at the current point.
@@ -710,7 +710,7 @@ exists corresponding to the task.
   (--> (org-taskforecast--get-task-links-for-task id file)
        (--filter
         (eq 'todo
-            (org-taskforecast--get-task-link-todo-state-for-today
+            (org-taskforecast--tlink-todo-state-for-today
              it date day-start))
         it)
        (-if-let* ((task-link (-first-item it))
@@ -737,7 +737,7 @@ If a first todo task is not found, this function returns nil.
       (let ((task-link (org-taskforecast--get-task-link)))
         (when (and task-link
                    (eq 'todo
-                       (org-taskforecast--get-task-link-todo-state-for-today
+                       (org-taskforecast--tlink-todo-state-for-today
                         task-link date day-start)))
           task-link)))))
 
@@ -753,7 +753,7 @@ If a first todo task is not found, this function returns nil.
           (time-less-p cstart end)))
    clocks))
 
-(defun org-taskforecast--has-effective-clock (task-link date day-start)
+(defun org-taskforecast--tlink-has-effective-clock (task-link date day-start)
   "Non-nil means TASK-LINK has some effective clocks.
 
 An effective clock is a clock information that clocked today.
@@ -787,7 +787,7 @@ the following conditions:
                 (time-less-p start effective-end-time))))
      clocks)))
 
-(defun org-taskforecast--get-task-link-effort (task-link date day-start)
+(defun org-taskforecast--tlink-effective-effort (task-link date day-start)
   "Get effort value of TASK-LINK.
 
 A returned value is an effort second.
@@ -886,7 +886,7 @@ is non-nil.
                  (link-id
                   (org-taskforecast--tlink-id first-todo-task-link)))
       (when (and (not (equal id task-id))
-                 (org-taskforecast--has-effective-clock
+                 (org-taskforecast--tlink-has-effective-clock
                   first-todo-task-link
                   date
                   day-start))
@@ -895,7 +895,7 @@ is non-nil.
   (let* ((link-id (org-taskforecast--append-task-link-maybe
                    id file date day-start))
          (task-link (org-taskforecast--get-task-link-by-id link-id))
-         (todo-type (org-taskforecast--get-task-link-todo-state-for-today
+         (todo-type (org-taskforecast--tlink-todo-state-for-today
                      task-link date day-start)))
     (when (eq todo-type 'todo)
       (org-taskforecast--move-task-link-to-todo-head link-id file date day-start))
@@ -968,7 +968,7 @@ If the end time is not found, the value will be an estimated time.")
   :documentation
   "An information of start and end time of a task link.")
 
-(defun org-taskforecast--get-task-link-start-end-time (task-link date day-start &optional start-after now)
+(defun org-taskforecast--tlink-start-end-time (task-link date day-start &optional start-after now)
   "Get the start and end time of a TASK-LINK.
 
 This function returns an instance of `org-taskforecast--tlclock'.
@@ -990,13 +990,13 @@ This function returns an instance of `org-taskforecast--tlclock'.
          (effective-end-time
           (org-taskforecast--tlink-effective-end-time task-link))
          (todo
-          (org-taskforecast--get-task-link-todo-state-for-today
+          (org-taskforecast--tlink-todo-state-for-today
            task-link date day-start))
          (task
           (org-taskforecast--get-task-by-id
            (org-taskforecast--tlink-task-id task-link)))
          (effort-sec
-          (or (org-taskforecast--get-task-link-effort task-link date day-start)
+          (or (org-taskforecast--tlink-effective-effort task-link date day-start)
               0))
          (clock-start-greater-p
           (-flip #'org-taskforecast--clock-start-less-p))
@@ -1069,7 +1069,7 @@ This function returns an instance of `org-taskforecast--tlclock'.
        (lambda ()
          (unless pos
            (--> (org-taskforecast--get-task-link)
-                (org-taskforecast--get-task-link-todo-state-for-today
+                (org-taskforecast--tlink-todo-state-for-today
                  it date day-start)
                 (when (eq it 'todo)
                   (setq pos (point)))))))
@@ -1195,7 +1195,7 @@ See `org-taskforecast-list-task-formatters' for more detail.")
   "Format effort property of a task.
 
 This function is used for `org-taskforecast-list-task-formatters'."
-  (let ((effort (org-taskforecast--get-task-link-effort
+  (let ((effort (org-taskforecast--tlink-effective-effort
                  org-taskforecast-list-info-task-link
                  org-taskforecast-list-info-today
                  org-taskforecast-day-start)))
@@ -1240,7 +1240,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
              (decoded-time-second decoded)
              0))))
   (-let* ((todo-type
-           (org-taskforecast--get-task-link-todo-state-for-today
+           (org-taskforecast--tlink-todo-state-for-today
             org-taskforecast-list-info-task-link
             org-taskforecast-list-info-today
             org-taskforecast-day-start))
@@ -1273,7 +1273,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
 
 This function is used for `org-taskforecast-list-task-formatters'."
   (let ((todo-type
-         (org-taskforecast--get-task-link-todo-state-for-today
+         (org-taskforecast--tlink-todo-state-for-today
           org-taskforecast-list-info-task-link
           org-taskforecast-list-info-today
           org-taskforecast-day-start)))
@@ -1313,13 +1313,13 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                (org-taskforecast-day-start day-start))
            (--map
             (let* ((todo-type
-                    (org-taskforecast--get-task-link-todo-state-for-today
+                    (org-taskforecast--tlink-todo-state-for-today
                      it today day-start))
                    (task
                     (org-taskforecast--get-task-by-id
                      (org-taskforecast--tlink-task-id it)))
                    (org-taskforecast-list-info-task-start-end-time
-                    (org-taskforecast--get-task-link-start-end-time
+                    (org-taskforecast--tlink-start-end-time
                      it
                      today
                      day-start
