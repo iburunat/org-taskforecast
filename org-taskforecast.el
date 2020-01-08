@@ -79,8 +79,8 @@ The results of the functions are joind with \" \" and
 empty strings are ignored..
 The functions should have no parameter.
 The functions are obtained information as global variables below:
-- `org-taskforecast-list-info-task-link' as an alist of
-  `org-taskforecast--task-link-alist'
+- `org-taskforecast-list-info-task-link' as an instance of
+  `org-taskforecast--tlink'
 - `org-taskforecast-list-info-task' as an instance of
   `org-taskforecast--task'
 - `org-taskforecast-list-info-today' as an encoded time
@@ -175,6 +175,19 @@ Non-nil means valid." name)
                  "\n\n----\n\n"
                  ,docstring))
        (list ,@(--map `(cons ',it ,it) fields)))))
+
+;;; Type
+
+(defun org-taskforecast--encoded-time-p (x)
+  "Non-nil means X is an encoded time.
+
+Encoded time is a type of a returned value of `encode-time'."
+  (and (listp x)
+       (member (length x) '(2 4))
+       (-all-p #'integerp x)))
+
+(cl-deftype org-taskforecast--encoded-time ()
+  '(satisfies org-taskforecast--encoded-time-p))
 
 ;;; Time
 
@@ -583,17 +596,33 @@ A returned value is an instance of `org-taskforecast--task'."
   (org-taskforecast--at-id id
     (org-taskforecast--get-task)))
 
-(org-taskforecast-defalist org-taskforecast--task-link-alist
-    (id original-id effective-start-time effective-end-time)
-  "Alist of a task link.
-
-It links to a task heading.
-- ID is an id of org-id
-- ORIGINAL-ID is where this links to
-- EFFECTIVE-START-TIME is an encoded time when the task link is
-  effective after (optional)
-- EFFECTIVE-END-TIME is an encoded time when the task link is
-  effective before (optional)")
+(defclass org-taskforecast--tlink ()
+  ((id
+    :initarg :id
+    :reader org-taskforecast--tlink-id
+    :type string
+    :documentation
+    "An ID of org-id.")
+   (task-id
+    :initarg :task-id
+    :reader org-taskforecast--tlink-task-id
+    :type string
+    :documentation
+    "An ID of a task where this links to.")
+   (effective-start-time
+    :initarg :effective-start-time
+    :reader org-taskforecast--tlink-effective-start-time
+    :type (or null org-taskforecast--encoded-time)
+    :documentation
+    "An encoded time when the task link is effective after.")
+   (effective-end-time
+    :initarg :effective-end-time
+    :reader org-taskforecast--tlink-effective-end-time
+    :type (or null org-taskforecast--encoded-time)
+    :documentation
+    "An encoded time when the task link is effective before."))
+  :documentation
+  "A task link data.")
 
 (defun org-taskforecast--get-link-id (str)
   "Get a link id from STR.
@@ -646,14 +675,14 @@ This function returns a symbol, todo or done.
   "Get todo state of TASK-LINK for today.
 
 This function returns a symbol, todo or done.
-- TASK-LINK is an alist of `org-taskforecast--task-link-alist'
+- TASK-LINK is an instance of `org-taskforecast--tlink'
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
-  (org-taskforecast-assert (org-taskforecast--task-link-alist-type-p task-link))
-  (-let* (((&alist 'original-id original-id
-                   'effective-end-time effective-end-time)
-           task-link)
-          (task (org-taskforecast--get-task-by-id original-id)))
+  (let ((task
+         (org-taskforecast--get-task-by-id
+          (org-taskforecast--tlink-task-id task-link)))
+        (effective-end-time
+         (org-taskforecast--tlink-effective-end-time task-link)))
     (if effective-end-time
         ;; interrupted if efective-end-time exists
         'done
@@ -662,7 +691,7 @@ This function returns a symbol, todo or done.
 (defun org-taskforecast--get-task-link ()
   "Get a task link as an alist.
 
-A returned value is an alist of `org-taskforecast--task-link-alist'.
+A returned value is an instance of `org-taskforecast--tlink'.
 If the heading is not a task link, this function returns nil."
   (save-excursion
     ;; Prevent error when there is no heading in a buffer.
@@ -675,19 +704,19 @@ If the heading is not a task link, this function returns nil."
             (org-taskforecast--get-task-link-effective-start-time))
            (effective-end-time
             (org-taskforecast--get-task-link-effective-end-time)))
-      (-when-let* ((original-id (org-taskforecast--get-link-id title))
+      (-when-let* ((task-id (org-taskforecast--get-link-id title))
                    ;; Create id when this heading is a task link.
                    (id (org-id-get-create)))
-        (org-taskforecast--task-link-alist
+        (org-taskforecast--tlink
          :id id
-         :original-id original-id
+         :task-id task-id
          :effective-start-time effective-start-time
          :effective-end-time effective-end-time)))))
 
 (defun org-taskforecast--get-task-link-by-id (id)
   "Get a task link alist by ID.
 
-A returned value is an alist of `org-taskforecast--task-link-alist'."
+A returned value is an instance of `org-taskforecast--tlink'."
   (org-taskforecast--at-id id
     (org-taskforecast--get-task-link)))
 
@@ -730,14 +759,14 @@ exists corresponding to the task.
             (org-taskforecast--get-task-link-todo-state-for-today
              it date day-start))
         it)
-       (-if-let ((&alist 'id link-id) (-first-item it))
+       (-if-let (link-id (org-taskforecast--tlink-id (-first-item it)))
            link-id
          (org-taskforecast--append-task-link id file))))
 
 (defun org-taskforecast--get-first-todo-task-link (file date day-start)
   "Get the first todo task link in FILE.
 
-A returned value is an alist of `org-taskforecast--task-link-alist'.
+A returned value is an instance of `org-taskforecast--tlink'.
 If a first todo task is not found, this function returns nil.
 
 - FILE is a today's daily task list file name
@@ -778,18 +807,18 @@ the following conditions:
 - the clock was started after the effective start time
 - the clock was ended before the effective end time
 
-- TASK-LINK is an alist of `org-taskforecast--task-link-alist'
+- TASK-LINK is an instance of `org-taskforecast--tlink'
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
-  (org-taskforecast-assert
-   (org-taskforecast--task-link-alist-type-p task-link))
-  (-let* (((&alist 'original-id original-id
-                   'effective-start-time effective-start-time
-                   'effective-end-time effective-end-time)
-           task-link)
-          (clocks
-           (org-taskforecast--task-clocks
-            (org-taskforecast--get-task-by-id original-id))))
+  (let* ((task-id
+          (org-taskforecast--tlink-task-id task-link))
+         (effective-start-time
+          (org-taskforecast--tlink-effective-start-time task-link))
+         (effective-end-time
+          (org-taskforecast--tlink-effective-end-time task-link))
+         (clocks
+          (org-taskforecast--task-clocks
+           (org-taskforecast--get-task-by-id task-id))))
     (--some
      (let ((start (org-taskforecast--clock-start it))
            (today-start (org-taskforecast--encode-hhmm day-start date))
@@ -808,42 +837,48 @@ the following conditions:
 
 A returned value is an effort second.
 
-- TASK-LINK is an alist of `org-taskforecast--task-link-alist'
+- TASK-LINK is an instance of `org-taskforecast--tlink'
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
-  (-let* (((&alist 'original-id original-id
-                   'effective-start-time effective-start-time
-                   'effective-end-time effective-end-time)
-           task-link)
-          (task (org-taskforecast--get-task-by-id original-id))
-          (clocks (org-taskforecast--task-clocks task))
-          (effort-sec (org-taskforecast--effort-to-second
-                       (org-taskforecast--task-effort task)))
-          (time-greater-p (-flip #'time-less-p))
-          (today-start (org-taskforecast--encode-hhmm day-start date))
-          (range-start
-           (-max-by time-greater-p
-                    (-non-nil (list today-start effective-start-time))))
-          (range-end
-           (-min-by time-greater-p
-                    (-non-nil
-                     (list effective-end-time
-                           (org-taskforecast--encode-hhmm (+ day-start 2400)
-                                                          date)))))
-          (dsec (-compose #'time-to-seconds
-                          #'org-taskforecast--clock-duration))
-          (used-sec-before
-           (--> (org-taskforecast--get-clocks-in-range
-                 clocks today-start range-start)
-                (-map dsec it)
-                (-sum it)))
-          (remaining-effort-sec
-           (when effort-sec (max (- effort-sec used-sec-before) 0)))
-          (used-sec
-           (--> (org-taskforecast--get-clocks-in-range
-                 clocks range-start range-end)
-                (-map dsec it)
-                (-sum it))))
+  (let* ((effective-start-time
+          (org-taskforecast--tlink-effective-start-time task-link))
+         (effective-end-time
+          (org-taskforecast--tlink-effective-end-time task-link))
+         (task
+          (org-taskforecast--get-task-by-id
+           (org-taskforecast--tlink-task-id task-link)))
+         (clocks
+          (org-taskforecast--task-clocks task))
+         (effort-sec
+          (org-taskforecast--effort-to-second
+           (org-taskforecast--task-effort task)))
+         (time-greater-p
+          (-flip #'time-less-p))
+         (today-start
+          (org-taskforecast--encode-hhmm day-start date))
+         (range-start
+          (-max-by time-greater-p
+                   (-non-nil (list today-start effective-start-time))))
+         (range-end
+          (-min-by time-greater-p
+                   (-non-nil
+                    (list effective-end-time
+                          (org-taskforecast--encode-hhmm (+ day-start 2400)
+                                                         date)))))
+         (dsec
+          (-compose #'time-to-seconds #'org-taskforecast--clock-duration))
+         (used-sec-before
+          (--> (org-taskforecast--get-clocks-in-range
+                clocks today-start range-start)
+               (-map dsec it)
+               (-sum it)))
+         (remaining-effort-sec
+          (when effort-sec (max (- effort-sec used-sec-before) 0)))
+         (used-sec
+          (--> (org-taskforecast--get-clocks-in-range
+                clocks range-start range-end)
+               (-map dsec it)
+               (-sum it))))
     (-some-->
         (cond ((null effort-sec) nil)
               (effective-end-time (min remaining-effort-sec used-sec))
@@ -856,10 +891,10 @@ A returned value is an effort second.
 
 (defun org-taskforecast--split-task-link (link-id time file)
   "Split a task link of LINK-ID on FILE as interrupted at TIME."
-  (-let* (((&alist 'original-id original-id)
-           (org-taskforecast--get-task-link-by-id link-id))
-          (new-link-id (org-taskforecast--append-task-link original-id file))
-          (new-link-heading (org-taskforecast--cut-heading-by-id new-link-id)))
+  (let* ((task-id (org-taskforecast--tlink-task-id
+                   (org-taskforecast--get-task-link-by-id link-id)))
+         (new-link-id (org-taskforecast--append-task-link task-id file))
+         (new-link-heading (org-taskforecast--cut-heading-by-id new-link-id)))
     (org-taskforecast--at-id link-id
       (org-taskforecast--set-task-link-effective-end-time time)
       (outline-next-heading)
@@ -891,9 +926,11 @@ is non-nil.
     (-when-let* ((first-todo-task-link
                   (org-taskforecast--get-first-todo-task-link
                    file date day-start))
-                 ((&alist 'original-id original-id 'id link-id)
-                  first-todo-task-link))
-      (when (and (not (equal id original-id))
+                 (task-id
+                  (org-taskforecast--tlink-task-id first-todo-task-link))
+                 (link-id
+                  (org-taskforecast--tlink-id first-todo-task-link)))
+      (when (and (not (equal id task-id))
                  (org-taskforecast--has-effective-clock
                   first-todo-task-link
                   date
@@ -961,7 +998,7 @@ If effort-str invalid, this function returns nil."
 
 This function returns a `org-taskforecast--task-link-start-end-time-alist'.
 
-- TASK-LINK is an alist of `org-taskforecast--task-link-alist'
+- TASK-LINK is an instance of `org-taskforecast--tlink'
 - DATE is an encoded time as the date of today
 - DAY-START is an integer, see `org-taskforecast-day-start'
 - START-AFTER is an encoded time (optional).
@@ -969,62 +1006,66 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
 - NOW is an encoded time (optional).
   If it is set, use it instead of an estimated time of start or end
   when the estimated time is earlier than it."
-  (org-taskforecast-assert
-   (org-taskforecast--task-link-alist-type-p task-link))
-  (-let* ((day-start-time
-           (org-taskforecast--encode-hhmm day-start date))
-          (next-day-start-time
-           (org-taskforecast--encode-hhmm (+ day-start 2400) date))
-          ((&alist 'original-id original-id
-                   'effective-start-time effective-start-time
-                   'effective-end-time effective-end-time)
-           task-link)
-          (todo (org-taskforecast--get-task-link-todo-state-for-today
-                 task-link date day-start))
-          (task (org-taskforecast--get-task-by-id original-id))
-          (effort-sec (or
-                       (org-taskforecast--get-task-link-effort
-                        task-link date day-start)
-                       0))
-          (clock-start-greater-p
-           (-flip #'org-taskforecast--clock-start-less-p))
-          (time-greater-p (-flip #'time-less-p))
-          (start-after
-           (-max-by time-greater-p
-                    (-non-nil
-                     (list start-after day-start-time effective-start-time))))
-          (end-before
-           (-min-by time-greater-p
-                    (-non-nil
-                     (list next-day-start-time effective-end-time))))
-          (target-clocks
-           (org-taskforecast--get-clocks-in-range
-            (org-taskforecast--task-clocks task)
-            start-after
-            end-before))
-          (start-time
-           (-some--> target-clocks
-             (-min-by clock-start-greater-p it)
-             (org-taskforecast--clock-start it)))
-          (end-time
-           (-some--> target-clocks
-             (-max-by clock-start-greater-p it)
-             (org-taskforecast--clock-end it)))
-          (start-estimated-p (null start-time))
-          (end-estimated-p (or (null end-time) (eq todo 'todo)))
-          (start
-           (cond ((and start-estimated-p (eq todo 'todo) now)
-                  (-max-by time-greater-p (list start-after now)))
-                 (start-estimated-p start-after)
-                 (t start-time)))
-          (start-plus-effort
-           (time-add start (seconds-to-time effort-sec)))
-          (end
-           (cond ((and end-estimated-p (eq todo 'todo) now)
-                  (-max-by time-greater-p (list start-plus-effort now)))
-                 ((and end-estimated-p (eq todo 'done)) start)
-                 (t end-time)))
-          (overrunp (time-less-p start-plus-effort end)))
+  (let* ((day-start-time
+          (org-taskforecast--encode-hhmm day-start date))
+         (next-day-start-time
+          (org-taskforecast--encode-hhmm (+ day-start 2400) date))
+         (effective-start-time
+          (org-taskforecast--tlink-effective-start-time task-link))
+         (effective-end-time
+          (org-taskforecast--tlink-effective-end-time task-link))
+         (todo
+          (org-taskforecast--get-task-link-todo-state-for-today
+           task-link date day-start))
+         (task
+          (org-taskforecast--get-task-by-id
+           (org-taskforecast--tlink-task-id task-link)))
+         (effort-sec
+          (or (org-taskforecast--get-task-link-effort task-link date day-start)
+              0))
+         (clock-start-greater-p
+          (-flip #'org-taskforecast--clock-start-less-p))
+         (time-greater-p
+          (-flip #'time-less-p))
+         (start-after
+          (-max-by time-greater-p
+                   (-non-nil
+                    (list start-after day-start-time effective-start-time))))
+         (end-before
+          (-min-by time-greater-p
+                   (-non-nil
+                    (list next-day-start-time effective-end-time))))
+         (target-clocks
+          (org-taskforecast--get-clocks-in-range
+           (org-taskforecast--task-clocks task)
+           start-after
+           end-before))
+         (start-time
+          (-some--> target-clocks
+            (-min-by clock-start-greater-p it)
+            (org-taskforecast--clock-start it)))
+         (end-time
+          (-some--> target-clocks
+            (-max-by clock-start-greater-p it)
+            (org-taskforecast--clock-end it)))
+         (start-estimated-p
+          (null start-time))
+         (end-estimated-p
+          (or (null end-time) (eq todo 'todo)))
+         (start
+          (cond ((and start-estimated-p (eq todo 'todo) now)
+                 (-max-by time-greater-p (list start-after now)))
+                (start-estimated-p start-after)
+                (t start-time)))
+         (start-plus-effort
+          (time-add start (seconds-to-time effort-sec)))
+         (end
+          (cond ((and end-estimated-p (eq todo 'todo) now)
+                 (-max-by time-greater-p (list start-plus-effort now)))
+                ((and end-estimated-p (eq todo 'done)) start)
+                (t end-time)))
+         (overrunp
+          (time-less-p start-plus-effort end)))
     (org-taskforecast--task-link-start-end-time-alist
      :start start
      :end end
@@ -1038,8 +1079,7 @@ This function returns a `org-taskforecast--task-link-start-end-time-alist'.
 - TASK-ID is a string
 - FILE is a today's daily task list file name"
   (--filter
-   (-let (((&alist 'original-id original-id) it))
-     (string= task-id original-id))
+   (string= task-id (org-taskforecast--tlink-task-id it))
    (org-taskforecast--get-task-links file)))
 
 (defun org-taskforecast--get-todo-link-head-pos (file date day-start)
@@ -1134,7 +1174,6 @@ When the task is already registered, this command does nothing."
 
 (defun org-taskforecast--list-propertize-link-data (str task-link)
   "Put a task link data, TASK-LINK, into STR."
-  (org-taskforecast-assert (org-taskforecast--task-link-alist-type-p task-link))
   (propertize str
               org-taskforecast--list-task-link-property
               task-link))
@@ -1149,7 +1188,7 @@ When there is no task link data, this function returns nil."
 (defvar org-taskforecast-list-info-task-link nil
   "This variable is used to pass a task link data to formatters.
 
-This value will be a `org-taskforecast--task-link-alist'.
+This value will be an instance of `org-taskforecast--tlink'.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
 (defvar org-taskforecast-list-info-task nil
@@ -1249,9 +1288,6 @@ This function is used for `org-taskforecast-list-task-formatters'."
   "Format task link's todo state.
 
 This function is used for `org-taskforecast-list-task-formatters'."
-  (org-taskforecast-assert
-   (org-taskforecast--task-link-alist-type-p
-    org-taskforecast-list-info-task-link))
   (let ((todo-type
          (org-taskforecast--get-task-link-todo-state-for-today
           org-taskforecast-list-info-task-link
@@ -1292,18 +1328,20 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                (org-taskforecast-list-info-now (current-time))
                (org-taskforecast-day-start day-start))
            (--map
-            (-let* (((&alist 'original-id original-id) it)
-                    (todo-type (org-taskforecast--get-task-link-todo-state-for-today
-                                it today day-start))
-                    (task (org-taskforecast--get-task-by-id original-id))
-                    (org-taskforecast-list-info-task-start-end-time
-                     (org-taskforecast--get-task-link-start-end-time
-                      it
-                      today
-                      day-start
-                      last-task-done-time
-                      (and (eq todo-type 'todo)
-                           org-taskforecast-list-info-now))))
+            (let* ((todo-type
+                    (org-taskforecast--get-task-link-todo-state-for-today
+                     it today day-start))
+                   (task
+                    (org-taskforecast--get-task-by-id
+                     (org-taskforecast--tlink-task-id it)))
+                   (org-taskforecast-list-info-task-start-end-time
+                    (org-taskforecast--get-task-link-start-end-time
+                     it
+                     today
+                     day-start
+                     last-task-done-time
+                     (and (eq todo-type 'todo)
+                          org-taskforecast-list-info-now))))
               (prog1
                   (let ((org-taskforecast-list-info-task-link it)
                         (org-taskforecast-list-info-task task))
@@ -1399,9 +1437,10 @@ If the buffer already exists, only returns the buffer.
                               org-taskforecast--list-task-link-property
                               current-link
                               (lambda (a b)
-                                (-when-let* (((&alist 'id aid) a)
-                                             ((&alist 'id bid) b))
-                                  (string-equal aid bid))))))
+                                (when (and a b)
+                                  (string-equal
+                                   (org-taskforecast--tlink-id a)
+                                   (org-taskforecast--tlink-id b)))))))
           (goto-char (prop-match-beginning pmatch)))))))
 
 (defun org-taskforecast--list-refresh-maybe ()
@@ -1420,10 +1459,10 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-clock-in ()
   "Start the clock on the task linked from the current line."
   (interactive)
-  (-if-let ((&alist 'original-id original-id)
-            (org-taskforecast--list-get-task-link-at-point))
+  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+             (task-id (org-taskforecast--tlink-task-id task-link)))
       (progn
-        (org-taskforecast--at-id original-id
+        (org-taskforecast--at-id task-id
           (org-clock-in))
         (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
@@ -1455,27 +1494,27 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-goto-task ()
   "Go to the task linked from the current line."
   (interactive)
-  (-if-let ((&alist 'original-id original-id)
-            (org-taskforecast--list-get-task-link-at-point))
-      (org-id-goto original-id)
+  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+             (task-id (org-taskforecast--tlink-task-id task-link)))
+      (org-id-goto task-id)
     (user-error "Task link not found at the current line")))
 
 (defun org-taskforecast-list-todo ()
   "Change the TODO state of the task linked from the current line."
   (interactive)
-  (-if-let ((&alist 'original-id original-id)
-            (org-taskforecast--list-get-task-link-at-point))
+  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+             (task-id (org-taskforecast--tlink-task-id task-link)))
       (progn
-       (org-taskforecast--at-id original-id
-         (org-todo))
-       (org-taskforecast--list-refresh))
+        (org-taskforecast--at-id task-id
+          (org-todo))
+        (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
 
 (defun org-taskforecast-list-link-todo ()
   "Change the TODO state of the task link at the current line."
   (interactive)
-  (-if-let ((&alist 'id id)
-            (org-taskforecast--list-get-task-link-at-point))
+  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+             (id (org-taskforecast--tlink-id task-link task-link)))
       (progn
         (org-taskforecast--at-id id
           (org-todo))
@@ -1485,10 +1524,10 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-set-effort ()
   "Change Effort property of the task at the current line."
   (interactive)
-  (-if-let ((&alist 'original-id original-id)
-            (org-taskforecast--list-get-task-link-at-point))
+  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+             (task-id (org-taskforecast--tlink-task-id task-link)))
       (progn
-        (org-taskforecast--at-id original-id
+        (org-taskforecast--at-id task-id
           (org-set-effort))
         (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
@@ -1496,8 +1535,8 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-move-link-up (&optional arg)
   "Move task link at the current line up past ARG others."
   (interactive "p")
-  (-if-let ((&alist 'id id)
-            (org-taskforecast--list-get-task-link-at-point))
+  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+             (id (org-taskforecast--tlink-id task-link)))
       (progn
         (org-taskforecast--at-id id
           (org-move-subtree-up arg))
