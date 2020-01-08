@@ -503,7 +503,7 @@ ELEMENT is a clock element of org element api."
     (org-taskforecast--clock :start start :end end)))
 
 (defun org-taskforecast--get-task ()
-  "Get a task as an alist.
+  "Get a task at the current point.
 
 A returned value is an instance of `org-taskforecast--task'."
   (save-excursion
@@ -544,7 +544,7 @@ A returned value is an instance of `org-taskforecast--task'."
        :deadline deadline))))
 
 (defun org-taskforecast--get-task-by-id (id)
-  "Get a task alist by ID.
+  "Get a task by ID.
 
 A returned value is an instance of `org-taskforecast--task'."
   (org-taskforecast--at-id id
@@ -643,7 +643,7 @@ This function returns a symbol, todo or done.
       (org-taskforecast--get-task-todo-state-for-today task date day-start))))
 
 (defun org-taskforecast--get-task-link ()
-  "Get a task link as an alist.
+  "Get a task link at the current point.
 
 A returned value is an instance of `org-taskforecast--tlink'.
 If the heading is not a task link, this function returns nil."
@@ -668,7 +668,7 @@ If the heading is not a task link, this function returns nil."
          :effective-end-time effective-end-time)))))
 
 (defun org-taskforecast--get-task-link-by-id (id)
-  "Get a task link alist by ID.
+  "Get a task link by ID.
 
 A returned value is an instance of `org-taskforecast--tlink'."
   (org-taskforecast--at-id id
