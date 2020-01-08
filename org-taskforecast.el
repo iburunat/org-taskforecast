@@ -357,11 +357,13 @@ TIME is an encoded time."
   ((start
     :initarg :start
     :reader org-taskforecast--clock-start
+    :type org-taskforecast--encoded-time
     :documentation
     "A start time of a clock of a task as an encoded time.")
    (end
     :initarg :end
     :reader org-taskforecast--clock-end
+    :type (or null org-taskforecast--encoded-time)
     :documentation
     "An end time of a clock of a task as an encoded time."))
   :documentation
@@ -414,6 +416,7 @@ If hour and minute part do not exist, they are set to zero."
   ((start-time
     :initarg :start-time
     :reader org-taskforecast--scheduled-start-time
+    :type org-taskforecast--encoded-time
     :documentation
     "An encoded time of the start time of a schedule.")
    (date-only-p
@@ -450,6 +453,7 @@ This function returns an instance of `org-taskforecast--scheduled'."
   ((time
     :initarg :time
     :reader org-taskforecast--deadline-time
+    :type org-taskforecast--encoded-time
     :documentation
     "An encoded time of a deadline.")
    (date-only-p
