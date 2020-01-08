@@ -1357,8 +1357,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "O") #'org-taskforecast-list-clock-out)
     (define-key map (kbd "n") #'org-taskforecast-list-next-line)
     (define-key map (kbd "p") #'org-taskforecast-list-previous-line)
-    (define-key map (kbd "t") #'org-taskforecast-list-link-todo)
-    (define-key map (kbd "T") #'org-taskforecast-list-todo)
+    (define-key map (kbd "t") #'org-taskforecast-list-todo)
     (define-key map (kbd "e") #'org-taskforecast-list-set-effort)
     (define-key map (kbd "U") #'org-taskforecast-list-move-link-up)
     (define-key map (kbd "D") #'org-taskforecast-list-move-link-down)
@@ -1491,17 +1490,6 @@ If the buffer already exists, only returns the buffer.
              (task-id (org-taskforecast--tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
-          (org-todo))
-        (org-taskforecast--list-refresh))
-    (user-error "Task link not found at the current line")))
-
-(defun org-taskforecast-list-link-todo ()
-  "Change the TODO state of the task link at the current line."
-  (interactive)
-  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-             (id (org-taskforecast--tlink-id task-link)))
-      (progn
-        (org-taskforecast--at-id id
           (org-todo))
         (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
