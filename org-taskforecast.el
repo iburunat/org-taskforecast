@@ -1361,6 +1361,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "e") #'org-taskforecast-list-set-effort)
     (define-key map (kbd "U") #'org-taskforecast-list-move-link-up)
     (define-key map (kbd "D") #'org-taskforecast-list-move-link-down)
+    (define-key map (kbd "d") #'org-taskforecast-list-remove-link)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     (define-key map (kbd "q") #'org-taskforecast-list-quit)
     map)
@@ -1520,6 +1521,27 @@ If the buffer already exists, only returns the buffer.
   "Move task link at the current line down past ARG others."
   (interactive "p")
   (org-taskforecast-list-move-link-up (- arg)))
+
+(defun org-taskforecast-list-remove-link ()
+  "Remove a task link at the current line."
+  (interactive)
+  (-when-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+               (id (org-taskforecast--tlink-id task-link))
+               (title (org-taskforecast--task-title
+                       (org-taskforecast--get-task-by-id
+                        (org-taskforecast--tlink-task-id task-link)))))
+    (org-taskforecast--at-id id
+      (save-restriction
+        (save-excursion
+          (widen)
+          (org-narrow-to-subtree)
+          (delete-region (point-min) (point-max)))))
+    ;; Move the cursor to the next line or the previous line to prevent
+    ;; moving the cursor to the top of a task list.
+    (when (or (/= 0 (forward-line 1)) (eobp))
+      (forward-line -1))
+    (org-taskforecast--list-refresh)
+    (message "%s has been removed from task list." title)))
 
 (defun org-taskforecast-list-quit ()
   "Quit the today's task list buffer."
