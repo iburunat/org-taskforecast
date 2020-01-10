@@ -1403,7 +1403,8 @@ This function inserts contents of `org-taskforecast-list-mode'.
 (define-derived-mode org-taskforecast-list-mode nil "org-taskforecast list"
   "A major-mode to manage today's tasks."
   :group 'org-taskforecast
-  (setq-local truncate-lines t))
+  (setq-local truncate-lines t
+              buffer-read-only t))
 
 (defvar org-taskforecast--list-buffer-name "*org-taskforecast list*"
   "A buffer name for `org-taskforecast-list-mode'.")
@@ -1427,7 +1428,8 @@ If the buffer already exists, only returns the buffer.
                               org-taskforecast--list-buffer-name)
           (org-taskforecast-list-mode)
           (save-excursion
-            (org-taskforecast--insert-task-list today day-start))
+            (let ((inhibit-read-only t))
+              (org-taskforecast--insert-task-list today day-start)))
           (current-buffer)))))
 
 ;;;###autoload
@@ -1443,7 +1445,8 @@ If the buffer already exists, only returns the buffer.
   "Refresh `org-taskforecast-list-mode' buffer."
   (-when-let (buffer (org-taskforecast--get-list-buffer))
     (with-current-buffer buffer
-      (let ((current-link (org-taskforecast--list-get-task-link-at-point)))
+      (let ((inhibit-read-only t)
+            (current-link (org-taskforecast--list-get-task-link-at-point)))
         (erase-buffer)
         (org-taskforecast--insert-task-list
          (org-taskforecast-today)
