@@ -71,6 +71,7 @@ Example of a range of today:
   (list #'org-taskforecast-list-format-effort
         #'org-taskforecast-list-format-task-start
         #'org-taskforecast-list-format-task-end
+        #'org-taskforecast-list-format-clock
         #'org-taskforecast-list-format-link-todo
         #'org-taskforecast-list-format-title)
   "Function list for formatting a task link.
@@ -320,6 +321,8 @@ TIME is an encoded time."
   "Duration of CLOCK as an encoded time.
 
 CLOCK is an instance of `org-taskforecast--clock'."
+  ;; When the end of CLOCK is nil, it will be used as the current time
+  ;; by `time-subtract'.
   (time-subtract (org-taskforecast--clock-end clock)
                  (org-taskforecast--clock-start clock)))
 
@@ -753,8 +756,8 @@ If a first todo task is not found, this function returns nil.
           (time-less-p cstart end)))
    clocks))
 
-(defun org-taskforecast--tlink-has-effective-clock (task-link date day-start)
-  "Non-nil means TASK-LINK has some effective clocks.
+(defun org-taskforecast--tlink-effective-clocks (task-link date day-start)
+  "Effective clocks of TASK-LINK.
 
 An effective clock is a clock information that clocked today.
 If the task link has effective start/end time, an effective clock satisfies
@@ -773,12 +776,12 @@ the following conditions:
           (org-taskforecast--tlink-effective-end-time task-link))
          (clocks
           (org-taskforecast--task-clocks
-           (org-taskforecast--get-task-by-id task-id))))
-    (--some
-     (let ((start (org-taskforecast--clock-start it))
-           (today-start (org-taskforecast--encode-hhmm day-start date))
-           (next-day-start (org-taskforecast--encode-hhmm
-                            (+ day-start 2400) date)))
+           (org-taskforecast--get-task-by-id task-id)))
+         (today-start (org-taskforecast--encode-hhmm day-start date))
+         (next-day-start (org-taskforecast--encode-hhmm
+                          (+ day-start 2400) date)))
+    (--filter
+     (let ((start (org-taskforecast--clock-start it)))
        (and (not (time-less-p start today-start))
             (time-less-p start next-day-start)
             (or (null effective-start-time)
@@ -786,6 +789,17 @@ the following conditions:
             (or (null effective-end-time)
                 (time-less-p start effective-end-time))))
      clocks)))
+
+(defun org-taskforecast--tlink-has-effective-clock (task-link date day-start)
+  "Non-nil means TASK-LINK has some effective clocks.
+
+See `org-taskforecast--tlink-effective-clocks' about effective clock.
+
+- TASK-LINK is an instance of `org-taskforecast--tlink'
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (not (null (org-taskforecast--tlink-effective-clocks
+              task-link date day-start))))
 
 (defun org-taskforecast--tlink-effective-effort (task-link date day-start)
   "Get effort value of TASK-LINK.
@@ -842,7 +856,8 @@ A returned value is an effort second.
 
 (defun org-taskforecast--format-second-to-hhmm (second)
   "Format SECOND to HH:MM style string."
-  (format "%d:%02d" (/ second 3600) (/ (% second 3600) 60)))
+  (let ((second (floor second)))
+    (format "%d:%02d" (/ second 3600) (/ (% second 3600) 60))))
 
 (defun org-taskforecast--split-task-link (link-id time file)
   "Split a task link of LINK-ID on FILE as interrupted at TIME."
@@ -1267,6 +1282,24 @@ This function is used for `org-taskforecast-list-task-formatters'."
                        (overrunp 'org-warning)
                        (end-estimated-p 'org-scheduled)
                        (t 'default)))))
+
+(defun org-taskforecast-list-format-clock ()
+  "Format clock of a task link.
+
+This function is used for `org-taskforecast-list-task-formatters'."
+  (let* ((eclocks (org-taskforecast--tlink-effective-clocks
+                   org-taskforecast-list-info-task-link
+                   org-taskforecast-list-info-today
+                   org-taskforecast-day-start))
+         (total (-reduce-from
+                 #'time-add
+                 (seconds-to-time 0)
+                 (-map #'org-taskforecast--clock-duration eclocks))))
+    (format "%5s"
+            (if eclocks
+                (org-taskforecast--format-second-to-hhmm
+                 (time-to-seconds total))
+              "-:--"))))
 
 (defun org-taskforecast-list-format-link-todo ()
   "Format task link's todo state.
