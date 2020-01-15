@@ -1606,6 +1606,7 @@ If the buffer already exists, only returns the buffer.
 (defvar org-taskforecast-track-mode nil
   "Track changes of original tasks and update today's task list.")
 
+;;;###autoload
 (define-minor-mode org-taskforecast-track-mode
   "Track clocking original tasks and update today's task list."
   :group 'org-taskforecast
