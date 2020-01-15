@@ -1497,15 +1497,22 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-next-line ()
   "Go to the next line."
   (interactive)
-  (let ((lastpos (point)))
-    ;; Prevent moving cursor to the end of line when the current line is
-    ;; the last line of the current buffer.
-    ;; When that condition, `next-line' signals an error from `line-move'.
-    (condition-case err
+  ;; `next-line' moves the cursor to the end of buffer when the cursor is
+  ;; already at the last line and signals `end-of-buffer'.
+  ;; But when the last line does not fit the current window's width,
+  ;; `next-line' does not signal `end-of-buffer'.
+  ;; So check that the cursor is already at the last line to prevent
+  ;; moving the cursor to the end of buffer.
+  (let ((lastpos (point))
+        (lasteobp (eobp)))
+    (condition-case _err
         (call-interactively #'next-line)
-      ((end-of-buffer)
-       (goto-char lastpos)
-       (signal (car err) (cdr err))))))
+      ;; ignore `end-of-buffer' error.
+      ;; It will be signaled after restoring the cursor position.
+      (end-of-buffer))
+    (when (and (or lasteobp (/= (point) lastpos)) (eobp))
+      (goto-char lastpos)
+      (signal 'end-of-buffer nil))))
 
 (defun org-taskforecast-list-previous-line ()
   "Go to the previous line."
