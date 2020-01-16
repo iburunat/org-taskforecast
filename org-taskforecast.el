@@ -591,6 +591,25 @@ If STR is not a org-id link string, this function returns nil."
     (-when-let (((_ id)) (s-match-strings-all re str))
       id)))
 
+(defun org-taskforecast--task-repeat-p (task)
+  "Non-nil means TASK is a repeat task.
+
+TASK is an instance of `org-taskforecast--task'."
+  (or (-some--> (org-taskforecast--task-scheduled task)
+        (org-taskforecast--scheduled-repeat-p it))
+      (-some--> (org-taskforecast--task-deadline task)
+        (org-taskforecast--deadline-repeat-p it))))
+
+(defun org-taskforecast--task-last-repeat (task)
+  "Get the value of LAST_REPEAT of TASK.
+
+This function returns an encoded time.
+If TASK has no property, this function returns nil."
+  (org-taskforecast--at-id (org-taskforecast--task-id task)
+    (-some--> (org-entry-get nil "LAST_REPEAT")
+      (org-parse-time-string it)
+      (encode-time it))))
+
 (defun org-taskforecast--task-todo-state-for-today (task date day-start)
   "Get todo state of TASK for today.
 
@@ -602,7 +621,8 @@ This function returns a symbol, todo or done.
          (scheduled (org-taskforecast--task-scheduled task))
          (deadline (org-taskforecast--task-deadline task))
          (stime (when scheduled
-                  (let ((time (org-taskforecast--scheduled-start-time scheduled)))
+                  (let ((time (org-taskforecast--scheduled-start-time
+                               scheduled)))
                     (if (org-taskforecast--scheduled-date-only-p scheduled)
                         (org-taskforecast--encode-hhmm day-start time)
                       time))))
@@ -611,22 +631,25 @@ This function returns a symbol, todo or done.
                     (if (org-taskforecast--deadline-date-only-p deadline)
                         (org-taskforecast--encode-hhmm day-start time)
                       time))))
-         (repeatp (or (and scheduled (org-taskforecast--scheduled-repeat-p scheduled))
-                      (and deadline (org-taskforecast--deadline-repeat-p deadline))))
+         (repeatp (org-taskforecast--task-repeat-p task))
+         (last-repeat (org-taskforecast--task-last-repeat task))
          (times (-non-nil (list (and scheduled stime) (and deadline dtime))))
+         (today-start
+          (org-taskforecast--encode-hhmm day-start date))
          (next-day-start
           (org-taskforecast--encode-hhmm (+ day-start 2400) date)))
     (unless todo-type
       (error "Task is not a todo heading"))
-    (if (eq todo-type 'done)
-        'done
-      (org-taskforecast-assert (eq todo-type 'todo))
-      (if (not repeatp)
-          'todo
-        (org-taskforecast-assert (not (null times)))
-        (if (--some (time-less-p it next-day-start) times)
-            'todo
-          'done)))))
+    (cond ((eq todo-type 'done) 'done)
+          ;; todo-type is 'todo
+          ((not repeatp) 'todo)
+          ;; repeat task
+          ((--some (time-less-p it next-day-start) times) 'todo)
+          ;; next-day-start =< scheduled/deadline
+          ((not last-repeat) 'todo)
+          ((time-less-p last-repeat today-start) 'todo)
+          ;; day-start =< last-repeat
+          (t 'done))))
 
 (defun org-taskforecast--tlink-todo-state-for-today (task-link date day-start)
   "Get todo state of TASK-LINK for today.
