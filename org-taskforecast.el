@@ -1418,6 +1418,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "U") #'org-taskforecast-list-move-link-up)
     (define-key map (kbd "D") #'org-taskforecast-list-move-link-down)
     (define-key map (kbd "d") #'org-taskforecast-list-remove-link)
+    (define-key map (kbd "P") #'org-taskforecast-list-postpone-link)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     (define-key map (kbd "q") #'org-taskforecast-list-quit)
     map)
@@ -1588,6 +1589,15 @@ If the buffer already exists, only returns the buffer.
   (interactive "p")
   (org-taskforecast-list-move-link-up (- arg)))
 
+(defun org-taskforecast--list-remove-link (link-id)
+  "Remove a task-link of LINK-ID."
+  (org-taskforecast--at-id link-id
+    (save-restriction
+      (save-excursion
+        (widen)
+        (org-narrow-to-subtree)
+        (delete-region (point-min) (point-max))))))
+
 (defun org-taskforecast-list-remove-link ()
   "Remove a task link at the current line."
   (interactive)
@@ -1596,18 +1606,54 @@ If the buffer already exists, only returns the buffer.
                (title (org-taskforecast--task-title
                        (org-taskforecast--get-task-by-id
                         (org-taskforecast--tlink-task-id task-link)))))
-    (org-taskforecast--at-id id
-      (save-restriction
-        (save-excursion
-          (widen)
-          (org-narrow-to-subtree)
-          (delete-region (point-min) (point-max)))))
+    (org-taskforecast--list-remove-link id)
     ;; Move the cursor to the next line or the previous line to prevent
     ;; moving the cursor to the top of a task list.
     (when (or (/= 0 (forward-line 1)) (eobp))
       (forward-line -1))
     (org-taskforecast--list-refresh)
     (message "%s has been removed from task list." title)))
+
+(defun org-taskforecast-list-postpone-link (date)
+  "Postpone task link to DATE.
+
+DATE is an encoded time."
+  (declare (interactive-only t))
+  (interactive
+   (list (let ((link (org-taskforecast--list-get-task-link-at-point)))
+           (cond ((not link)
+                  (user-error "Task link not found at the current line"))
+                 ((eq 'done
+                      (org-taskforecast--tlink-todo-state-for-today
+                       link (current-time) org-taskforecast-day-start))
+                  (user-error "Done task cannot be postponed"))
+                 (t
+                  (org-read-date
+                   nil t nil
+                   (format "Postpone %s to: "
+                           (org-taskforecast--task-title
+                            (org-taskforecast--get-task-by-id
+                             (org-taskforecast--tlink-task-id link))))))))))
+  ;; Error checking is done in interactive code above.
+  (-when-let* ((link (org-taskforecast--list-get-task-link-at-point))
+               (link-id (org-taskforecast--tlink-id link))
+               (task-id (org-taskforecast--tlink-task-id link))
+               (file (org-taskforecast-get-dailylist-file date))
+               (now (current-time)))
+    (if (org-taskforecast--tlink-has-effective-clock
+         link now org-taskforecast-day-start)
+        (org-taskforecast--at-id link-id
+          (org-taskforecast--set-task-link-effective-end-time now))
+      (org-taskforecast--list-remove-link link-id))
+    (--> (org-taskforecast--append-task-link-maybe
+          task-id file date org-taskforecast-day-start)
+         (org-taskforecast--at-id it
+           (org-taskforecast--set-task-link-effective-start-time now)))
+    ;; Move the cursor to the next line or the previous line to prevent
+    ;; moving the cursor to the top of a task list.
+    (when (or (/= 0 (forward-line 1)) (eobp))
+      (forward-line -1))
+    (org-taskforecast--list-refresh)))
 
 (defun org-taskforecast-list-quit ()
   "Quit the today's task list buffer."
