@@ -455,12 +455,6 @@ This function returns an instance of `org-taskforecast--deadline'."
     :type (or null string)
     :documentation
     "A value of Effort property.")
-   (state
-    :initarg :state
-    :reader org-taskforecast--task-state
-    :type symbol
-    :documentation
-    "A todo state as a symbol of todo, running or done.")
    (clocks
     :initarg :clocks
     :reader org-taskforecast--task-clocks
@@ -524,22 +518,12 @@ A returned value is an instance of `org-taskforecast--task'."
            (deadline (-some--> (org-element-property :deadline element)
                        (org-taskforecast--get-deadline-from-timestamp it)))
            (helement (org-taskforecast--parse-heading-without-subtree))
-           (running-p (-contains-p
-                       (org-element-map helement 'clock
-                         (lambda (x) (org-element-property :status x)))
-                       'running))
            (clocks (org-element-map helement 'clock
-                     #'org-taskforecast--get-clock-from-element))
-           (state (cond
-                   ((and (eq todo-type 'todo) running-p) 'running)
-                   ((and (eq todo-type 'todo) (not running-p)) 'todo)
-                   ((eq todo-type 'done) 'done)
-                   (t (error "Not a task heading")))))
+                     #'org-taskforecast--get-clock-from-element)))
       (org-taskforecast--task
        :id id
        :title title
        :effort effort
-       :state state
        :clocks clocks
        :todo todo
        :todo-type todo-type
