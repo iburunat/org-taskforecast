@@ -1247,6 +1247,70 @@ When this function failed, returns nil."
         (insert task-link)))))
 
 
+;;;; org-taskforecast-cache-mode
+
+(defcustom org-taskforecast-use-cache nil
+  "Non-nil means use `org-taskforecast-cache-mode'."
+  :type 'boolean
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
+(defvar org-taskforecast--cache-table nil
+  "A cache table for `org-taskforecast-cache-mode'.")
+
+(defun org-taskforecast--cache-drop (&rest _)
+  "Drop cache data for a heading at point."
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-some--> (org-id-get)
+      (org-taskforecast--memoize-drop it))))
+
+(defvar org-taskforecast-cache-mode nil
+  "Cache parsing results and track heading modification.")
+
+;;;###autoload
+(define-minor-mode org-taskforecast-cache-mode
+  "Cache parsing results and track heading modification.
+
+This global minor mode is used to reduce parsing time of org-mode text.
+This minor mode has 2 features:
+- cache parsing results of org-mode text
+- track heading modification to drop old results
+
+This minor mode stores cache data into
+`org-taskforecast--cache-table' not `org-taskforecast--memoize-cache'
+to make using cache data explicit.
+So to use cache data of this minor mode, binding
+`org-taskforecast--memoize-cache' to `org-taskforecast--cache-table'
+is needed like below:
+
+    (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+      blah-blah-blah...)"
+  :group 'org-taskforecast
+  :global t
+  (let ((hooks '(org-clock-in-hook
+                 org-clock-out-hook
+                 org-clock-cancel-hook
+                 org-after-todo-state-change-hook
+                 org-property-changed-functions)))
+    (if org-taskforecast-cache-mode
+        (progn
+          (setq org-taskforecast--cache-table
+                (org-taskforecast--memoize-make-cache-table))
+          (--each hooks
+           (add-hook it #'org-taskforecast--cache-drop)))
+      (setq org-taskforecast--cache-table nil)
+      (--each hooks
+        (remove-hook it #'org-taskforecast--cache-drop)))))
+
+(defun org-taskforecast--cache-mode-setup ()
+  "Enable `org-taskforecast-cache-mode' if needed."
+  ;; not ((non-nil and non-nil) or (nil and nil))
+  (unless (or (and org-taskforecast-use-cache org-taskforecast-cache-mode)
+              (not
+               (or org-taskforecast-use-cache org-taskforecast-cache-mode)))
+    (org-taskforecast-cache-mode (if org-taskforecast-use-cache 1 -1))))
+
+
 ;;;; General Commands
 
 ;;; Registration
