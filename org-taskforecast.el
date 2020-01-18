@@ -700,20 +700,23 @@ If STR is not a org-id link string, this function returns nil."
   "Non-nil means TASK is a repeat task.
 
 TASK is an instance of `org-taskforecast--task'."
-  (or (-some--> (org-taskforecast--task-scheduled task)
-        (org-taskforecast--scheduled-repeat-p it))
-      (-some--> (org-taskforecast--task-deadline task)
-        (org-taskforecast--deadline-repeat-p it))))
+  (org-taskforecast--memoize (org-taskforecast--task-id task)
+    (or (-some--> (org-taskforecast--task-scheduled task)
+          (org-taskforecast--scheduled-repeat-p it))
+        (-some--> (org-taskforecast--task-deadline task)
+          (org-taskforecast--deadline-repeat-p it)))))
 
 (defun org-taskforecast--task-last-repeat (task)
   "Get the value of LAST_REPEAT of TASK.
 
 This function returns an encoded time.
 If TASK has no property, this function returns nil."
-  (org-taskforecast--at-id (org-taskforecast--task-id task)
-    (-some--> (org-entry-get nil "LAST_REPEAT")
-      (org-parse-time-string it)
-      (encode-time it))))
+  (let ((id (org-taskforecast--task-id task)))
+    (org-taskforecast--memoize id
+      (org-taskforecast--at-id id
+        (-some--> (org-entry-get nil "LAST_REPEAT")
+          (org-parse-time-string it)
+          (encode-time it))))))
 
 (defun org-taskforecast--task-todo-state-for-today (task date day-start)
   "Get todo state of TASK for today.
