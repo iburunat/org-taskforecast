@@ -1317,6 +1317,12 @@ is needed like below:
                (or org-taskforecast-use-cache org-taskforecast-cache-mode)))
     (org-taskforecast-cache-mode (if org-taskforecast-use-cache 1 -1))))
 
+(defun org-taskforecast-cache-clear ()
+  "Clear all cache data of `org-taskforecast-cache-mode'."
+  (interactive)
+  (-some--> org-taskforecast--cache-table
+    (clrhash it)))
+
 
 ;;;; General Commands
 
@@ -1670,9 +1676,14 @@ If the buffer already exists, only returns the buffer.
   (when org-taskforecast-auto-refresh-list-buffer
     (org-taskforecast--list-refresh)))
 
-(defun org-taskforecast-list-refresh ()
-  "Refresh `org-taskforecast-list-mode' buffer."
-  (interactive)
+(defun org-taskforecast-list-refresh (clear-cache)
+  "Refresh `org-taskforecast-list-mode' buffer.
+
+If this command called with a prefix argument (CLEAR-CACHE),
+clear all cache data of `org-taskforecast-cache-mode'."
+  (interactive "P")
+  (when clear-cache
+    (org-taskforecast-cache-clear))
   (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
     (if (org-taskforecast--get-list-buffer)
         (org-taskforecast--list-refresh)
