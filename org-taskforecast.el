@@ -574,12 +574,6 @@ This function returns an instance of `org-taskforecast--deadline'."
     :type (or null string)
     :documentation
     "A value of Effort property.")
-   (clocks
-    :initarg :clocks
-    :reader org-taskforecast--task-clocks
-    :type list
-    :documentation
-    "A list of clock data, each element is an instance of `org-taskforecast--clock'.")
    (todo
     :initarg :todo
     :reader org-taskforecast--task-todo
@@ -635,15 +629,11 @@ A returned value is an instance of `org-taskforecast--task'."
            (scheduled (-some--> (org-element-property :scheduled element)
                         (org-taskforecast--get-scheduled-from-timestamp it)))
            (deadline (-some--> (org-element-property :deadline element)
-                       (org-taskforecast--get-deadline-from-timestamp it)))
-           (helement (org-taskforecast--parse-heading-without-subtree))
-           (clocks (org-element-map helement 'clock
-                     #'org-taskforecast--get-clock-from-element)))
+                       (org-taskforecast--get-deadline-from-timestamp it))))
       (org-taskforecast--task
        :id id
        :title title
        :effort effort
-       :clocks clocks
        :todo todo
        :todo-type todo-type
        :scheduled scheduled
@@ -655,6 +645,17 @@ A returned value is an instance of `org-taskforecast--task'."
 A returned value is an instance of `org-taskforecast--task'."
   (org-taskforecast--at-id id
     (org-taskforecast--get-task)))
+
+(defun org-taskforecast--task-clocks (task)
+  "A list of clock data of TASK.
+
+Each element is an instance of `org-taskforecast--clock'."
+  (let ((id (org-taskforecast--task-id task)))
+    (org-taskforecast--memoize id
+      (org-taskforecast--at-id id
+        (--> (org-taskforecast--parse-heading-without-subtree)
+             (org-element-map it 'clock
+               #'org-taskforecast--get-clock-from-element))))))
 
 (defclass org-taskforecast--tlink ()
   ((id
