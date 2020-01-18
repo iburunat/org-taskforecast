@@ -1336,15 +1336,16 @@ is needed like below:
 
 When the task is already registered, this command does nothing."
   (interactive)
-  (let ((id (if (eq 'org-agenda-mode major-mode)
-                (org-taskforecast--at-agenda-heading
-                  (org-id-get-create))
-              (org-id-get-create)))
-        (file (org-taskforecast-get-dailylist-file (org-taskforecast-today))))
-    (if (org-taskforecast--get-task-links-for-task id file)
-        (message "The task is already registered.")
-      (org-taskforecast--append-task-link id file)
-      (org-taskforecast--list-refresh-maybe))))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (let ((id (if (eq 'org-agenda-mode major-mode)
+                  (org-taskforecast--at-agenda-heading
+                    (org-id-get-create))
+                (org-id-get-create)))
+          (file (org-taskforecast-get-dailylist-file (org-taskforecast-today))))
+      (if (org-taskforecast--get-task-links-for-task id file)
+          (message "The task is already registered.")
+        (org-taskforecast--append-task-link id file)
+        (org-taskforecast--list-refresh-maybe)))))
 
 
 ;;;; task-forecast-list mode
@@ -1628,10 +1629,11 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list ()
   "Show the buffer of `org-taskforecast-list-mode'."
   (interactive)
-  (switch-to-buffer
-   (org-taskforecast--create-list-buffer
-    (org-taskforecast-today)
-    org-taskforecast-day-start)))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (switch-to-buffer
+     (org-taskforecast--create-list-buffer
+      (org-taskforecast-today)
+      org-taskforecast-day-start))))
 
 (defun org-taskforecast--list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
@@ -1664,27 +1666,30 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
   (interactive)
-  (if (org-taskforecast--get-list-buffer)
-      (org-taskforecast--list-refresh)
-    (user-error "List buffer, %s, is not found"
-                org-taskforecast--list-buffer-name)))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (if (org-taskforecast--get-list-buffer)
+        (org-taskforecast--list-refresh)
+      (user-error "List buffer, %s, is not found"
+                  org-taskforecast--list-buffer-name))))
 
 (defun org-taskforecast-list-clock-in ()
   "Start the clock on the task linked from the current line."
   (interactive)
-  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-             (task-id (org-taskforecast--tlink-task-id task-link)))
-      (progn
-        (org-taskforecast--at-id task-id
-          (org-clock-in))
-        (org-taskforecast--list-refresh))
-    (user-error "Task link not found at the current line")))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+               (task-id (org-taskforecast--tlink-task-id task-link)))
+        (progn
+          (org-taskforecast--at-id task-id
+            (org-clock-in))
+          (org-taskforecast--list-refresh))
+      (user-error "Task link not found at the current line"))))
 
 (defun org-taskforecast-list-clock-out ()
   "Stop the current running clock."
   (interactive)
-  (org-clock-out)
-  (org-taskforecast--list-refresh))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (org-clock-out)
+    (org-taskforecast--list-refresh)))
 
 (defun org-taskforecast-list-next-line ()
   "Go to the next line."
@@ -1722,40 +1727,44 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-todo ()
   "Change the TODO state of the task linked from the current line."
   (interactive)
-  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-             (task-id (org-taskforecast--tlink-task-id task-link)))
-      (progn
-        (org-taskforecast--at-id task-id
-          (org-todo))
-        (org-taskforecast--list-refresh))
-    (user-error "Task link not found at the current line")))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+               (task-id (org-taskforecast--tlink-task-id task-link)))
+        (progn
+          (org-taskforecast--at-id task-id
+            (org-todo))
+          (org-taskforecast--list-refresh))
+      (user-error "Task link not found at the current line"))))
 
 (defun org-taskforecast-list-set-effort ()
   "Change Effort property of the task at the current line."
   (interactive)
-  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-             (task-id (org-taskforecast--tlink-task-id task-link)))
-      (progn
-        (org-taskforecast--at-id task-id
-          (org-set-effort))
-        (org-taskforecast--list-refresh))
-    (user-error "Task link not found at the current line")))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+               (task-id (org-taskforecast--tlink-task-id task-link)))
+        (progn
+          (org-taskforecast--at-id task-id
+            (org-set-effort))
+          (org-taskforecast--list-refresh))
+      (user-error "Task link not found at the current line"))))
 
 (defun org-taskforecast-list-move-link-up (&optional arg)
   "Move task link at the current line up past ARG others."
   (interactive "p")
-  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-             (id (org-taskforecast--tlink-id task-link)))
-      (progn
-        (org-taskforecast--at-id id
-          (org-move-subtree-up arg))
-        (org-taskforecast--list-refresh))
-    (user-error "Task link not found at the current line")))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+               (id (org-taskforecast--tlink-id task-link)))
+        (progn
+          (org-taskforecast--at-id id
+            (org-move-subtree-up arg))
+          (org-taskforecast--list-refresh))
+      (user-error "Task link not found at the current line"))))
 
 (defun org-taskforecast-list-move-link-down (&optional arg)
   "Move task link at the current line down past ARG others."
   (interactive "p")
-  (org-taskforecast-list-move-link-up (- arg)))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (org-taskforecast-list-move-link-up (- arg))))
 
 (defun org-taskforecast--list-remove-link (link-id)
   "Remove a task-link of LINK-ID."
@@ -1769,18 +1778,19 @@ If the buffer already exists, only returns the buffer.
 (defun org-taskforecast-list-remove-link ()
   "Remove a task link at the current line."
   (interactive)
-  (-when-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-               (id (org-taskforecast--tlink-id task-link))
-               (title (org-taskforecast--task-title
-                       (org-taskforecast--get-task-by-id
-                        (org-taskforecast--tlink-task-id task-link)))))
-    (org-taskforecast--list-remove-link id)
-    ;; Move the cursor to the next line or the previous line to prevent
-    ;; moving the cursor to the top of a task list.
-    (when (or (/= 0 (forward-line 1)) (eobp))
-      (forward-line -1))
-    (org-taskforecast--list-refresh)
-    (message "%s has been removed from task list." title)))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-when-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+                 (id (org-taskforecast--tlink-id task-link))
+                 (title (org-taskforecast--task-title
+                         (org-taskforecast--get-task-by-id
+                          (org-taskforecast--tlink-task-id task-link)))))
+      (org-taskforecast--list-remove-link id)
+      ;; Move the cursor to the next line or the previous line to prevent
+      ;; moving the cursor to the top of a task list.
+      (when (or (/= 0 (forward-line 1)) (eobp))
+        (forward-line -1))
+      (org-taskforecast--list-refresh)
+      (message "%s has been removed from task list." title))))
 
 (defun org-taskforecast-list-postpone-link (date)
   "Postpone task link to DATE.
@@ -1788,40 +1798,42 @@ If the buffer already exists, only returns the buffer.
 DATE is an encoded time."
   (declare (interactive-only t))
   (interactive
-   (list (let ((link (org-taskforecast--list-get-task-link-at-point)))
-           (cond ((not link)
-                  (user-error "Task link not found at the current line"))
-                 ((eq 'done
-                      (org-taskforecast--tlink-todo-state-for-today
-                       link (current-time) org-taskforecast-day-start))
-                  (user-error "Done task cannot be postponed"))
-                 (t
-                  (org-read-date
-                   nil t nil
-                   (format "Postpone %s to: "
-                           (org-taskforecast--task-title
-                            (org-taskforecast--get-task-by-id
-                             (org-taskforecast--tlink-task-id link))))))))))
+   (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+     (list (let ((link (org-taskforecast--list-get-task-link-at-point)))
+             (cond ((not link)
+                    (user-error "Task link not found at the current line"))
+                   ((eq 'done
+                        (org-taskforecast--tlink-todo-state-for-today
+                         link (current-time) org-taskforecast-day-start))
+                    (user-error "Done task cannot be postponed"))
+                   (t
+                    (org-read-date
+                     nil t nil
+                     (format "Postpone %s to: "
+                             (org-taskforecast--task-title
+                              (org-taskforecast--get-task-by-id
+                               (org-taskforecast--tlink-task-id link)))))))))))
   ;; Error checking is done in interactive code above.
-  (-when-let* ((link (org-taskforecast--list-get-task-link-at-point))
-               (link-id (org-taskforecast--tlink-id link))
-               (task-id (org-taskforecast--tlink-task-id link))
-               (file (org-taskforecast-get-dailylist-file date))
-               (now (current-time)))
-    (if (org-taskforecast--tlink-has-effective-clock
-         link now org-taskforecast-day-start)
-        (org-taskforecast--at-id link-id
-          (org-taskforecast--set-task-link-effective-end-time now))
-      (org-taskforecast--list-remove-link link-id))
-    (--> (org-taskforecast--append-task-link-maybe
-          task-id file date org-taskforecast-day-start)
-         (org-taskforecast--at-id it
-           (org-taskforecast--set-task-link-effective-start-time now)))
-    ;; Move the cursor to the next line or the previous line to prevent
-    ;; moving the cursor to the top of a task list.
-    (when (or (/= 0 (forward-line 1)) (eobp))
-      (forward-line -1))
-    (org-taskforecast--list-refresh)))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-when-let* ((link (org-taskforecast--list-get-task-link-at-point))
+                 (link-id (org-taskforecast--tlink-id link))
+                 (task-id (org-taskforecast--tlink-task-id link))
+                 (file (org-taskforecast-get-dailylist-file date))
+                 (now (current-time)))
+      (if (org-taskforecast--tlink-has-effective-clock
+           link now org-taskforecast-day-start)
+          (org-taskforecast--at-id link-id
+            (org-taskforecast--set-task-link-effective-end-time now))
+        (org-taskforecast--list-remove-link link-id))
+      (--> (org-taskforecast--append-task-link-maybe
+            task-id file date org-taskforecast-day-start)
+           (org-taskforecast--at-id it
+             (org-taskforecast--set-task-link-effective-start-time now)))
+      ;; Move the cursor to the next line or the previous line to prevent
+      ;; moving the cursor to the top of a task list.
+      (when (or (/= 0 (forward-line 1)) (eobp))
+        (forward-line -1))
+      (org-taskforecast--list-refresh))))
 
 (defun org-taskforecast-list-quit ()
   "Quit the today's task list buffer."
