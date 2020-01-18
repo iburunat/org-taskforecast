@@ -1594,6 +1594,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
 (define-derived-mode org-taskforecast-list-mode nil "org-taskforecast list"
   "A major-mode to manage today's tasks."
   :group 'org-taskforecast
+  (org-taskforecast--cache-mode-setup)
   (setq-local truncate-lines t
               buffer-read-only t))
 
@@ -1854,6 +1855,7 @@ DATE is an encoded time."
   "Track clocking original tasks and update today's task list."
   :group 'org-taskforecast
   :global nil
+  (org-taskforecast--cache-mode-setup)
   (if org-taskforecast-track-mode
       (progn
         (add-hook 'org-clock-in-hook
