@@ -1264,7 +1264,9 @@ When this function failed, returns nil."
   "A cache table for `org-taskforecast-cache-mode'.")
 
 (defun org-taskforecast--cache-drop (&rest _)
-  "Drop cache data for a heading at point."
+  "Drop cache data for a heading at point.
+
+This function is used for hook."
   (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
     (-some--> (org-id-get)
       (org-taskforecast--memoize-drop it))))
