@@ -328,7 +328,6 @@ This function stores the value in `org-taskforecast--memoize-cache'.
   "Drop all cached values correspond to ID.
 
 The returned value is undefined.
-This is an utility function for `org-taskforecast--memoize'.
 This function drops values from `org-taskforecast--memoize-cache'.
 
 ID is an id of org-id."
