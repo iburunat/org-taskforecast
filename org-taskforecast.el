@@ -1251,7 +1251,7 @@ When this function failed, returns nil."
 
 ;;;; org-taskforecast-cache-mode
 
-(defcustom org-taskforecast-use-cache nil
+(defcustom org-taskforecast-use-cache t
   "Non-nil means use `org-taskforecast-cache-mode'."
   :type 'boolean
   :group 'org-taskforecast
