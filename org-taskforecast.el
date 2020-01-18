@@ -643,8 +643,9 @@ A returned value is an instance of `org-taskforecast--task'."
   "Get a task by ID.
 
 A returned value is an instance of `org-taskforecast--task'."
-  (org-taskforecast--at-id id
-    (org-taskforecast--get-task)))
+  (org-taskforecast--memoize id
+    (org-taskforecast--at-id id
+      (org-taskforecast--get-task))))
 
 (defun org-taskforecast--task-clocks (task)
   "A list of clock data of TASK.
