@@ -226,6 +226,9 @@ A returned value is a list like (hour minute)."
 (defvar org-taskforecast--memoize-cache nil
   "A hash table for `org-taskforecast--memoize'.
 
+Do not use this variable directory.
+Use `org-taskforecast--memoize-use-cache' macro with a cache table.
+
 The value is a hash table created by
 `org-taskforecast--memoize-make-cache-table' or nil.")
 
@@ -267,6 +270,13 @@ So the cached value is independent for each expression which uses this macro."
          (let ((,valsym (progn ,@body)))
            (org-taskforecast--memoize-set ,idsym ',key ,valsym)
            ,valsym)))))
+
+(defmacro org-taskforecast--memoize-use-cache (cache-table &rest body)
+  "Use CACHE-TABLE as a cache table in BODY."
+  (declare (debug t) (indent 1))
+  `(let ((org-taskforecast--memoize-cache
+          ,cache-table))
+     ,@body))
 
 (defun org-taskforecast--memoize-exists-p (id key)
   "Non-nil means cached value corresponds to ID and KEY is found.
