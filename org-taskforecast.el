@@ -621,8 +621,8 @@ A returned value is an instance of `org-taskforecast--task'."
     (org-back-to-heading)
     (let* ((id (org-id-get-create))
            (element (org-element-at-point))
-           (title (org-taskforecast--normalize-title
-                   (substring-no-properties (org-element-property :title element))))
+           (title (substring-no-properties
+                   (org-element-property :title element)))
            (effort (org-entry-get nil org-effort-property))
            (todo (org-element-property :todo-keyword element))
            (todo-type (org-element-property :todo-type element))
