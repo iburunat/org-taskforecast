@@ -1606,6 +1606,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "P") #'org-taskforecast-list-postpone-link)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     (define-key map (kbd "q") #'org-taskforecast-list-quit)
+    (define-key map (kbd "s") #'org-save-all-org-buffers)
     map)
   "A key map for `org-taskforecast-list-mode'.")
 
