@@ -1308,7 +1308,7 @@ is needed like below:
           (setq org-taskforecast--cache-table
                 (org-taskforecast--memoize-make-cache-table))
           (--each hooks
-           (add-hook it #'org-taskforecast--cache-drop)))
+            (add-hook it #'org-taskforecast--cache-drop)))
       (setq org-taskforecast--cache-table nil)
       (--each hooks
         (remove-hook it #'org-taskforecast--cache-drop)))))
