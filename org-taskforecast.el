@@ -1380,8 +1380,13 @@ When the task is already registered, this command does nothing."
   "Get a task link data via text property from current point.
 
 When there is no task link data, this function returns nil."
-  (get-text-property (point)
-                     org-taskforecast--list-task-link-property))
+  (save-excursion
+    ;; A character of end of line (newline) is not propertized by
+    ;; `org-taskforecast--list-propertize-link-data'.
+    ;; So always get the text property from the beginning of line.
+    (beginning-of-line)
+    (get-text-property (point)
+                       org-taskforecast--list-task-link-property)))
 
 (defvar org-taskforecast-list-info-task-link nil
   "This variable is used to pass a task link data to formatters.
