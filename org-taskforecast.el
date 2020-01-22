@@ -1055,8 +1055,12 @@ This function returns a list of results of FN.
 Why use this function instead of `org-map-entries' is to avoid asking
 about non-existent agenda file by `org-check-agenda-file' when
 the file of the current buffer doesn't exist."
-  (let* (results
-         (f (lambda () (push (funcall fn) results))))
+  (let* ((results nil)
+         (f (lambda ()
+              ;; The current point is not beginning of line when
+              ;; a heading is the first heading on region.
+              (org-back-to-heading t)
+              (push (funcall fn) results))))
     (org-map-region f (point-min) (point-max))
     (nreverse results)))
 
