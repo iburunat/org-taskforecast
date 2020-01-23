@@ -1612,6 +1612,8 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     (define-key map (kbd "q") #'org-taskforecast-list-quit)
     (define-key map (kbd "s") #'org-save-all-org-buffers)
+    (define-key map (kbd "C-c C-s") #'org-taskforecast-list-schedule)
+    (define-key map (kbd "C-c C-d") #'org-taskforecast-list-deadline)
     map)
   "A key map for `org-taskforecast-list-mode'.")
 
@@ -1862,6 +1864,36 @@ DATE is an encoded time."
       (when (or (/= 0 (forward-line 1)) (eobp))
         (forward-line -1))
       (org-taskforecast--list-refresh))))
+
+(defun org-taskforecast-list-schedule (arg)
+  "Call `org-schedule' for the task link at the current point.
+
+ARG is passed to `org-schedule'."
+  (interactive "P")
+  (declare (interactive-only t))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+               (task-id (org-taskforecast--tlink-task-id task-link)))
+        (progn
+          (org-taskforecast--at-id task-id
+            (org-schedule arg))
+          (org-taskforecast--list-refresh))
+      (user-error "Task link not found at the current line"))))
+
+(defun org-taskforecast-list-deadline (arg)
+  "Call `org-deadline' for the task link at the current point.
+
+ARG is passed to `org-deadline'."
+  (interactive "P")
+  (declare (interactive-only t))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+               (task-id (org-taskforecast--tlink-task-id task-link)))
+        (progn
+          (org-taskforecast--at-id task-id
+            (org-deadline arg))
+          (org-taskforecast--list-refresh))
+      (user-error "Task link not found at the current line"))))
 
 (defun org-taskforecast-list-quit ()
   "Quit the today's task list buffer."
