@@ -1302,16 +1302,24 @@ is needed like below:
                  org-clock-out-hook
                  org-clock-cancel-hook
                  org-after-todo-state-change-hook
-                 org-property-changed-functions)))
+                 org-property-changed-functions))
+        ;; What hooks are run after calling these functions?
+        ;; If exist, remove functios and add hooks instead.
+        (fns '(org-schedule
+               org-deadline)))
     (if org-taskforecast-cache-mode
         (progn
           (setq org-taskforecast--cache-table
                 (org-taskforecast--memoize-make-cache-table))
           (--each hooks
-            (add-hook it #'org-taskforecast--cache-drop)))
+            (add-hook it #'org-taskforecast--cache-drop))
+          (--each fns
+            (advice-add it :after #'org-taskforecast--cache-drop)))
       (setq org-taskforecast--cache-table nil)
       (--each hooks
-        (remove-hook it #'org-taskforecast--cache-drop)))))
+        (remove-hook it #'org-taskforecast--cache-drop))
+      (--each fns
+        (advice-remove it #'org-taskforecast--cache-drop)))))
 
 (defun org-taskforecast--cache-mode-setup ()
   "Enable `org-taskforecast-cache-mode' if needed."
