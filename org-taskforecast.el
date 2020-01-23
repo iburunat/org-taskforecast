@@ -68,9 +68,10 @@ Example of a range of today:
   :package-version '(org-taskforecast . "0.1.0"))
 
 (defcustom org-taskforecast-list-task-formatters
-  (list #'org-taskforecast-list-format-effort
+  (list #'org-taskforecast-list-format-scheduled-time
         #'org-taskforecast-list-format-task-start
         #'org-taskforecast-list-format-task-end
+        #'org-taskforecast-list-format-effort
         #'org-taskforecast-list-format-clock
         #'org-taskforecast-list-format-link-todo
         #'org-taskforecast-list-format-title)
@@ -1375,6 +1376,18 @@ When the task is already registered, this command does nothing."
 
 ;;;; task-forecast-list mode
 
+(defcustom org-taskforecast-list-format-scheduled-strategy 'earlier
+  "Which time to show as a scheduled time of a task between SCHEDULED and DEADLINE.
+
+This changes the behavior of `org-taskforecast-list-format-scheduled-time'."
+  ;; "Later" is not implemented which may be unused.
+  :type '(choice
+          (const :tag "SCHEDULED" scheduled)
+          (const :tag "DEADLINE" deadline)
+          (const :tag "Earlier" earlier))
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
 (defvar org-taskforecast--list-task-link-property 'task-link
   "A property symbol for a task link data to propertize string.")
 
@@ -1426,6 +1439,57 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 
 This value will be an instance of `org-taskforecast--tlclock'.
 See `org-taskforecast-list-task-formatters' for more detail.")
+
+(defun org-taskforecast-list-format-scheduled-time ()
+  "Format scheduled/deadline time of a task.
+
+This function is used for `org-taskforecast-list-task-formatters'."
+  (let* ((today org-taskforecast-list-info-today)
+         (day-start org-taskforecast-day-start)
+         (todo (org-taskforecast--tlink-todo-state-for-today
+                org-taskforecast-list-info-task-link
+                today org-taskforecast-day-start))
+         (scheduled (org-taskforecast--task-scheduled
+                    org-taskforecast-list-info-task))
+         (deadline (org-taskforecast--task-deadline
+                    org-taskforecast-list-info-task))
+         (stime (and scheduled
+                     (not (org-taskforecast--scheduled-date-only-p scheduled))
+                     (org-taskforecast--scheduled-start-time scheduled)))
+         (dtime (and deadline
+                     (not (org-taskforecast--deadline-date-only-p deadline))
+                     (org-taskforecast--deadline-time deadline))))
+    (--> (cl-case org-taskforecast-list-format-scheduled-strategy
+           (scheduled stime)
+           (deadline dtime)
+           (earlier (-some--> (-non-nil (list stime dtime))
+                      (-min-by (-flip #'time-less-p) it))))
+         ;; TODO: define faces
+         (cond
+          ((and it
+                (eq todo 'todo)
+                (org-taskforecast--today-p it today day-start))
+           (-let (((hour min) (org-taskforecast--time-to-hhmm it today))
+                  (delayp (time-less-p
+                           it
+                           (org-taskforecast--tlclock-start
+                            org-taskforecast-list-info-task-start-end-time))))
+             (--> (format "%d:%02d" hour min)
+                  (propertize
+                   it 'face
+                   (if delayp 'org-warning 'org-scheduled-today)))))
+          ((and it (eq todo 'done))
+           (-let (((hour min) (org-taskforecast--time-to-hhmm
+                               it
+                               ;; Repeated task's scheduled/deadline time
+                               ;; may not be today.
+                               ;; So adjusting date is needed to show
+                               ;; hour and minute.
+                               (org-taskforecast--today it day-start))))
+             (--> (format "%d:%02d" hour min)
+                  (propertize it 'face 'org-scheduled-previously))))
+          (t ""))
+         (format "%5s" it))))
 
 (defun org-taskforecast-list-format-effort ()
   "Format effort property of a task.
