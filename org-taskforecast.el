@@ -395,16 +395,21 @@ TIME is an encoded time."
                  (format-time-string (org-time-stamp-format t t) time)))
 
 (defmacro org-taskforecast--at-id (id &rest body)
-  "Eval BODY at a heading of ID."
+  "Eval BODY at a heading of ID.
+
+BODY is evaluated in widened buffer to go to appropriate point of
+the buffer whether the buffer narrowed."
   (declare (indent 1) (debug t))
   `(-let (((file . pos) (org-id-find ,id)))
      (with-current-buffer (find-file-noselect file)
        (save-excursion
-         (goto-char pos)
-         ;; To parse with org element api properly
-         ;; even when the heading is folded and invisible.
-         (org-show-context)
-         ,@body))))
+         (save-restriction
+           (widen)
+           (goto-char pos)
+           ;; To parse with org element api properly
+           ;; even when the heading is folded and invisible.
+           (org-show-context)
+           ,@body)))))
 
 (defun org-taskforecast--normalize-title (title)
   "Normalize a TITLE of a heading."
