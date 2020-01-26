@@ -1043,14 +1043,9 @@ is non-nil.
                   date
                   day-start))
         (org-taskforecast--split-task-link link-id (current-time) file))))
-  ;; TODO: consider a case that the task of ID is already done
-  (let* ((link-id (org-taskforecast--append-task-link-maybe
-                   id file date day-start))
-         (task-link (org-taskforecast--get-task-link-by-id link-id))
-         (todo-type (org-taskforecast--tlink-todo-state-for-today
-                     task-link date day-start)))
-    (when (eq todo-type 'todo)
-      (org-taskforecast--move-task-link-to-todo-head link-id file date day-start))
+  (let ((link-id (org-taskforecast--append-task-link-maybe
+                  id file date day-start)))
+    (org-taskforecast--move-task-link-to-todo-head link-id file date day-start)
     link-id))
 
 (defun org-taskforecast--map-headings (fn)
@@ -1980,8 +1975,8 @@ ARG is passed to `org-deadline'."
 
 ;;;; org-taskforecast-track-mode
 
-(defun org-taskforecast--track-register-task ()
-  "Register clock-in task."
+(defun org-taskforecast--track-clock-in-task ()
+  "Register clocked-in task and move it to top of todo tasks."
   (let ((todo-type (org-taskforecast--task-todo-type
                     (org-taskforecast--get-task)))
         (today (org-taskforecast-today)))
@@ -1996,24 +1991,61 @@ ARG is passed to `org-deadline'."
       (when (org-taskforecast--get-list-buffer)
         (org-taskforecast--list-refresh-maybe)))))
 
+(defun org-taskforecast--track-done-task ()
+  "Register done task and move it to top of todo tasks."
+  (when (org-entry-is-done-p)
+    (let* ((today (org-taskforecast-today))
+           (file (org-taskforecast-get-dailylist-file today)))
+      (-if-let* ((id (org-id-get))
+                 (head-pos (org-taskforecast--get-todo-link-head-pos
+                            file today org-taskforecast-day-start))
+                 (links (org-taskforecast--get-task-links-for-task id file)))
+          ;; When task links of task that placed after first todo task link,
+          ;; move that task links to the first todo task link position.
+          (progn
+            ;; Make sure that cache is dropped for calling this function
+            ;; before calling `org-taskforecast--cache-drop' from
+            ;; `org-after-todo-state-change-hook'.
+            (org-taskforecast--cache-drop)
+            (--> links
+                 (--filter
+                  (< head-pos
+                     (cdr (org-id-find (org-taskforecast--tlink-id it))))
+                  it)
+                 (--each it
+                   (org-taskforecast--move-task-link-to-todo-head
+                    (org-taskforecast--tlink-id it)
+                    file today org-taskforecast-day-start))))
+        ;; When task is not registered, register it and move it to the
+        ;; first todo task link position.
+        (org-taskforecast--push-task-link-maybe
+         (org-id-get-create)
+         file today org-taskforecast-day-start)))
+    ;; update list buffer
+    (when (org-taskforecast--get-list-buffer)
+      (org-taskforecast--list-refresh-maybe))))
+
 (defvar org-taskforecast-track-mode nil
   "Track changes of original tasks and update today's task list.")
 
 ;;;###autoload
 (define-minor-mode org-taskforecast-track-mode
-  "Track clocking original tasks and update today's task list."
+  "Register tasks automatically when clocked-in or set to done."
   :group 'org-taskforecast
   :global nil
   (org-taskforecast--cache-mode-setup)
-  (if org-taskforecast-track-mode
-      (progn
-        (add-hook 'org-clock-in-hook
-                  #'org-taskforecast--track-register-task
-                  nil
-                  t))
-    (remove-hook 'org-clock-in-hook
-                 #'org-taskforecast--track-register-task
-                 t)))
+  (let ((hook-fns
+         (list (cons 'org-clock-in-hook
+                     #'org-taskforecast--track-clock-in-task)
+               (cons 'org-after-todo-state-change-hook
+                     #'org-taskforecast--track-done-task))))
+    (if org-taskforecast-track-mode
+        (--each hook-fns
+          (-let (((hook . fn) it))
+            (add-hook hook fn nil t)))
+      (--each hook-fns
+        (-let (((hook . fn) it))
+          (remove-hook hook fn t))))))
 
 (provide 'org-taskforecast)
 ;;; org-taskforecast.el ends here
