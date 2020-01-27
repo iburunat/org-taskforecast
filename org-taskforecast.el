@@ -1525,7 +1525,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
             start
             org-taskforecast-list-info-today)))
     (org-taskforecast-assert (--all-p (>= it 0) (list hour minute)))
-    (propertize (format "%02d:%02d" hour minute)
+    (propertize (format "%2d:%02d" hour minute)
                 ;; TODO: define face
                 'face (if start-estimated-p 'org-scheduled 'default))))
 
@@ -1561,7 +1561,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
            (org-taskforecast--time-to-hhmm
             (if overrunp org-taskforecast-list-info-now end)
             org-taskforecast-list-info-today)))
-    (propertize (format "%02d:%02d" hour minute)
+    (propertize (format "%2d:%02d" hour minute)
                 ;; TODO: define face
                 'face (cond
                        (overrunp 'org-warning)
