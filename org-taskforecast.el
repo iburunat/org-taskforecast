@@ -1978,16 +1978,22 @@ ARG is passed to `org-deadline'."
 (defun org-taskforecast--track-clock-in-task ()
   "Register clocked-in task and move it to top of todo tasks."
   (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
-    (let ((todo-type (org-taskforecast--task-todo-type
-                      (org-taskforecast--get-task)))
-          (today (org-taskforecast-today)))
-      ;; TODO: should consider a case that a done task is clocked?
-      (when (eq todo-type 'todo)
+    (let* ((today (org-taskforecast-today))
+           (file (org-taskforecast-get-dailylist-file today))
+           (task (org-taskforecast--get-task))
+           (todo-type (org-taskforecast--task-todo-state-for-today
+                       task today org-taskforecast-day-start)))
+      ;; A new task link will not be registered if the task's state is done
+      ;; and some task links for the task is already registered.
+      ;; This function's purpose for a clocked-in task are:
+      ;; - to register it if no task link of it is registered
+      ;; - to move a task link of it to the top of todo task links
+      (when (or (eq todo-type 'todo)
+                (and (eq todo-type 'done)
+                     (null (org-taskforecast--get-task-links-for-task
+                            (org-taskforecast--task-id task) file))))
         (org-taskforecast--push-task-link-maybe
-         (org-id-get-create)
-         (org-taskforecast-get-dailylist-file today)
-         today
-         org-taskforecast-day-start)
+         (org-id-get-create) file today org-taskforecast-day-start)
         ;; update list buffer
         (when (org-taskforecast--get-list-buffer)
           (org-taskforecast--list-refresh-maybe))))))
