@@ -493,7 +493,6 @@ If hour and minute part do not exist, they are set to zero."
 (defclass org-taskforecast--scheduled ()
   ((start-time
     :initarg :start-time
-    :reader org-taskforecast--scheduled-start-time
     :type org-taskforecast--encoded-time
     :documentation
     "An encoded time of the start time of a schedule.")
@@ -511,6 +510,21 @@ If hour and minute part do not exist, they are set to zero."
     "Non-nil means the time stamp of a schedule has a repeater."))
   :documentation
   "A SCHEDULED property of a task.")
+
+(cl-defun org-taskforecast--scheduled-start-time (scheduled &optional (hour 0) (minute 0) (second 0))
+  "An encoded time of the start time of SCHEDULED.
+
+SCHEDULED is an instance of `org-taskforecast--scheduled'.
+HOUR, MINUTE and SECOND are the default values if SCHEDULED doesn't have those part."
+  (let ((dtime (decode-time (slot-value scheduled 'start-time)))
+        (date-only-p (org-taskforecast--scheduled-date-only-p scheduled)))
+    (encode-time
+     second
+     (if date-only-p minute (decoded-time-minute dtime))
+     (if date-only-p hour (decoded-time-hour dtime))
+     (decoded-time-day dtime)
+     (decoded-time-month dtime)
+     (decoded-time-year dtime))))
 
 (defun org-taskforecast--get-scheduled-from-timestamp (timestamp)
   "Get a scheduled information from TIMESTAMP.
@@ -530,7 +544,6 @@ This function returns an instance of `org-taskforecast--scheduled'."
 (defclass org-taskforecast--deadline ()
   ((time
     :initarg :time
-    :reader org-taskforecast--deadline-time
     :type org-taskforecast--encoded-time
     :documentation
     "An encoded time of a deadline.")
@@ -548,6 +561,21 @@ This function returns an instance of `org-taskforecast--scheduled'."
     "Non-nil means the time stamp of a deadline has a repeater."))
   :documentation
   "A DEADLINE property of a task.")
+
+(cl-defun org-taskforecast--deadline-time (deadline &optional (hour 0) (minute 0) (second 0))
+  "An encoded time of the time of DEADLINE.
+
+DEADLINE is an instance of `org-taskforecast--deadline'.
+HOUR, MINUTE and SECOND are the default values if DEADLINE doesn't have those part."
+  (let ((dtime (decode-time (slot-value deadline 'time)))
+        (date-only-p (org-taskforecast--deadline-date-only-p deadline)))
+    (encode-time
+     second
+     (if date-only-p minute (decoded-time-minute dtime))
+     (if date-only-p hour (decoded-time-hour dtime))
+     (decoded-time-day dtime)
+     (decoded-time-month dtime)
+     (decoded-time-year dtime))))
 
 (defun org-taskforecast--get-deadline-from-timestamp (timestamp)
   "Get a deadline information from TIMESTAMP.
