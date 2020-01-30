@@ -2000,14 +2000,14 @@ ARG is passed to `org-deadline'."
 
 (defun org-taskforecast--track-done-task ()
   "Register done task and move it to top of todo tasks."
-  ;; For repeated tasks, get todo state by `org-state' which set by
-  ;; `org-after-todo-state-change-hook' instead of `org-entry-is-done-p'
-  ;; to prevent getting todo state after repeating.
-  ;; But in implementation, `org-after-todo-state-change-hook' is run
-  ;; before repeating a task.
-  ;; So this consideration is not necessary,
-  ;; but to indicate that repeated tasks are considered, use `org-state' here.
-  (when (member org-state org-done-keywords)
+  ;; This function assumes that this is called via
+  ;; `org-after-todo-state-change-hook'.
+  ;; The hook is run before repeating a task.
+  ;; So the state of the task at this time is the specified one by user.
+  ;; The reason of not to use `org-state' is it causes
+  ;; "reference to free variable" warning without definition of the variable
+  ;; in this file.
+  (when (org-entry-is-done-p)
     (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
       (let* ((today (org-taskforecast-today))
              (file (org-taskforecast-get-dailylist-file today)))
