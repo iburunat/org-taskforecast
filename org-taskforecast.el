@@ -184,12 +184,15 @@ This function returns an encoded time as a date of today."
     (org-taskforecast--time-as-date
      (encode-time decoded))))
 
+(defvar org-taskforecast--today nil
+  "Current time for `org-taskforecast-today' to override.")
+
 (defun org-taskforecast-today ()
   "Get today's date of now.
 
 This function depends on:
 - `org-taskforecast-day-start'"
-  (org-taskforecast--today (current-time)
+  (org-taskforecast--today (or org-taskforecast--today (current-time))
                            org-taskforecast-day-start))
 
 (defun org-taskforecast--time-to-hhmm (time today)
