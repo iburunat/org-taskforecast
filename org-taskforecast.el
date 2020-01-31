@@ -108,6 +108,19 @@ Other global variables also are set for formatting:
   :group 'rog-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-sorting-storategy
+  (list #'org-taskforecast-ss-time-up)
+  "A list of functions to sort task links.
+
+Each function takes two task links like A and B.
+The function returns:
+- +1  if A > B
+- -1  if A < B
+- nil if A == B"
+  :type '(repeat function)
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
 
 ;;;; Lisp Utility
 
@@ -695,6 +708,21 @@ Each element is an instance of `org-taskforecast--clock'."
              (org-element-map it 'clock
                #'org-taskforecast--get-clock-from-element))))))
 
+(cl-defun org-taskforecast--task-early-planning (task &optional (hour 0) (minute 0) (second 0))
+  "An encoded time of earlier of scheduled and deadline of TASK.
+
+This function returns nil if TASK has no scheduled and deadline.
+HOUR, MINUTE and SECOND are default values if the timestamp doesn't have those parts."
+  (let* ((scheduled (org-taskforecast--task-scheduled task))
+         (deadline (org-taskforecast--task-deadline task))
+         (stime (and scheduled (org-taskforecast--scheduled-start-time
+                                scheduled hour minute second)))
+         (dtime (and deadline (org-taskforecast--deadline-time
+                               deadline hour minute second))))
+    (-some--> (list stime dtime)
+      (-non-nil it)
+      (-min-by (-flip #'time-less-p) it))))
+
 (defclass org-taskforecast--tlink ()
   ((id
     :initarg :id
@@ -812,6 +840,11 @@ This function returns a symbol, todo or done.
         ;; interrupted if efective-end-time exists
         'done
       (org-taskforecast--task-todo-state-for-today task date day-start))))
+
+(defun org-taskforecast--tlink-task (task-link)
+  "Get task linked from TASK-LINK."
+  (org-taskforecast--get-task-by-id
+   (org-taskforecast--tlink-task-id task-link)))
 
 (defun org-taskforecast--get-task-link ()
   "Get a task link at the current point.
@@ -1286,6 +1319,116 @@ When this function failed, returns nil."
       (save-excursion
         (goto-char head)
         (insert task-link)))))
+
+
+;;; Sort
+
+(defun org-taskforecast--sort-compare (a b comparators)
+  "Compare A and B with COMPARATORS.
+
+A returned value is:
+- +1  if A > B
+- -1  if A < B
+- nil if A == B"
+  (cl-loop for cmp in comparators
+           for res = (funcall cmp a b)
+           when (eql res +1) return +1
+           when (eql res -1) return -1))
+
+(defun org-taskforecast-sort-task-link-up (task-link file)
+  "Sort TASK-LINK up in FILE.
+
+Move TASK-LINK up while it > previous one in FILE, like bubble sort.
+This function moves noly TASK-LINK not all of task links in FILE.
+
+- TASK-LINK is an instance of `org-taskforecast--tlink'
+- FILE is a today's daily task list file name"
+  (let* ((tlinks (org-taskforecast--get-task-links file))
+         (target-tlink-p (lambda (a)
+                           (string= (org-taskforecast--tlink-id a)
+                                    (org-taskforecast--tlink-id task-link))))
+         (registeredp (-some target-tlink-p tlinks)))
+    (when registeredp
+      (-let (((head _) (-split-when target-tlink-p tlinks))
+             (insert-before nil)
+             (comparators (append (list #'org-taskforecast--ss-interruption-up
+                                        #'org-taskforecast--ss-todo-up)
+                                  org-taskforecast-sorting-storategy)))
+        (--each-r-while head
+            (eql +1 (org-taskforecast--sort-compare task-link it comparators))
+          (setq insert-before it))
+        (when insert-before
+          (-let ((tree (org-taskforecast--cut-heading-by-id
+                        (org-taskforecast--tlink-id task-link)))
+                 ((_ . pos) (org-id-find
+                             (org-taskforecast--tlink-id insert-before))))
+            (with-current-buffer (find-file-noselect file)
+              (save-excursion
+                (save-restriction
+                  (widen)
+                  (goto-char pos)
+                  (insert tree "\n"))))))))))
+
+;; Comparators
+
+(defun org-taskforecast--sort-invert-comparator (comparator)
+  "Make an inverted version of COMPARATOR."
+  (lambda (a b)
+    (cl-case (funcall comparator a b)
+      (+1 -1)
+      (-1 +1))))
+
+(defun org-taskforecast-ss-time-up (a b)
+  "Compare A and B by scheduled/deadline, early first."
+  (let* (;; date with hh:mm > date only
+         (hh (+ (/ org-taskforecast-day-start 100) 24))
+         (mm (% org-taskforecast-day-start 100))
+         (tta (org-taskforecast--task-early-planning
+               (org-taskforecast--tlink-task a) hh mm))
+         (ttb (org-taskforecast--task-early-planning
+               (org-taskforecast--tlink-task b) hh mm)))
+    (cond ((and tta ttb (time-less-p tta ttb) +1))
+          ((and tta ttb (time-less-p ttb tta) -1))
+          ((and tta ttb (time-equal-p tta ttb) nil))
+          ((and tta (null ttb)) +1)
+          ((and (null tta) ttb) -1)
+          (t nil))))
+
+(defalias 'org-taskforecast-ss-time-down
+  (org-taskforecast--sort-invert-comparator #'org-taskforecast-ss-time-up)
+  "Compare A and B by scheduled/deadline, later first.")
+
+(defun org-taskforecast--ss-todo-up (a b)
+  "Compare A and B by todo state, done first.
+
+This is an internal comparator, so down version is not defined."
+  (let* ((today (org-taskforecast-today))
+         (sa (org-taskforecast--tlink-todo-state-for-today
+              a today org-taskforecast-day-start))
+         (sb (org-taskforecast--tlink-todo-state-for-today
+              b today org-taskforecast-day-start)))
+    (cond ((and (eq sa 'done) (eq sb 'todo)) +1)
+          ((and (eq sa 'todo) (eq sb 'done)) -1)
+          (t nil))))
+
+(defun org-taskforecast--ss-interruption-up (a b)
+  "Compare A and B by interruption property for a same task, older farst.
+
+This is an internal comparator, so down version is not defined."
+  (let ((esa (org-taskforecast--tlink-effective-start-time a))
+        (esb (org-taskforecast--tlink-effective-start-time b))
+        (eea (org-taskforecast--tlink-effective-end-time a))
+        (eeb (org-taskforecast--tlink-effective-end-time b))
+        (tida (org-taskforecast--tlink-task-id a))
+        (tidb (org-taskforecast--tlink-task-id b)))
+    (cond ((not (string= tida tidb)) nil)
+          ((and esa esb (time-less-p esa esb)) +1)
+          ((and esa esb (time-less-p esb esa)) -1)
+          ((and eea eeb (time-less-p eea eeb)) +1)
+          ((and eea eeb (time-less-p eeb eea)) -1)
+          ((or (null esa) (null eeb)) +1)
+          ((or (null eea) (null esb)) -1)
+          (t nil))))
 
 
 ;;;; org-taskforecast-cache-mode
