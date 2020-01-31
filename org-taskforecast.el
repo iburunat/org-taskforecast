@@ -6,7 +6,7 @@
 ;; URL: https://github.com/HKey/org-taskforecast
 ;; Keywords: convenience
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "25") (dash "2.16.0") (dash-functional "2.16.0") (s "1.12.0"))
+;; Package-Requires: ((emacs "25") (dash "2.16.0") (dash-functional "2.16.0") (s "1.12.0") (org-ql "0.4"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@
 (require 'dash)
 (require 'dash-functional)
 (require 's)
+(require 'org-ql)
 
 ;;;; Custom
 
@@ -1546,6 +1547,45 @@ When the task is already registered, this command does nothing."
           (message "The task is already registered.")
         (org-taskforecast--append-task-link id file)
         (org-taskforecast--list-refresh-maybe)))))
+
+;;;###autoload
+(defun org-taskforecast-register-tasks-for-today ()
+  "Register tasks for today or before as tasks for today from agenda files.
+
+If a task is not registered, register and sort it.
+If not, do nothing."
+  (interactive)
+  ;; TODO: consider deadline warning
+  ;; TODO: make query and filtering customizable
+  (org-ql-select (org-agenda-files)
+    '(and (todo) (ts-a))
+    :action
+    (lambda ()
+      (let* ((today (org-taskforecast-today))
+             (next-day-start (org-taskforecast--encode-hhmm
+                              (+ org-taskforecast-day-start 2400)
+                              today))
+             (hh (/ org-taskforecast-day-start 100))
+             (mm (% org-taskforecast-day-start 100))
+             (element (org-element-at-point))
+             (stime (-some--> (org-element-property :scheduled element)
+                      (org-taskforecast--get-scheduled-from-timestamp it)
+                      (org-taskforecast--scheduled-start-time it hh mm)))
+             (dtime (-some--> (org-element-property :deadline element)
+                      (org-taskforecast--get-deadline-from-timestamp it)
+                      (org-taskforecast--deadline-time it hh mm)))
+             (todayp (--> (list stime dtime)
+                          (-non-nil it)
+                          (--some (time-less-p it next-day-start) it))))
+        (when todayp
+          (let* ((id (org-id-get-create))
+                 (file (org-taskforecast-get-dailylist-file today))
+                 (registerdp (org-taskforecast--get-task-links-for-task id file)))
+            (when (not registerdp)
+              (--> (org-taskforecast--append-task-link id file)
+                   (org-taskforecast--get-task-link-by-id it)
+                   (org-taskforecast-sort-task-link-up it file))))))))
+  (org-taskforecast--list-refresh-maybe))
 
 
 ;;;; task-forecast-list mode
