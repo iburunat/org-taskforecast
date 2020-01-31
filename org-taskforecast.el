@@ -29,7 +29,6 @@
 
 (require 'cl-lib)
 (require 'eieio)
-(require 'text-property-search)
 (require 'org)
 (require 'org-clock)
 (require 'org-element)
@@ -1958,16 +1957,16 @@ If the buffer already exists, only returns the buffer.
          org-taskforecast-day-start)
         ;; Restore the line position of the cursor
         (goto-char (point-min))
-        (-when-let* ((current-link current-link)
-                     (pmatch (text-property-search-forward
-                              org-taskforecast--list-task-link-property
-                              current-link
-                              (lambda (a b)
-                                (when (and a b)
-                                  (string-equal
-                                   (org-taskforecast--tlink-id a)
-                                   (org-taskforecast--tlink-id b)))))))
-          (goto-char (prop-match-beginning pmatch)))))))
+        (-some--> current-link
+          (save-excursion
+            (cl-loop until (eobp)
+                     for tlink = (org-taskforecast--list-get-task-link-at-point)
+                     if (string=
+                         (org-taskforecast--tlink-id it)
+                         (org-taskforecast--tlink-id tlink))
+                     return (point)
+                     else do (forward-line)))
+          (goto-char it))))))
 
 (defun org-taskforecast--list-refresh-maybe ()
   "Refresh `org-taskforecast-list-mode' buffer if `org-taskforecast-auto-refresh-list-buffer' is non-nil."
