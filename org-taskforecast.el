@@ -1398,6 +1398,41 @@ This function moves noly TASK-LINK not all of task links in FILE.
   (org-taskforecast--sort-invert-comparator #'org-taskforecast-ss-time-up)
   "Compare A and B by scheduled/deadline, later first.")
 
+(defun org-taskforecast-ss-effective-effort-up (a b)
+  "Compare A and B by effective effort, high effort last.
+
+The order is:
+1. low effort
+2. high effort
+3. no effort"
+  (let* ((today (org-taskforecast-today))
+         (eea (org-taskforecast--tlink-effective-effort
+               a today org-taskforecast-day-start))
+         (eeb (org-taskforecast--tlink-effective-effort
+               b today org-taskforecast-day-start)))
+    (cond ((and eea eeb (< eea eeb)) +1)
+          ((and eea eeb (> eea eeb)) -1)
+          ((and eea eeb (= eea eeb)) nil)
+          ((and eea (null eeb)) +1)
+          ((and (null eea) eeb) -1)
+          (t nil))))
+
+(defun org-taskforecast-ss-effective-effort-down (a b)
+  "Compare A and B by effective effort, high effort first.
+
+The order is:
+1. high effort
+2. low effort
+3. no effort"
+  (let* ((today (org-taskforecast-today))
+         (eea (org-taskforecast--tlink-effective-effort
+               a today org-taskforecast-day-start))
+         (eeb (org-taskforecast--tlink-effective-effort
+               b today org-taskforecast-day-start)))
+    (cond ((and eea (null eeb)) +1)
+          ((and (null eea) eeb) -1)
+          (t (org-taskforecast-ss-effective-effort-up b a)))))
+
 (defun org-taskforecast--ss-todo-up (a b)
   "Compare A and B by todo state, done first.
 
