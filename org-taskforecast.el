@@ -1371,13 +1371,6 @@ This function moves noly TASK-LINK not all of task links in FILE.
 
 ;; Comparators
 
-(defun org-taskforecast--sort-invert-comparator (comparator)
-  "Make an inverted version of COMPARATOR."
-  (lambda (a b)
-    (cl-case (funcall comparator a b)
-      (+1 -1)
-      (-1 +1))))
-
 (defun org-taskforecast-ss-time-up (a b)
   "Compare A and B by scheduled/deadline, early first."
   (let* (;; date with hh:mm > date only
@@ -1394,8 +1387,7 @@ This function moves noly TASK-LINK not all of task links in FILE.
           ((and (null tta) ttb) -1)
           (t nil))))
 
-(defalias 'org-taskforecast-ss-time-down
-  (org-taskforecast--sort-invert-comparator #'org-taskforecast-ss-time-up)
+(defalias 'org-taskforecast-ss-time-down (-flip #'org-taskforecast-ss-time-up)
   "Compare A and B by scheduled/deadline, later first.")
 
 (defun org-taskforecast-ss-effective-effort-up (a b)
