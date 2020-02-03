@@ -1926,6 +1926,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "s") #'org-save-all-org-buffers)
     (define-key map (kbd "C-c C-s") #'org-taskforecast-list-schedule)
     (define-key map (kbd "C-c C-d") #'org-taskforecast-list-deadline)
+    (define-key map (kbd "z") #'org-taskforecast-list-add-note)
     map)
   "A key map for `org-taskforecast-list-mode'.")
 
@@ -2204,6 +2205,19 @@ ARG is passed to `org-deadline'."
         (progn
           (org-taskforecast--at-id task-id
             (org-deadline arg))
+          (org-taskforecast--list-refresh))
+      (user-error "Task link not found at the current line"))))
+
+(defun org-taskforecast-list-add-note ()
+  "Call `org-add-note' for the task at the current point."
+  (interactive)
+  (declare (interactive-only t))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+               (task-id (org-taskforecast--tlink-task-id task-link)))
+        (progn
+          (org-taskforecast--at-id task-id
+            (org-add-note))
           (org-taskforecast--list-refresh))
       (user-error "Task link not found at the current line"))))
 
