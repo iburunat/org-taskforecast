@@ -2336,4 +2336,5 @@ ARG is passed to `org-deadline'."
 ;; eval: (when (fboundp 'flycheck-mode) (flycheck-mode 1))
 ;; eval: (when (fboundp 'flycheck-package-setup) (flycheck-package-setup))
 ;; byte-compile-error-on-warn: t
+;; eval: (outline-minor-mode 1)
 ;; End:
