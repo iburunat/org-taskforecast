@@ -170,6 +170,23 @@ DAY is an encoded time."
           (decoded-time-second time) 0)
     (encode-time time)))
 
+(defun org-taskforecast--format-second-to-hhmm (second)
+  "Format SECOND to HH:MM style string."
+  (let ((second (floor second)))
+    (format "%d:%02d" (/ second 3600) (/ (% second 3600) 60))))
+
+(defun org-taskforecast--effort-to-second (effort-str)
+  "Convert string of effort property to second.
+
+EFFORT-STR is a string of a value of an effort property.
+If effort-str invalid, this function returns nil."
+  (-let* ((re (rx bos (? (group (+ num)) ":") (group (+ num)) eos))
+          (((_ h m)) (s-match-strings-all re effort-str)))
+    ;; Effort property sometimes has no colon format like "0".
+    (when m
+      (+ (* 60 60 (if h (string-to-number h) 0))
+         (* 60 (string-to-number m))))))
+
 (defun org-taskforecast--time-as-date (time)
   "Set hour, minute and second of TIME to zero.
 
@@ -351,64 +368,9 @@ ID is an id of org-id."
   (-some--> org-taskforecast--memoize-cache
     (remhash id it)))
 
-;;; File
-
-(defun org-taskforecast-get-dailylist-file (today)
-  "Get the path of today's daily task list file for TODAY.
-
-This function depends on:
-- `org-taskforecast-dailylist-file' as a file format
-- `org-taskforecast-day-start' to determine the date of today"
-  (expand-file-name
-   (format-time-string org-taskforecast-dailylist-file today)))
-
 ;;; Org-mode
 
-(defconst org-taskforecast--task-link-effective-start-time-prop-name
-  "ORG_TASKFORECAST_TASK_LINK_EFFECTIVE_START_TIME"
-  "Property name of an effective start time of a task link.")
-
-(defconst org-taskforecast--task-link-effective-end-time-prop-name
-  "ORG_TASKFORECAST_TASK_LINK_EFFECTIVE_END_TIME"
-  "Property name of an effective end time of a task link.")
-
-(defun org-taskforecast--get-task-link-effective-start-time ()
-  "Get the task link's effective start time property from a heading.
-
-A returned value is an encoded time."
-  (-some-->
-      (org-entry-get
-       nil
-       org-taskforecast--task-link-effective-start-time-prop-name)
-    (org-parse-time-string it)
-    (encode-time it)))
-
-(defun org-taskforecast--get-task-link-effective-end-time ()
-  "Get the task link's effective end time property from a heading.
-
-A returned value is an encoded time."
-  (-some-->
-      (org-entry-get
-       nil
-       org-taskforecast--task-link-effective-end-time-prop-name)
-    (org-parse-time-string it)
-    (encode-time it)))
-
-(defun org-taskforecast--set-task-link-effective-start-time (time)
-  "Set the task link's effective start time property to TIME.
-
-TIME is an encoded time."
-  (org-entry-put nil
-                 org-taskforecast--task-link-effective-start-time-prop-name
-                 (format-time-string (org-time-stamp-format t t) time)))
-
-(defun org-taskforecast--set-task-link-effective-end-time (time)
-  "Set the task link's effective end time property to TIME.
-
-TIME is an encoded time."
-  (org-entry-put nil
-                 org-taskforecast--task-link-effective-end-time-prop-name
-                 (format-time-string (org-time-stamp-format t t) time)))
+;;;; Small utility
 
 (defmacro org-taskforecast--at-id (id &rest body)
   "Eval BODY at a heading of ID.
@@ -441,6 +403,18 @@ the buffer whether the buffer narrowed."
        (progn (outline-back-to-heading) (point))
        (progn (outline-next-heading) (point)))
       (org-element-parse-buffer))))
+
+(defun org-taskforecast--get-link-id (str)
+  "Get a link id from STR.
+
+STR is a org-id link string like \"[[id:1234][foo]]\".
+If STR is not a org-id link string, this function returns nil."
+  (let ((re (rx bos "[[id:" (group (+ (not (any "]")))) "]["
+                (+ (not (any "]"))) "]]" eos)))
+    (-when-let (((_ id)) (s-match-strings-all re str))
+      id)))
+
+;;;; clock class
 
 (defclass org-taskforecast--clock ()
   ((start
@@ -502,6 +476,19 @@ If hour and minute part do not exist, they are set to zero."
    (org-element-property :month-end timestamp)
    (org-element-property :year-end timestamp)))
 
+(defun org-taskforecast--get-clocks-in-range (clocks start end)
+  "Get clocks between START and END from CLOCKS.
+
+- CLOCKS is a list of instances of `org-taskforecast--clock'
+- START is an encoded time
+- END is an encoded time"
+  (--filter
+   (let ((cstart (org-taskforecast--clock-start it)))
+     (and (not (time-less-p cstart start))
+          (time-less-p cstart end)))
+   clocks))
+
+;;;; scheduled class
 
 (defclass org-taskforecast--scheduled ()
   ((start-time
@@ -554,6 +541,8 @@ This function returns an instance of `org-taskforecast--scheduled'."
      :date-only-p date-only-p
      :repeatp repeatp)))
 
+;;;; deadline class
+
 (defclass org-taskforecast--deadline ()
   ((time
     :initarg :time
@@ -604,6 +593,8 @@ This function returns an instance of `org-taskforecast--deadline'."
      :time time
      :date-only-p date-only-p
      :repeatp repeatp)))
+
+;;;; task class
 
 (defclass org-taskforecast--task ()
   ((id
@@ -723,44 +714,6 @@ HOUR, MINUTE and SECOND are default values if the timestamp doesn't have those p
       (-non-nil it)
       (-min-by (-flip #'time-less-p) it))))
 
-(defclass org-taskforecast--tlink ()
-  ((id
-    :initarg :id
-    :reader org-taskforecast--tlink-id
-    :type string
-    :documentation
-    "An ID of org-id.")
-   (task-id
-    :initarg :task-id
-    :reader org-taskforecast--tlink-task-id
-    :type string
-    :documentation
-    "An ID of a task where this links to.")
-   (effective-start-time
-    :initarg :effective-start-time
-    :reader org-taskforecast--tlink-effective-start-time
-    :type (or null org-taskforecast--encoded-time)
-    :documentation
-    "An encoded time when the task link is effective after.")
-   (effective-end-time
-    :initarg :effective-end-time
-    :reader org-taskforecast--tlink-effective-end-time
-    :type (or null org-taskforecast--encoded-time)
-    :documentation
-    "An encoded time when the task link is effective before."))
-  :documentation
-  "A task link data.")
-
-(defun org-taskforecast--get-link-id (str)
-  "Get a link id from STR.
-
-STR is a org-id link string like \"[[id:1234][foo]]\".
-If STR is not a org-id link string, this function returns nil."
-  (let ((re (rx bos "[[id:" (group (+ (not (any "]")))) "]["
-                (+ (not (any "]"))) "]]" eos)))
-    (-when-let (((_ id)) (s-match-strings-all re str))
-      id)))
-
 (defun org-taskforecast--task-repeat-p (task)
   "Non-nil means TASK is a repeat task.
 
@@ -824,6 +777,82 @@ This function returns a symbol, todo or done.
           ;; day-start =< last-repeat
           (t 'done))))
 
+;;;; tlink class
+
+(defconst org-taskforecast--task-link-effective-start-time-prop-name
+  "ORG_TASKFORECAST_TASK_LINK_EFFECTIVE_START_TIME"
+  "Property name of an effective start time of a task link.")
+
+(defconst org-taskforecast--task-link-effective-end-time-prop-name
+  "ORG_TASKFORECAST_TASK_LINK_EFFECTIVE_END_TIME"
+  "Property name of an effective end time of a task link.")
+
+(defun org-taskforecast--get-task-link-effective-start-time ()
+  "Get the task link's effective start time property from a heading.
+
+A returned value is an encoded time."
+  (-some-->
+      (org-entry-get
+       nil
+       org-taskforecast--task-link-effective-start-time-prop-name)
+    (org-parse-time-string it)
+    (encode-time it)))
+
+(defun org-taskforecast--get-task-link-effective-end-time ()
+  "Get the task link's effective end time property from a heading.
+
+A returned value is an encoded time."
+  (-some-->
+      (org-entry-get
+       nil
+       org-taskforecast--task-link-effective-end-time-prop-name)
+    (org-parse-time-string it)
+    (encode-time it)))
+
+(defun org-taskforecast--set-task-link-effective-start-time (time)
+  "Set the task link's effective start time property to TIME.
+
+TIME is an encoded time."
+  (org-entry-put nil
+                 org-taskforecast--task-link-effective-start-time-prop-name
+                 (format-time-string (org-time-stamp-format t t) time)))
+
+(defun org-taskforecast--set-task-link-effective-end-time (time)
+  "Set the task link's effective end time property to TIME.
+
+TIME is an encoded time."
+  (org-entry-put nil
+                 org-taskforecast--task-link-effective-end-time-prop-name
+                 (format-time-string (org-time-stamp-format t t) time)))
+
+(defclass org-taskforecast--tlink ()
+  ((id
+    :initarg :id
+    :reader org-taskforecast--tlink-id
+    :type string
+    :documentation
+    "An ID of org-id.")
+   (task-id
+    :initarg :task-id
+    :reader org-taskforecast--tlink-task-id
+    :type string
+    :documentation
+    "An ID of a task where this links to.")
+   (effective-start-time
+    :initarg :effective-start-time
+    :reader org-taskforecast--tlink-effective-start-time
+    :type (or null org-taskforecast--encoded-time)
+    :documentation
+    "An encoded time when the task link is effective after.")
+   (effective-end-time
+    :initarg :effective-end-time
+    :reader org-taskforecast--tlink-effective-end-time
+    :type (or null org-taskforecast--encoded-time)
+    :documentation
+    "An encoded time when the task link is effective before."))
+  :documentation
+  "A task link data.")
+
 (defun org-taskforecast--tlink-todo-state-for-today (task-link date day-start)
   "Get todo state of TASK-LINK for today.
 
@@ -877,85 +906,6 @@ If the heading is not a task link, this function returns nil."
 A returned value is an instance of `org-taskforecast--tlink'."
   (org-taskforecast--at-id id
     (org-taskforecast--get-task-link)))
-
-(defun org-taskforecast--append-task-link (id file)
-  "Append a task link for ID to the end of FILE.
-
-This function returns an ID of the new task link."
-  (let ((normalized-title
-         (org-taskforecast--normalize-title
-          (org-taskforecast--task-title
-           (org-taskforecast--get-task-by-id id)))))
-    (with-current-buffer (find-file-noselect file)
-      (save-excursion
-        (goto-char (point-max))
-        (unless (bolp)
-          (insert "\n"))
-        (insert (concat "* [[id:" id "][" normalized-title "]]\n"))
-        (prog1
-            (org-id-get-create)
-          ;; The reason of saving buffer here is to find headnig
-          ;; by org-id properly, org-id doesn't return control when
-          ;; the file doesn't exist.
-          (save-buffer))))))
-
-(defun org-taskforecast--append-task-link-maybe (id file date day-start)
-  "Append a task link for ID to the end of FILE.
-
-If a todo task link corresponding to ID already exists,
-this function does nothing.
-This function returns an ID of the task link which was appended or already
-exists corresponding to the task.
-
-- ID is a task id
-- FILE is a today's daily task list file name
-- DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'"
-  (--> (org-taskforecast--get-task-links-for-task id file)
-       (--filter
-        (eq 'todo
-            (org-taskforecast--tlink-todo-state-for-today
-             it date day-start))
-        it)
-       (-if-let* ((task-link (-first-item it))
-                  (link-id (org-taskforecast--tlink-id task-link)))
-           link-id
-         (org-taskforecast--append-task-link id file))))
-
-(defun org-taskforecast--get-first-todo-task-link (file date day-start)
-  "Get the first todo task link in FILE.
-
-A returned value is an instance of `org-taskforecast--tlink'.
-If a first todo task is not found, this function returns nil.
-
-- FILE is a today's daily task list file name
-- DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'"
-  (with-current-buffer (find-file-noselect file)
-    (save-excursion
-      (goto-char
-       (org-taskforecast--get-todo-link-head-pos file date day-start))
-      ;; `org-taskforecast--get-todo-link-head-pos' returns the end
-      ;; of buffer if there is no todo task link.
-      ;; So checking that the returned task link is really todo task link.
-      (let ((task-link (org-taskforecast--get-task-link)))
-        (when (and task-link
-                   (eq 'todo
-                       (org-taskforecast--tlink-todo-state-for-today
-                        task-link date day-start)))
-          task-link)))))
-
-(defun org-taskforecast--get-clocks-in-range (clocks start end)
-  "Get clocks between START and END from CLOCKS.
-
-- CLOCKS is a list of instances of `org-taskforecast--clock'
-- START is an encoded time
-- END is an encoded time"
-  (--filter
-   (let ((cstart (org-taskforecast--clock-start it)))
-     (and (not (time-less-p cstart start))
-          (time-less-p cstart end)))
-   clocks))
 
 (defun org-taskforecast--tlink-effective-clocks (task-link date day-start)
   "Effective clocks of TASK-LINK.
@@ -1055,97 +1005,7 @@ A returned value is an effort second.
               (t remaining-effort-sec))
       (floor it))))
 
-(defun org-taskforecast--format-second-to-hhmm (second)
-  "Format SECOND to HH:MM style string."
-  (let ((second (floor second)))
-    (format "%d:%02d" (/ second 3600) (/ (% second 3600) 60))))
-
-(defun org-taskforecast--split-task-link (link-id time file)
-  "Split a task link of LINK-ID on FILE as interrupted at TIME."
-  (let* ((task-id (org-taskforecast--tlink-task-id
-                   (org-taskforecast--get-task-link-by-id link-id)))
-         (new-link-id (org-taskforecast--append-task-link task-id file))
-         (new-link-heading (org-taskforecast--cut-heading-by-id new-link-id)))
-    (org-taskforecast--at-id link-id
-      (org-taskforecast--set-task-link-effective-end-time time)
-      (outline-next-heading)
-      (insert new-link-heading)
-      ;; Now the corsor is at the next heading if it exists.
-      ;; So move the cursor backward.
-      (forward-char -1)
-      (org-taskforecast--set-task-link-effective-start-time time))))
-
-(defun org-taskforecast--push-task-link-maybe (id file date day-start)
-  "Add a task link for ID to the head of todo task links in FILE.
-
-If a task link corresponding to ID already exists, this function moves it.
-If the existing task link is done, this function does not move it.
-This function returns an ID of the task link corresponding to the task.
-
-If the first todo task link of the task link list has effective clocks and
-its task is not the pushed task, this function splits the first todo task
-link as interrupted.
-This feature is enabled while `org-taskforecast-enable-interruption'
-is non-nil.
-
-- ID is a task id
-- FILE is a today's daily task list file name
-- DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'"
-  ;; interruption
-  (when org-taskforecast-enable-interruption
-    (-when-let* ((first-todo-task-link
-                  (org-taskforecast--get-first-todo-task-link
-                   file date day-start))
-                 (task-id
-                  (org-taskforecast--tlink-task-id first-todo-task-link))
-                 (link-id
-                  (org-taskforecast--tlink-id first-todo-task-link)))
-      (when (and (not (equal id task-id))
-                 (org-taskforecast--tlink-has-effective-clock
-                  first-todo-task-link
-                  date
-                  day-start))
-        (org-taskforecast--split-task-link link-id (current-time) file))))
-  (let ((link-id (org-taskforecast--append-task-link-maybe
-                  id file date day-start)))
-    (org-taskforecast--move-task-link-to-todo-head link-id file date day-start)
-    link-id))
-
-(defun org-taskforecast--map-headings (fn)
-  "Call FN on headings in the current buffer.
-
-This function returns a list of results of FN.
-
-Why use this function instead of `org-map-entries' is to avoid asking
-about non-existent agenda file by `org-check-agenda-file' when
-the file of the current buffer doesn't exist."
-  (let* ((results nil)
-         (f (lambda ()
-              ;; The current point is not beginning of line when
-              ;; a heading is the first heading on region.
-              (org-back-to-heading t)
-              (push (funcall fn) results))))
-    (org-map-region f (point-min) (point-max))
-    (nreverse results)))
-
-(defun org-taskforecast--get-task-links (file)
-  "Get a task link list from FILE."
-  (with-current-buffer (find-file-noselect file)
-    (-non-nil
-     (org-taskforecast--map-headings #'org-taskforecast--get-task-link))))
-
-(defun org-taskforecast--effort-to-second (effort-str)
-  "Convert string of effort property to second.
-
-EFFORT-STR is a string of a value of an effort property.
-If effort-str invalid, this function returns nil."
-  (-let* ((re (rx bos (? (group (+ num)) ":") (group (+ num)) eos))
-          (((_ h m)) (s-match-strings-all re effort-str)))
-    ;; Effort property sometimes has no colon format like "0".
-    (when m
-      (+ (* 60 60 (if h (string-to-number h) 0))
-         (* 60 (string-to-number m))))))
+;;;; tlclock class
 
 (defclass org-taskforecast--tlclock ()
   ((start
@@ -1262,6 +1122,159 @@ This function returns an instance of `org-taskforecast--tlclock'.
      :start-estimated-p start-estimated-p
      :end-estimated-p end-estimated-p
      :overrunp overrunp)))
+
+;;; File
+
+(defun org-taskforecast-get-dailylist-file (today)
+  "Get the path of today's daily task list file for TODAY.
+
+This function depends on:
+- `org-taskforecast-dailylist-file' as a file format
+- `org-taskforecast-day-start' to determine the date of today"
+  (expand-file-name
+   (format-time-string org-taskforecast-dailylist-file today)))
+
+(defun org-taskforecast--append-task-link (id file)
+  "Append a task link for ID to the end of FILE.
+
+This function returns an ID of the new task link."
+  (let ((normalized-title
+         (org-taskforecast--normalize-title
+          (org-taskforecast--task-title
+           (org-taskforecast--get-task-by-id id)))))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (goto-char (point-max))
+        (unless (bolp)
+          (insert "\n"))
+        (insert (concat "* [[id:" id "][" normalized-title "]]\n"))
+        (prog1
+            (org-id-get-create)
+          ;; The reason of saving buffer here is to find headnig
+          ;; by org-id properly, org-id doesn't return control when
+          ;; the file doesn't exist.
+          (save-buffer))))))
+
+(defun org-taskforecast--append-task-link-maybe (id file date day-start)
+  "Append a task link for ID to the end of FILE.
+
+If a todo task link corresponding to ID already exists,
+this function does nothing.
+This function returns an ID of the task link which was appended or already
+exists corresponding to the task.
+
+- ID is a task id
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (--> (org-taskforecast--get-task-links-for-task id file)
+       (--filter
+        (eq 'todo
+            (org-taskforecast--tlink-todo-state-for-today
+             it date day-start))
+        it)
+       (-if-let* ((task-link (-first-item it))
+                  (link-id (org-taskforecast--tlink-id task-link)))
+           link-id
+         (org-taskforecast--append-task-link id file))))
+
+(defun org-taskforecast--get-first-todo-task-link (file date day-start)
+  "Get the first todo task link in FILE.
+
+A returned value is an instance of `org-taskforecast--tlink'.
+If a first todo task is not found, this function returns nil.
+
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (goto-char
+       (org-taskforecast--get-todo-link-head-pos file date day-start))
+      ;; `org-taskforecast--get-todo-link-head-pos' returns the end
+      ;; of buffer if there is no todo task link.
+      ;; So checking that the returned task link is really todo task link.
+      (let ((task-link (org-taskforecast--get-task-link)))
+        (when (and task-link
+                   (eq 'todo
+                       (org-taskforecast--tlink-todo-state-for-today
+                        task-link date day-start)))
+          task-link)))))
+
+(defun org-taskforecast--split-task-link (link-id time file)
+  "Split a task link of LINK-ID on FILE as interrupted at TIME."
+  (let* ((task-id (org-taskforecast--tlink-task-id
+                   (org-taskforecast--get-task-link-by-id link-id)))
+         (new-link-id (org-taskforecast--append-task-link task-id file))
+         (new-link-heading (org-taskforecast--cut-heading-by-id new-link-id)))
+    (org-taskforecast--at-id link-id
+      (org-taskforecast--set-task-link-effective-end-time time)
+      (outline-next-heading)
+      (insert new-link-heading)
+      ;; Now the corsor is at the next heading if it exists.
+      ;; So move the cursor backward.
+      (forward-char -1)
+      (org-taskforecast--set-task-link-effective-start-time time))))
+
+(defun org-taskforecast--push-task-link-maybe (id file date day-start)
+  "Add a task link for ID to the head of todo task links in FILE.
+
+If a task link corresponding to ID already exists, this function moves it.
+If the existing task link is done, this function does not move it.
+This function returns an ID of the task link corresponding to the task.
+
+If the first todo task link of the task link list has effective clocks and
+its task is not the pushed task, this function splits the first todo task
+link as interrupted.
+This feature is enabled while `org-taskforecast-enable-interruption'
+is non-nil.
+
+- ID is a task id
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  ;; interruption
+  (when org-taskforecast-enable-interruption
+    (-when-let* ((first-todo-task-link
+                  (org-taskforecast--get-first-todo-task-link
+                   file date day-start))
+                 (task-id
+                  (org-taskforecast--tlink-task-id first-todo-task-link))
+                 (link-id
+                  (org-taskforecast--tlink-id first-todo-task-link)))
+      (when (and (not (equal id task-id))
+                 (org-taskforecast--tlink-has-effective-clock
+                  first-todo-task-link
+                  date
+                  day-start))
+        (org-taskforecast--split-task-link link-id (current-time) file))))
+  (let ((link-id (org-taskforecast--append-task-link-maybe
+                  id file date day-start)))
+    (org-taskforecast--move-task-link-to-todo-head link-id file date day-start)
+    link-id))
+
+(defun org-taskforecast--map-headings (fn)
+  "Call FN on headings in the current buffer.
+
+This function returns a list of results of FN.
+
+Why use this function instead of `org-map-entries' is to avoid asking
+about non-existent agenda file by `org-check-agenda-file' when
+the file of the current buffer doesn't exist."
+  (let* ((results nil)
+         (f (lambda ()
+              ;; The current point is not beginning of line when
+              ;; a heading is the first heading on region.
+              (org-back-to-heading t)
+              (push (funcall fn) results))))
+    (org-map-region f (point-min) (point-max))
+    (nreverse results)))
+
+(defun org-taskforecast--get-task-links (file)
+  "Get a task link list from FILE."
+  (with-current-buffer (find-file-noselect file)
+    (-non-nil
+     (org-taskforecast--map-headings #'org-taskforecast--get-task-link))))
 
 (defun org-taskforecast--get-task-links-for-task (task-id file)
   "Get task links for the task of TASK-ID in FILE.
