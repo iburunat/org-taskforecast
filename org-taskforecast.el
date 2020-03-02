@@ -6,7 +6,7 @@
 ;; URL: https://github.com/HKey/org-taskforecast
 ;; Keywords: convenience
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "25") (dash "2.16.0") (dash-functional "2.16.0") (s "1.12.0") (org-ql "0.4"))
+;; Package-Requires: ((emacs "25.1") (dash "2.16.0") (dash-functional "2.16.0") (s "1.12.0") (org-ql "0.4"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -776,6 +776,81 @@ This function returns a symbol, todo or done.
           ((time-less-p last-repeat today-start) 'todo)
           ;; day-start =< last-repeat
           (t 'done))))
+
+;;;; Entry interface
+
+;; Entry interface is the interface for items shown in
+;; `org-taskforecast-list' buffer.
+
+(cl-defgeneric org-taskforecast--entry-title (entry)
+  "Title of ENTRY.")
+
+(cl-defgeneric org-taskforecast--entry-effective-effort (entry date day-start)
+  "Get effort value of ENTRY.
+
+A returned value is an effort second.
+
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'")
+
+(cl-defgeneric org-taskforecast--entry-effective-clocks (entry date day-start)
+  "Effective clocks of ENTRY.
+
+An effective clock is a clock information that clocked today.
+If the entry has effective start/end time, an effective clock satisfies
+the following conditions:
+- the clock was started after the effective start time of ENTRY
+- the clock was ended before the effective end time of ENTRY
+
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'")
+
+(cl-defgeneric org-taskforecast--entry-todo-state-for-today (entry date day-start)
+  "Get todo state of ENTRY for today.
+
+This function returns a symbol, todo or done.
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'")
+
+(cl-defgeneric org-taskforecast--entry-scheduled (entry)
+  "Schedule information of ENTRY.
+
+If ENTRY has scheduled, this returns an instance of
+`org-taskforecast--scheduled'.
+If not, this returns nil.")
+
+(cl-defgeneric org-taskforecast--entry-deadline (entry)
+  "Deadline information of ENTRY.
+
+If ENTRY has deadline, this returns an instance of
+`org-taskforecast--deadline'.
+If not, this returns nil.")
+
+(cl-defgeneric org-taskforecast--entry-effective-start-time (entry)
+  "An encoded time when ENTRY is effective after.
+
+If ENTRY has no effective start time, this returns nil.")
+
+(cl-defgeneric org-taskforecast--entry-effective-end-time (entry)
+  "An encoded time when ENTRY is effective before.
+
+If ENTRY has no effective end time, this returns nil.")
+
+(cl-defgeneric org-taskforecast--entry-default-section (entry)
+  "Default section of ENTRY.
+
+If ENTRY has default section, this returns an integer that indicates
+the start time of the default section.
+If not, this returns nil.")
+
+(defun org-taskforecast--entry-has-effective-clock (entry date day-start)
+  "Non-nil means ENTRY has some effective clocks.
+
+See `org-taskforecast--entry-effective-clocks' about effective clock.
+
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (not (null (org-taskforecast--entry-effective-clocks entry date day-start))))
 
 ;;;; tlink class
 
