@@ -1061,6 +1061,73 @@ A returned value is an instance of `org-taskforecast--tlink'."
 (cl-defmethod org-taskforecast--entry-default-section ((_task-link org-taskforecast--tlink))
   (error "Not implemented yet"))
 
+;;;; section class
+
+(defclass org-taskforecast--section ()
+  ((id
+    :initarg :id
+    :reader org-taskforecast--section-id
+    :type 'string
+    :documentation
+    "An ID string")
+   (start-time
+    :initarg :start-time
+    :reader org-taskforecast--section-start-time
+    :type 'integer
+    :documentation
+    "An integer of start time line `org-taskforecast-day-start'")
+   (description
+    :initarg :description
+    :reader org-taskforecast--section-description
+    :type 'string
+    :documentation
+    "Description")
+   (effort
+    :initarg :effort
+    :reader org-taskforecast--section-effort
+    :type 'integer
+    :documentation
+    "An integer of effort seconds.")
+   (entries
+    :initarg :entries
+    :reader org-taskforecast--section-entries
+    :type 'list
+    :documentation
+    "Entries")))
+
+(cl-defmethod org-taskforecast--entry-title ((section org-taskforecast--section))
+  (org-taskforecast--section-description section))
+
+(cl-defmethod org-taskforecast--entry-effective-effort ((section org-taskforecast--section) date day-start)
+  (--> (org-taskforecast--section-entries section)
+       (--map (org-taskforecast--entry-effective-effort it date day-start) it)
+       (-reduce-from #'+ 0 it)))
+
+(cl-defmethod org-taskforecast--entry-effective-clocks ((section org-taskforecast--section) date day-start)
+  (--> (org-taskforecast--section-entries section)
+       (--map (org-taskforecast--entry-effective-clocks it date day-start) it)
+       (apply #'append it)))
+
+(cl-defmethod org-taskforecast--entry-todo-state-for-today ((_section org-taskforecast--section) _date _day-start)
+  (error "Do not call `org-taskforecast--entry-todo-state-for-today' for `org-taskforecast--section'"))
+
+(cl-defmethod org-taskforecast--entry-scheduled ((_section org-taskforecast--section))
+  nil)
+
+(cl-defmethod org-taskforecast--entry-deadline ((_section org-taskforecast--section))
+  nil)
+
+(cl-defmethod org-taskforecast--entry-effective-start-time ((_section org-taskforecast--section))
+  ;; section should have no effective start time
+  nil)
+
+(cl-defmethod org-taskforecast--entry-effective-end-time ((_section org-taskforecast--section))
+  ;; section should have no effective end time
+  nil)
+
+(cl-defmethod org-taskforecast--entry-default-section ((section org-taskforecast--section))
+  (org-taskforecast--section-id section))
+
 ;;;; eclock class (entry clock)
 
 (defclass org-taskforecast--eclock ()
