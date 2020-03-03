@@ -85,7 +85,7 @@ The functions are obtained information as global variables below:
   implements entry interface
 - `org-taskforecast-list-info-today' as an encoded time
 - `org-taskforecast-list-info-now' as an encoded time
-- `org-taskforecast-list-info-task-start-end-time' as an instance of
+- `org-taskforecast-list-info-entry-start-end-time' as an instance of
   `org-taskforecast--tlclock'
 
 Other global variables also are set for formatting:
@@ -1737,7 +1737,7 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 This value will be an encoded time.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
-(defvar org-taskforecast-list-info-task-start-end-time nil
+(defvar org-taskforecast-list-info-entry-start-end-time nil
   "This variable is used to pass the start and end time to formatters.
 
 This value will be an instance of `org-taskforecast--tlclock'.
@@ -1776,7 +1776,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
                   (delayp (time-less-p
                            it
                            (org-taskforecast--tlclock-start
-                            org-taskforecast-list-info-task-start-end-time))))
+                            org-taskforecast-list-info-entry-start-end-time))))
              (--> (format "%d:%02d" hour min)
                   (propertize
                    it 'face
@@ -1819,10 +1819,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
              0))))
   (-let* ((start
            (org-taskforecast--tlclock-start
-            org-taskforecast-list-info-task-start-end-time))
+            org-taskforecast-list-info-entry-start-end-time))
           (start-estimated-p
            (org-taskforecast--tlclock-start-estimated-p
-            org-taskforecast-list-info-task-start-end-time))
+            org-taskforecast-list-info-entry-start-end-time))
           ((hour minute)
            (org-taskforecast--time-to-hhmm
             start
@@ -1849,13 +1849,13 @@ This function is used for `org-taskforecast-list-task-formatters'."
             org-taskforecast-day-start))
           (end
            (org-taskforecast--tlclock-end
-            org-taskforecast-list-info-task-start-end-time))
+            org-taskforecast-list-info-entry-start-end-time))
           (end-estimated-p
            (org-taskforecast--tlclock-end-estimated-p
-            org-taskforecast-list-info-task-start-end-time))
+            org-taskforecast-list-info-entry-start-end-time))
           (overrunp_
            (org-taskforecast--tlclock-overrun-p
-            org-taskforecast-list-info-task-start-end-time))
+            org-taskforecast-list-info-entry-start-end-time))
           (overrunp
            (and end-estimated-p
                 (eq todo-type 'todo)
@@ -1935,7 +1935,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
             (let* ((todo-type
                     (org-taskforecast--entry-todo-state-for-today
                      it today day-start))
-                   (org-taskforecast-list-info-task-start-end-time
+                   (org-taskforecast-list-info-entry-start-end-time
                     (org-taskforecast--tlink-start-end-time
                      it
                      today
@@ -1953,7 +1953,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                 ;; update last done time
                 (setq last-task-done-time
                       (org-taskforecast--tlclock-end
-                       org-taskforecast-list-info-task-start-end-time))))
+                       org-taskforecast-list-info-entry-start-end-time))))
             links))
          (s-join "\n" links)))
 
