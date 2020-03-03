@@ -86,7 +86,7 @@ The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-today' as an encoded time
 - `org-taskforecast-list-info-now' as an encoded time
 - `org-taskforecast-list-info-entry-start-end-time' as an instance of
-  `org-taskforecast--tlclock'
+  `org-taskforecast--eclock'
 
 Other global variables also are set for formatting:
 - `org-taskforecast-day-start'"
@@ -1061,38 +1061,38 @@ A returned value is an instance of `org-taskforecast--tlink'."
 (cl-defmethod org-taskforecast--entry-default-section ((_task-link org-taskforecast--tlink))
   (error "Not implemented yet"))
 
-;;;; tlclock class
+;;;; eclock class (entry clock)
 
-(defclass org-taskforecast--tlclock ()
+(defclass org-taskforecast--eclock ()
   ((start
     :initarg :start
-    :reader org-taskforecast--tlclock-start
+    :reader org-taskforecast--eclock-start
     :type org-taskforecast--encoded-time
     :documentation
     "an encoded time that indicates the start time of the task of today.
 If the start time is not found, the value will be an estimated time.")
    (end
     :initarg :end
-    :reader org-taskforecast--tlclock-end
+    :reader org-taskforecast--eclock-end
     :type org-taskforecast--encoded-time
     :documentation
     "An encoded time that indicates the end time of the task of today.
 If the end time is not found, the value will be an estimated time.")
    (start-estimated-p
     :initarg :start-estimated-p
-    :reader org-taskforecast--tlclock-start-estimated-p
+    :reader org-taskforecast--eclock-start-estimated-p
     :type boolean
     :documentation
     "Non-nil means the start time is estimated.")
    (end-estimated-p
     :initarg :end-estimated-p
-    :reader org-taskforecast--tlclock-end-estimated-p
+    :reader org-taskforecast--eclock-end-estimated-p
     :type boolean
     :documentation
     "Non-nil means the end time is estimated.")
    (overrunp
     :initarg :overrunp
-    :reader org-taskforecast--tlclock-overrun-p
+    :reader org-taskforecast--eclock-overrun-p
     :type boolean
     :documentation
     "Non-nil means the end time is over the time of the start time plus effort."))
@@ -1102,7 +1102,7 @@ If the end time is not found, the value will be an estimated time.")
 (defun org-taskforecast--tlink-start-end-time (task-link date day-start &optional start-after now)
   "Get the start and end time of a TASK-LINK.
 
-This function returns an instance of `org-taskforecast--tlclock'.
+This function returns an instance of `org-taskforecast--eclock'.
 
 - TASK-LINK is an instance of `org-taskforecast--tlink'
 - DATE is an encoded time as the date of today
@@ -1172,7 +1172,7 @@ This function returns an instance of `org-taskforecast--tlclock'.
                 (t end-time)))
          (overrunp
           (time-less-p start-plus-effort end)))
-    (org-taskforecast--tlclock
+    (org-taskforecast--eclock
      :start start
      :end end
      :start-estimated-p start-estimated-p
@@ -1740,7 +1740,7 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 (defvar org-taskforecast-list-info-entry-start-end-time nil
   "This variable is used to pass the start and end time to formatters.
 
-This value will be an instance of `org-taskforecast--tlclock'.
+This value will be an instance of `org-taskforecast--eclock'.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
 (defun org-taskforecast-list-format-scheduled-time ()
@@ -1775,7 +1775,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
            (-let (((hour min) (org-taskforecast--time-to-hhmm it today))
                   (delayp (time-less-p
                            it
-                           (org-taskforecast--tlclock-start
+                           (org-taskforecast--eclock-start
                             org-taskforecast-list-info-entry-start-end-time))))
              (--> (format "%d:%02d" hour min)
                   (propertize
@@ -1818,10 +1818,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
              (decoded-time-second decoded)
              0))))
   (-let* ((start
-           (org-taskforecast--tlclock-start
+           (org-taskforecast--eclock-start
             org-taskforecast-list-info-entry-start-end-time))
           (start-estimated-p
-           (org-taskforecast--tlclock-start-estimated-p
+           (org-taskforecast--eclock-start-estimated-p
             org-taskforecast-list-info-entry-start-end-time))
           ((hour minute)
            (org-taskforecast--time-to-hhmm
@@ -1848,13 +1848,13 @@ This function is used for `org-taskforecast-list-task-formatters'."
             org-taskforecast-list-info-today
             org-taskforecast-day-start))
           (end
-           (org-taskforecast--tlclock-end
+           (org-taskforecast--eclock-end
             org-taskforecast-list-info-entry-start-end-time))
           (end-estimated-p
-           (org-taskforecast--tlclock-end-estimated-p
+           (org-taskforecast--eclock-end-estimated-p
             org-taskforecast-list-info-entry-start-end-time))
           (overrunp_
-           (org-taskforecast--tlclock-overrun-p
+           (org-taskforecast--eclock-overrun-p
             org-taskforecast-list-info-entry-start-end-time))
           (overrunp
            (and end-estimated-p
@@ -1952,7 +1952,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                            (org-taskforecast--list-propertize-link-data x it)))
                 ;; update last done time
                 (setq last-task-done-time
-                      (org-taskforecast--tlclock-end
+                      (org-taskforecast--eclock-end
                        org-taskforecast-list-info-entry-start-end-time))))
             links))
          (s-join "\n" links)))
