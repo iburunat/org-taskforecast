@@ -83,8 +83,6 @@ The functions should have no parameter.
 The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-entry' as an object which
   implements entry interface
-- `org-taskforecast-list-info-task' as an instance of
-  `org-taskforecast--task'
 - `org-taskforecast-list-info-today' as an encoded time
 - `org-taskforecast-list-info-now' as an encoded time
 - `org-taskforecast-list-info-task-start-end-time' as an instance of
@@ -1726,12 +1724,6 @@ When there is no task link data, this function returns nil."
 This value will be an instance of `org-taskforecast--tlink'.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
-(defvar org-taskforecast-list-info-task nil
-  "This variable is used to pass a task data to formatters.
-
-This value will be an instance of `org-taskforecast--task'.
-See `org-taskforecast-list-task-formatters' for more detail.")
-
 (defvar org-taskforecast-list-info-today nil
   "This variable is used to pass a date of today to formatters.
 
@@ -1760,10 +1752,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
          (todo (org-taskforecast--entry-todo-state-for-today
                 org-taskforecast-list-info-entry
                 today org-taskforecast-day-start))
-         (scheduled (org-taskforecast--task-scheduled
-                    org-taskforecast-list-info-task))
-         (deadline (org-taskforecast--task-deadline
-                    org-taskforecast-list-info-task))
+         (scheduled (org-taskforecast--entry-scheduled
+                     org-taskforecast-list-info-entry))
+         (deadline (org-taskforecast--entry-deadline
+                    org-taskforecast-list-info-entry))
          (stime (and scheduled
                      (not (org-taskforecast--scheduled-date-only-p scheduled))
                      (org-taskforecast--scheduled-start-time scheduled)))
@@ -1918,10 +1910,9 @@ This function is used for `org-taskforecast-list-task-formatters'."
   "Format task's title.
 
 This function is used for `org-taskforecast-list-task-formatters'."
-  (let ((title (org-taskforecast--task-title org-taskforecast-list-info-task)))
-    (propertize title
-                ;; TODO: define face
-                'face 'org-scheduled-today)))
+  (propertize (org-taskforecast--entry-title org-taskforecast-list-info-entry)
+              ;; TODO: define face
+              'face 'org-scheduled-today))
 
 (defun org-taskforecast--create-task-list (today day-start)
   "Create a today's task list for TODAY.
@@ -1944,9 +1935,6 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
             (let* ((todo-type
                     (org-taskforecast--entry-todo-state-for-today
                      it today day-start))
-                   (task
-                    (org-taskforecast--get-task-by-id
-                     (org-taskforecast--tlink-task-id it)))
                    (org-taskforecast-list-info-task-start-end-time
                     (org-taskforecast--tlink-start-end-time
                      it
@@ -1956,8 +1944,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                      (and (eq todo-type 'todo)
                           org-taskforecast-list-info-now))))
               (prog1
-                  (let ((org-taskforecast-list-info-entry it)
-                        (org-taskforecast-list-info-task task))
+                  (let ((org-taskforecast-list-info-entry it))
                     (-as-> org-taskforecast-list-task-formatters x
                            (-map #'funcall x)
                            (-reject #'s-blank-p x)
