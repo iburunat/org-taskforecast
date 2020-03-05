@@ -119,6 +119,29 @@ The function returns:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-sections
+  nil
+  "A list of section definitions.
+
+Each element is a list like (ID START-TIME &optional DESCRIPTION).
+
+- ID is a string which must be unique in this variable.
+  It is used as an section ID of task's default section.
+- START-TIME is start time integer like `org-taskforecast-day-start'.
+- DESCRIPTION is a description string of a section.
+
+Example:
+    (setq org-taskforecast-sections
+          '((\"morning\"   0600)
+            (\"daytime-a\" 0900)
+            (\"noon\"      1200 \"Lunch and Nap\")
+            (\"daytime-b\" 1300)
+            (\"evening\"   1700)
+            (\"night\"     2000 \"Reading books\")))"
+  :type '(repeat list)
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
 
 ;;;; Lisp Utility
 
