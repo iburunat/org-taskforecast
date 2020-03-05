@@ -391,7 +391,7 @@ ID is an id of org-id."
 
 ;;; Org-mode
 
-;;;; Small utility
+;;;; Internal Utility
 
 (defmacro org-taskforecast--at-id (id &rest body)
   "Eval BODY at a heading of ID.
@@ -1271,6 +1271,8 @@ This function returns an instance of `org-taskforecast--eclock'.
 
 ;;; File
 
+;;;; Internal Utility
+
 (defun org-taskforecast-get-dailylist-file (today)
   "Get the path of today's daily task list file for TODAY.
 
@@ -1279,6 +1281,39 @@ This function depends on:
 - `org-taskforecast-day-start' to determine the date of today"
   (expand-file-name
    (format-time-string org-taskforecast-dailylist-file today)))
+
+(defun org-taskforecast--map-headings (fn)
+  "Call FN on headings in the current buffer.
+
+This function returns a list of results of FN.
+
+Why use this function instead of `org-map-entries' is to avoid asking
+about non-existent agenda file by `org-check-agenda-file' when
+the file of the current buffer doesn't exist."
+  (let* ((results nil)
+         (f (lambda ()
+              ;; The current point is not beginning of line when
+              ;; a heading is the first heading on region.
+              (org-back-to-heading t)
+              (push (funcall fn) results))))
+    (org-map-region f (point-min) (point-max))
+    (nreverse results)))
+
+(defun org-taskforecast--cut-heading-by-id (id)
+  "Cut a heading by ID.
+
+Return a string of the heading.
+When this function failed, returns nil."
+  (org-taskforecast--at-id id
+    (save-excursion
+      (-when-let* ((helement (org-element-at-point))
+                   (begin (org-element-property :begin helement))
+                   (end (org-element-property :end helement)))
+        (prog1
+            (buffer-substring begin end)
+          (delete-region begin end))))))
+
+;;;; Task Link
 
 (defun org-taskforecast--append-task-link (id file)
   "Append a task link for ID to the end of FILE.
@@ -1399,23 +1434,6 @@ is non-nil.
     (org-taskforecast--move-task-link-to-todo-head link-id file date day-start)
     link-id))
 
-(defun org-taskforecast--map-headings (fn)
-  "Call FN on headings in the current buffer.
-
-This function returns a list of results of FN.
-
-Why use this function instead of `org-map-entries' is to avoid asking
-about non-existent agenda file by `org-check-agenda-file' when
-the file of the current buffer doesn't exist."
-  (let* ((results nil)
-         (f (lambda ()
-              ;; The current point is not beginning of line when
-              ;; a heading is the first heading on region.
-              (org-back-to-heading t)
-              (push (funcall fn) results))))
-    (org-map-region f (point-min) (point-max))
-    (nreverse results)))
-
 (defun org-taskforecast--get-task-links (file)
   "Get a task link list from FILE."
   (with-current-buffer (find-file-noselect file)
@@ -1448,20 +1466,6 @@ the file of the current buffer doesn't exist."
                 (when (eq it 'todo)
                   (setq pos (point)))))))
       (or pos (point-max)))))
-
-(defun org-taskforecast--cut-heading-by-id (id)
-  "Cut a heading by ID.
-
-Return a string of the heading.
-When this function failed, returns nil."
-  (org-taskforecast--at-id id
-    (save-excursion
-      (-when-let* ((helement (org-element-at-point))
-                   (begin (org-element-property :begin helement))
-                   (end (org-element-property :end helement)))
-        (prog1
-            (buffer-substring begin end)
-          (delete-region begin end))))))
 
 (defun org-taskforecast--move-task-link-to-todo-head (link-id file date day-start)
   "Move a task link of LINK-ID to the head of todo task links of FILE.
