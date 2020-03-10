@@ -1137,7 +1137,7 @@ A returned value is an instance of `org-taskforecast--tlink'."
 (cl-defmethod org-taskforecast--entry-title ((section org-taskforecast--section))
   (org-taskforecast--section-description section))
 
-(cl-defmethod org-taskforecast--entry-id ((secition org-taskforecast--section))
+(cl-defmethod org-taskforecast--entry-id ((section org-taskforecast--section))
   (org-taskforecast--section-id section))
 
 (cl-defmethod org-taskforecast--entry-effective-effort ((section org-taskforecast--section) date day-start)
