@@ -806,6 +806,9 @@ This function returns a symbol, todo or done.
 (cl-defgeneric org-taskforecast--entry-title (entry)
   "Title of ENTRY.")
 
+(cl-defgeneric org-taskforecast--entry-id (entry)
+  "An org-id ID of ENTRY's heading.")
+
 (cl-defgeneric org-taskforecast--entry-effective-effort (entry date day-start)
   "Get effort value of ENTRY.
 
@@ -957,6 +960,9 @@ TIME is an encoded time."
   (org-taskforecast--task-title
    (org-taskforecast--get-task-by-id
     (org-taskforecast--tlink-task-id task-link))))
+
+(cl-defmethod org-taskforecast--entry-id ((task-link org-taskforecast--tlink))
+  (org-taskforecast--tlink-id task-link))
 
 (cl-defmethod org-taskforecast--entry-todo-state-for-today ((task-link org-taskforecast--tlink) date day-start)
   (let ((task
@@ -1130,6 +1136,9 @@ A returned value is an instance of `org-taskforecast--tlink'."
 
 (cl-defmethod org-taskforecast--entry-title ((section org-taskforecast--section))
   (org-taskforecast--section-description section))
+
+(cl-defmethod org-taskforecast--entry-id ((secition org-taskforecast--section))
+  (org-taskforecast--section-id section))
 
 (cl-defmethod org-taskforecast--entry-effective-effort ((section org-taskforecast--section) date day-start)
   (--> (org-taskforecast--section-entries section)
