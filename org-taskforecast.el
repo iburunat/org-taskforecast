@@ -864,6 +864,10 @@ If ENTRY has default section, this returns an integer that indicates
 the start time of the default section.
 If not, this returns nil.")
 
+(cl-defgeneric org-taskforecast--entry-is-section (_entry)
+  "Non-nil if ENTRY is an instance of `org-taskforecast--section'."
+  nil)
+
 (defun org-taskforecast--entry-has-effective-clock (entry date day-start)
   "Non-nil means ENTRY has some effective clocks.
 
@@ -1090,31 +1094,37 @@ A returned value is an instance of `org-taskforecast--tlink'."
   ((id
     :initarg :id
     :reader org-taskforecast--section-id
-    :type 'string
+    :type string
     :documentation
-    "An ID string")
+    "An ID of org-id")
+   (section-id
+    :initarg :section-id
+    :reader org-taskforecast--section-section-id
+    :type string
+    :documentation
+    "A section ID string")
    (start-time
     :initarg :start-time
     :reader org-taskforecast--section-start-time
-    :type 'integer
+    :type integer
     :documentation
     "An integer of start time line `org-taskforecast-day-start'")
    (description
     :initarg :description
     :reader org-taskforecast--section-description
-    :type 'string
+    :type string
     :documentation
     "Description")
    (effort
     :initarg :effort
     :reader org-taskforecast--section-effort
-    :type 'integer
+    :type integer
     :documentation
     "An integer of effort seconds.")
    (entries
     :initarg :entries
     :reader org-taskforecast--section-entries
-    :type 'list
+    :type list
     :documentation
     "Entries")))
 
@@ -1150,6 +1160,9 @@ A returned value is an instance of `org-taskforecast--tlink'."
 
 (cl-defmethod org-taskforecast--entry-default-section ((section org-taskforecast--section))
   (org-taskforecast--section-id section))
+
+(cl-defmethod org-taskforecast--entry-is-section ((_section org-taskforecast--section))
+  t)
 
 ;;;; eclock class (entry clock)
 
@@ -1482,6 +1495,124 @@ is non-nil.
       (save-excursion
         (goto-char head)
         (insert task-link)))))
+
+;;;; Section
+
+(defconst org-taskforecast--section-id-prop-name
+  "ORG_TASKFORECAST_SECTION_ID"
+  "Property name of a section ID string of a section.")
+
+(defconst org-taskforecast--section-start-time-prop-name
+  "ORG_TASKFORECAST_SECTION_START_TIME"
+  "Property name of a start time of a section.")
+
+(defun org-taskforecast--get-section ()
+  "Get a section at the current point.
+
+A returned value is an instance of `org-taskforecast--section'.
+If the heading is not a section, this function returns nil.
+
+WARNING:
+This function does not set the effort and entries slot of the returned section.
+So those slots are still nil.
+If you want get a section which contains them,
+consider using `org-taskforecast--get-sections' instead."
+  (save-excursion
+    ;; Prevent error when there is no heading in a buffer.
+    (unless (org-before-first-heading-p)
+      ;; go to heading line for `org-element-at-point' to get a headline element
+      (org-back-to-heading))
+    (-when-let* ((section-id (org-entry-get
+                              nil org-taskforecast--section-id-prop-name))
+                 (start-time (org-entry-get
+                              nil org-taskforecast--section-start-time-prop-name))
+                 (description (org-element-property
+                               :title (org-element-at-point)))
+                 (id (org-id-get-create)))
+      (org-taskforecast--section
+       :id id
+       :section-id section-id
+       :start-time (string-to-number start-time)
+       :description description))))
+
+(defun org-taskforecast--get-sections (file day-start)
+  "Get a section list from FILE.
+
+DAY-START is an integer like `org-taskforecast-day-start'."
+  (--> (with-current-buffer (find-file-noselect file)
+         (org-taskforecast--map-headings
+          (lambda ()
+            (or (org-taskforecast--get-task-link)
+                (org-taskforecast--get-section)))))
+       (-non-nil it)
+       (-drop-while (-not #'org-taskforecast--entry-is-section) it)
+       (-partition-before-pred #'org-taskforecast--entry-is-section it)
+       ;; set entries slot
+       (--map
+        (-let (((section . entries) it))
+          (setf (slot-value section 'entries) entries)
+          section)
+        it)
+       ;; set effort slot
+       (let ((next-start (+ (* 60 60 24)
+                            (* 60 60 (/ day-start 100))
+                            (* 60 (% day-start 100)))))
+         (--each-r it
+           (let* ((s (org-taskforecast--section-start-time it))
+                  (this-start (+ (* 60 60 (/ s 100))
+                                 (* 60 (% s 100))))
+                  (effort (max (- next-start this-start) 0)))
+             (setf (slot-value it 'effort) effort
+                   next-start this-start)))
+         it)))
+
+(defun org-taskforecast--append-section (section-id start-time description file)
+  "Append a section heading to the end of FILE.
+
+This function returns an ID of the section heading.
+
+- SECTION-ID is a string of section ID
+- START-TIME is an integer like `org-taskforecast-day-start'
+- DESCRIPTION is a string of section description or nil"
+  (let ((title (org-taskforecast--normalize-title
+                (or description
+                    (--> start-time
+                         (+ (* 60 60 (/ it 100)) (* 60 (% it 100)))
+                         (org-taskforecast--format-second-to-hhmm it)
+                         (format "SECTION: %s -" it))))))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (goto-char (point-max))
+        (unless (bolp)
+          (insert "\n"))
+        (insert (concat "* " title "\n"))
+        (org-entry-put nil org-taskforecast--section-id-prop-name section-id)
+        (org-entry-put nil
+                       org-taskforecast--section-start-time-prop-name
+                       (format "%s" start-time))
+        (org-id-get-create)))))
+
+(defun org-taskforecast--append-section-maybe (section-id start-time description file day-start)
+  "Append a section heading to the end of FILE.
+
+If a section heading corresponding to SECTION-ID already exists,
+this function does nothing.
+This function returns an ID of the section heading which was appended or
+already exists corresponding to SECTION-ID.
+
+- SECTION-ID is a string of section ID
+- START-TIME is an integer like `org-taskforecast-day-start'
+- DESCRIPTION is a string of section description or nil
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (--> (org-taskforecast--get-sections file day-start)
+       (--filter (string= section-id (org-taskforecast--section-section-id it))
+                 it)
+       (progn (org-taskforecast-assert (member (length it) '(0 1)))
+              (cl-first it))
+       (if it
+           (org-taskforecast--section-id it)
+         (org-taskforecast--append-section
+          section-id start-time description file))))
 
 
 ;;; Sort
