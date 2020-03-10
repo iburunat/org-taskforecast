@@ -867,6 +867,10 @@ If ENTRY has default section, this returns an integer that indicates
 the start time of the default section.
 If not, this returns nil.")
 
+(cl-defgeneric org-taskforecast--entry-is-task-link (_entry)
+  "Non-nil if ENTRY is an instance of `org-taskforecast--tlink'."
+  nil)
+
 (cl-defgeneric org-taskforecast--entry-is-section (_entry)
   "Non-nil if ENTRY is an instance of `org-taskforecast--section'."
   nil)
@@ -1093,6 +1097,9 @@ A returned value is an instance of `org-taskforecast--tlink'."
 
 (cl-defmethod org-taskforecast--entry-default-section ((_task-link org-taskforecast--tlink))
   (error "Not implemented yet"))
+
+(cl-defmethod org-taskforecast--entry-is-task-link ((_task-link org-taskforecast--tlink))
+  t)
 
 ;;;; section class
 
