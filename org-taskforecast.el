@@ -1775,21 +1775,26 @@ This is an internal comparator, so down version is not defined."
 (defun org-taskforecast--ss-interruption-up (a b)
   "Compare A and B by interruption property for a same task, older farst.
 
+If A and/or B is an instance of `org-taskforecast--section',
+this function does not compare them.
+So the returned value is nil.
+
 This is an internal comparator, so down version is not defined."
-  (let ((esa (org-taskforecast--entry-effective-start-time a))
-        (esb (org-taskforecast--entry-effective-start-time b))
-        (eea (org-taskforecast--entry-effective-end-time a))
-        (eeb (org-taskforecast--entry-effective-end-time b))
-        (tida (org-taskforecast--tlink-task-id a))
-        (tidb (org-taskforecast--tlink-task-id b)))
-    (cond ((not (string= tida tidb)) nil)
-          ((and esa esb (time-less-p esa esb)) +1)
-          ((and esa esb (time-less-p esb esa)) -1)
-          ((and eea eeb (time-less-p eea eeb)) +1)
-          ((and eea eeb (time-less-p eeb eea)) -1)
-          ((or (null esa) (null eeb)) +1)
-          ((or (null eea) (null esb)) -1)
-          (t nil))))
+  (unless (-any #'org-taskforecast--entry-is-section (list a b))
+    (let ((esa (org-taskforecast--entry-effective-start-time a))
+          (esb (org-taskforecast--entry-effective-start-time b))
+          (eea (org-taskforecast--entry-effective-end-time a))
+          (eeb (org-taskforecast--entry-effective-end-time b))
+          (tida (org-taskforecast--tlink-task-id a))
+          (tidb (org-taskforecast--tlink-task-id b)))
+      (cond ((not (string= tida tidb)) nil)
+            ((and esa esb (time-less-p esa esb)) +1)
+            ((and esa esb (time-less-p esb esa)) -1)
+            ((and eea eeb (time-less-p eea eeb)) +1)
+            ((and eea eeb (time-less-p eeb eea)) -1)
+            ((or (null esa) (null eeb)) +1)
+            ((or (null eea) (null esb)) -1)
+            (t nil)))))
 
 
 ;;;; org-taskforecast-cache-mode
