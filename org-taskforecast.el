@@ -720,21 +720,6 @@ Each element is an instance of `org-taskforecast--clock'."
              (org-element-map it 'clock
                #'org-taskforecast--get-clock-from-element))))))
 
-(cl-defun org-taskforecast--task-early-planning (task &optional (hour 0) (minute 0) (second 0))
-  "An encoded time of earlier of scheduled and deadline of TASK.
-
-This function returns nil if TASK has no scheduled and deadline.
-HOUR, MINUTE and SECOND are default values if the timestamp doesn't have those parts."
-  (let* ((scheduled (org-taskforecast--task-scheduled task))
-         (deadline (org-taskforecast--task-deadline task))
-         (stime (and scheduled (org-taskforecast--scheduled-start-time
-                                scheduled hour minute second)))
-         (dtime (and deadline (org-taskforecast--deadline-time
-                               deadline hour minute second))))
-    (-some--> (list stime dtime)
-      (-non-nil it)
-      (-min-by (-flip #'time-less-p) it))))
-
 (defun org-taskforecast--task-repeat-p (task)
   "Non-nil means TASK is a repeat task.
 
@@ -883,6 +868,21 @@ See `org-taskforecast--entry-effective-clocks' about effective clock.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (not (null (org-taskforecast--entry-effective-clocks entry date day-start))))
+
+(cl-defun org-taskforecast--entry-early-planning (entry &optional (hour 0) (minute 0) (second 0))
+  "An encoded time of earlier of scheduled and deadline of ENTRY.
+
+This function returns nil if ENTRY has no scheduled and deadline.
+HOUR, MINUTE and SECOND are default values if the timestamp doesn't have those parts."
+  (let* ((scheduled (org-taskforecast--entry-scheduled entry))
+         (deadline (org-taskforecast--entry-deadline entry))
+         (stime (and scheduled (org-taskforecast--scheduled-start-time
+                                scheduled hour minute second)))
+         (dtime (and deadline (org-taskforecast--deadline-time
+                               deadline hour minute second))))
+    (-some--> (list stime dtime)
+      (-non-nil it)
+      (-min-by (-flip #'time-less-p) it))))
 
 ;;;; tlink class
 
@@ -1707,10 +1707,8 @@ This function moves only ENTRY not all of entries in FILE.
   (let* (;; date with hh:mm > date only
          (hh (+ (/ org-taskforecast-day-start 100) 24))
          (mm (% org-taskforecast-day-start 100))
-         (tta (org-taskforecast--task-early-planning
-               (org-taskforecast--tlink-task a) hh mm))
-         (ttb (org-taskforecast--task-early-planning
-               (org-taskforecast--tlink-task b) hh mm)))
+         (tta (org-taskforecast--entry-early-planning a hh mm))
+         (ttb (org-taskforecast--entry-early-planning b hh mm)))
     (cond ((and tta ttb (time-less-p tta ttb) +1))
           ((and tta ttb (time-less-p ttb tta) -1))
           ((and tta ttb (time-equal-p tta ttb) nil))
