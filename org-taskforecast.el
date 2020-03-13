@@ -1757,15 +1757,20 @@ The order is:
 (defun org-taskforecast--ss-todo-up (a b)
   "Compare A and B by todo state, done first.
 
+If A and/or B is an instance of `org-taskforecast--section',
+this function does not compare them.
+So the returned value is nil.
+
 This is an internal comparator, so down version is not defined."
-  (let* ((today (org-taskforecast-today))
-         (sa (org-taskforecast--entry-todo-state-for-today
-              a today org-taskforecast-day-start))
-         (sb (org-taskforecast--entry-todo-state-for-today
-              b today org-taskforecast-day-start)))
-    (cond ((and (eq sa 'done) (eq sb 'todo)) +1)
-          ((and (eq sa 'todo) (eq sb 'done)) -1)
-          (t nil))))
+  (unless (-any #'org-taskforecast--entry-is-section (list a b))
+    (let* ((today (org-taskforecast-today))
+           (sa (org-taskforecast--entry-todo-state-for-today
+                a today org-taskforecast-day-start))
+           (sb (org-taskforecast--entry-todo-state-for-today
+                b today org-taskforecast-day-start)))
+      (cond ((and (eq sa 'done) (eq sb 'todo)) +1)
+            ((and (eq sa 'todo) (eq sb 'done)) -1)
+            (t nil)))))
 
 (defun org-taskforecast--ss-interruption-up (a b)
   "Compare A and B by interruption property for a same task, older farst.
