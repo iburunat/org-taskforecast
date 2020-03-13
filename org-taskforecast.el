@@ -1342,6 +1342,51 @@ When this function failed, returns nil."
             (buffer-substring begin end)
           (delete-region begin end))))))
 
+;;;; Entry
+
+(defun org-taskforecast--set-section-slots (entries day-start)
+  "Set entries and effort slot of `org-taskforecast--section' in ENTRIES.
+
+This function updates the section instances in ENTRIES and returns ENTRIES.
+
+DAY-START is an integer like `org-taskforecast-day-start'."
+  (--> entries
+       (-non-nil it)
+       ;; drop non-section task links
+       (-drop-while (-not #'org-taskforecast--entry-is-section) it)
+       (-partition-before-pred #'org-taskforecast--entry-is-section it)
+       ;; set entries slot
+       (--map
+        (-let (((section . entries) it))
+          (setf (slot-value section 'entries) entries)
+          section)
+        it)
+       ;; set effort slot
+       ;; NOTE: leap second is not considered
+       (let ((next-start (+ (* 60 60 24)
+                            (* 60 60 (/ day-start 100))
+                            (* 60 (% day-start 100)))))
+         (--each-r it
+           (let* ((s (org-taskforecast--section-start-time it))
+                  (this-start (+ (* 60 60 (/ s 100))
+                                 (* 60 (% s 100))))
+                  (effort (max (- next-start this-start) 0)))
+             (setf (slot-value it 'effort) effort
+                   next-start this-start)))))
+  entries)
+
+(defun org-taskforecast--get-entries (file day-start)
+  "Get a list of entries from FILE.
+
+DAY-START is an integer like `org-taskforecast-day-start'."
+  (with-current-buffer (find-file-noselect file)
+    (--> (org-taskforecast--map-headings
+          (lambda ()
+            (or (org-taskforecast--get-task-link)
+                (org-taskforecast--get-section))))
+         (-non-nil it)
+         (org-taskforecast--set-section-slots it day-start))))
+
 ;;;; Task Link
 
 (defun org-taskforecast--append-task-link (id file)
@@ -1465,9 +1510,10 @@ is non-nil.
 
 (defun org-taskforecast--get-task-links (file)
   "Get a task link list from FILE."
-  (with-current-buffer (find-file-noselect file)
-    (-non-nil
-     (org-taskforecast--map-headings #'org-taskforecast--get-task-link))))
+  (-filter #'org-taskforecast--entry-is-task-link
+           ;; day-start is not necessary to get task links,
+           ;; it is only necessary for getting sectios.
+           (org-taskforecast--get-entries file 0000)))
 
 (defun org-taskforecast--get-task-links-for-task (task-id file)
   "Get task links for the task of TASK-ID in FILE.
@@ -1555,32 +1601,8 @@ consider using `org-taskforecast--get-sections' instead."
   "Get a section list from FILE.
 
 DAY-START is an integer like `org-taskforecast-day-start'."
-  (--> (with-current-buffer (find-file-noselect file)
-         (org-taskforecast--map-headings
-          (lambda ()
-            (or (org-taskforecast--get-task-link)
-                (org-taskforecast--get-section)))))
-       (-non-nil it)
-       (-drop-while (-not #'org-taskforecast--entry-is-section) it)
-       (-partition-before-pred #'org-taskforecast--entry-is-section it)
-       ;; set entries slot
-       (--map
-        (-let (((section . entries) it))
-          (setf (slot-value section 'entries) entries)
-          section)
-        it)
-       ;; set effort slot
-       (let ((next-start (+ (* 60 60 24)
-                            (* 60 60 (/ day-start 100))
-                            (* 60 (% day-start 100)))))
-         (--each-r it
-           (let* ((s (org-taskforecast--section-start-time it))
-                  (this-start (+ (* 60 60 (/ s 100))
-                                 (* 60 (% s 100))))
-                  (effort (max (- next-start this-start) 0)))
-             (setf (slot-value it 'effort) effort
-                   next-start this-start)))
-         it)))
+  (-filter #'org-taskforecast--entry-is-section
+           (org-taskforecast--get-entries file day-start)))
 
 (defun org-taskforecast--append-section (section-id start-time description file)
   "Append a section heading to the end of FILE.
@@ -1645,33 +1667,32 @@ A returned value is:
            when (eql res +1) return +1
            when (eql res -1) return -1))
 
-(defun org-taskforecast-sort-task-link-up (task-link file)
-  "Sort TASK-LINK up in FILE.
+(defun org-taskforecast-sort-entry-up (entry file comparators day-start)
+  "Sort ENTRY up in FILE.
 
-Move TASK-LINK up while it > previous one in FILE, like bubble sort.
-This function moves noly TASK-LINK not all of task links in FILE.
+Move ENTRY up while it > previous one in FILE, like bubble sort.
+This function moves only ENTRY not all of entries in FILE.
 
-- TASK-LINK is an instance of `org-taskforecast--tlink'
-- FILE is a today's daily task list file name"
-  (let* ((tlinks (org-taskforecast--get-task-links file))
-         (target-tlink-p (lambda (a)
-                           (string= (org-taskforecast--tlink-id a)
-                                    (org-taskforecast--tlink-id task-link))))
-         (registeredp (-some target-tlink-p tlinks)))
+- ENTRY is an entry instance
+- FILE is a today's daily task list file name
+- COMPARATORS is a list of camparators like `org-taskforecast-sorting-storategy'
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (let* ((entries (org-taskforecast--get-entries file day-start))
+         (target-entry-p (lambda (a)
+                           (string= (org-taskforecast--entry-id a)
+                                    (org-taskforecast--entry-id entry))))
+         (registeredp (-some target-entry-p entries)))
     (when registeredp
-      (-let (((head _) (-split-when target-tlink-p tlinks))
-             (insert-before nil)
-             (comparators (append (list #'org-taskforecast--ss-interruption-up
-                                        #'org-taskforecast--ss-todo-up)
-                                  org-taskforecast-sorting-storategy)))
+      (-let (((head _) (-split-when target-entry-p entries))
+             (insert-before nil))
         (--each-r-while head
-            (eql +1 (org-taskforecast--sort-compare task-link it comparators))
+            (eql +1 (org-taskforecast--sort-compare entry it comparators))
           (setq insert-before it))
         (when insert-before
           (-let ((tree (org-taskforecast--cut-heading-by-id
-                        (org-taskforecast--tlink-id task-link)))
+                        (org-taskforecast--entry-id entry)))
                  ((_ . pos) (org-id-find
-                             (org-taskforecast--tlink-id insert-before))))
+                             (org-taskforecast--entry-id insert-before))))
             (with-current-buffer (find-file-noselect file)
               (save-excursion
                 (save-restriction
@@ -1916,11 +1937,16 @@ If not, do nothing."
         (when todayp
           (let* ((id (org-id-get-create))
                  (file (org-taskforecast-get-dailylist-file today))
-                 (registerdp (org-taskforecast--get-task-links-for-task id file)))
+                 (registerdp (org-taskforecast--get-task-links-for-task id file))
+                 (comparators (append
+                               (list #'org-taskforecast--ss-interruption-up
+                                     #'org-taskforecast--ss-todo-up)
+                               org-taskforecast-sorting-storategy)))
             (when (not registerdp)
               (--> (org-taskforecast--append-task-link id file)
                    (org-taskforecast--get-task-link-by-id it)
-                   (org-taskforecast-sort-task-link-up it file))))))))
+                   (org-taskforecast-sort-entry-up
+                    it file comparators org-taskforecast-day-start))))))))
   (org-taskforecast--list-refresh-maybe))
 
 
