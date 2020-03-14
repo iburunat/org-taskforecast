@@ -848,8 +848,7 @@ If ENTRY has no effective end time, this returns nil.")
 (cl-defgeneric org-taskforecast--entry-default-section (entry)
   "Default section of ENTRY.
 
-If ENTRY has default section, this returns an integer that indicates
-the start time of the default section.
+If ENTRY has default section, this returns the section ID string.
 If not, this returns nil.")
 
 (cl-defgeneric org-taskforecast--entry-is-task-link (_entry)
