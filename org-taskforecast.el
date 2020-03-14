@@ -1590,7 +1590,7 @@ If the heading is not a section, this function returns nil.
 WARNING:
 This function does not set the effort and entries slot of the returned section.
 So those slots are still nil.
-If you want get a section which contains them,
+If you want to get a section which contains them,
 consider using `org-taskforecast--get-sections' instead."
   (save-excursion
     ;; Prevent error when there is no heading in a buffer.
@@ -1609,6 +1609,17 @@ consider using `org-taskforecast--get-sections' instead."
        :section-id section-id
        :start-time (string-to-number start-time)
        :description description))))
+
+(defun org-taskforecast--get-section-by-id (id)
+  "Get a section by ID.
+
+WARNING:
+This function does not set the effort and entries slot of the returned section.
+So those slots are still nil.
+If you want to get a section which contains them,
+consider using `org-taskforecast--get-sections' instead."
+  (org-taskforecast--at-id id
+    (org-taskforecast--get-section)))
 
 (defun org-taskforecast--get-sections (file day-start)
   "Get a section list from FILE.
@@ -1831,6 +1842,16 @@ This is an internal comparator, so down version is not defined."
           ((and (null sta) stb) -1)
           (t nil))))
 
+(defun org-taskforecast--ss-section-up (a b)
+  "Compare A and B , section farst.
+
+This is an internal comparator, so down version is not defined."
+  (-let (((sa sb)
+          (-map #'org-taskforecast--entry-is-section (list a b))))
+    (cond ((and sa (not sb)) +1)
+          ((and (not sa) sb) -1)
+          (t nil))))
+
 
 ;;;; org-taskforecast-cache-mode
 
@@ -1990,6 +2011,41 @@ If not, do nothing."
                    (org-taskforecast--get-task-link-by-id it)
                    (org-taskforecast-sort-entry-up
                     it file comparators org-taskforecast-day-start))))))))
+  (org-taskforecast--list-refresh-maybe))
+
+;;;###autoload
+(defun org-taskforecast-generate-sections (file sections day-start)
+  "Generate sectios headings to FILE.
+
+The section headings are generated from SECTIONS.
+
+When this command is called interactively, generates section headings
+from `org-taskforecast-sections' to today's daily task list file.
+
+- SECTIONS is a list of section definitions like `org-taskforecast-sections'
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (interactive
+   (list (org-taskforecast-get-dailylist-file (org-taskforecast-today))
+         org-taskforecast-sections
+         org-taskforecast-day-start))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (let ((exist-secids
+           (-map #'org-taskforecast--section-section-id
+                 (org-taskforecast--get-sections file day-start))))
+      ;; remove existent sections from targets to prevet sorting them again
+      (--each (--reject (member (cl-first it) exist-secids) sections)
+        (--> (-let (((id start-time description) it))
+               (org-taskforecast--append-section
+                id start-time description file))
+             (org-taskforecast--get-section-by-id it)
+             (org-taskforecast-sort-entry-up
+              it file
+              (list
+               (-rpartial #'org-taskforecast--ss-default-section-up
+                          ;; re-getting sectios to include the appended section
+                          (org-taskforecast--get-sections file day-start))
+               #'org-taskforecast--ss-section-up)
+              day-start)))))
   (org-taskforecast--list-refresh-maybe))
 
 
