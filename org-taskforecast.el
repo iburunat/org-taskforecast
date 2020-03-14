@@ -1107,8 +1107,9 @@ A returned value is an instance of `org-taskforecast--tlink'."
               (t remaining-effort-sec))
       (floor it))))
 
-(cl-defmethod org-taskforecast--entry-default-section ((_task-link org-taskforecast--tlink))
-  (error "Not implemented yet"))
+(cl-defmethod org-taskforecast--entry-default-section ((task-link org-taskforecast--tlink))
+  (--> (org-taskforecast--tlink-task task-link)
+       (org-taskforecast--task-default-section it)))
 
 (cl-defmethod org-taskforecast--entry-is-task-link ((_task-link org-taskforecast--tlink))
   t)
