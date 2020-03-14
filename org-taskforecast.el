@@ -617,6 +617,10 @@ This function returns an instance of `org-taskforecast--deadline'."
 
 ;;;; task class
 
+(defconst org-taskforecast--task-default-section-prop-name
+  "ORG_TASKFORECAST_TASK_DEFAULT_SECTION"
+  "Property name of a default section ID of a task.")
+
 (defclass org-taskforecast--task ()
   ((id
     :initarg :id
@@ -659,7 +663,13 @@ This function returns an instance of `org-taskforecast--deadline'."
     :reader org-taskforecast--task-deadline
     :type (or null org-taskforecast--deadline)
     :documentation
-    "A deadline information."))
+    "A deadline information.")
+   (default-section
+    :initarg :default-section
+    :reader org-taskforecast--task-default-section
+    :type (or null string)
+    :documentation
+    "A default section ID string."))
   :documentation
   "A task heading data.")
 
@@ -691,7 +701,9 @@ A returned value is an instance of `org-taskforecast--task'."
            (scheduled (-some--> (org-element-property :scheduled element)
                         (org-taskforecast--get-scheduled-from-timestamp it)))
            (deadline (-some--> (org-element-property :deadline element)
-                       (org-taskforecast--get-deadline-from-timestamp it))))
+                       (org-taskforecast--get-deadline-from-timestamp it)))
+           (default-section (org-entry-get
+                             nil org-taskforecast--task-default-section-prop-name)))
       (org-taskforecast--task
        :id id
        :title title
@@ -699,7 +711,8 @@ A returned value is an instance of `org-taskforecast--task'."
        :todo todo
        :todo-type todo-type
        :scheduled scheduled
-       :deadline deadline))))
+       :deadline deadline
+       :default-section default-section))))
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task by ID.
