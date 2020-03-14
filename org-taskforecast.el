@@ -1809,6 +1809,28 @@ This is an internal comparator, so down version is not defined."
             ((or (null eea) (null esb)) -1)
             (t nil)))))
 
+(defun org-taskforecast--ss-default-section-up (a b sections)
+  "Compare A and B by default section, earlier farst.
+
+SECTIONS is a list of instances of `org-taskforecast--section'.
+
+This is an internal comparator, so down version is not defined."
+  (-let* ((id-st
+           (--map
+            (cons (org-taskforecast--section-id it)
+                  (org-taskforecast--section-start-time it))
+            sections))
+          ((sta stb)
+           (--> (list a b)
+                (-map #'org-taskforecast--entry-default-section it)
+                (--map (when it (alist-get it id-st nil nil #'string=)) it))))
+    (cond ((and sta stb (< a b)) +1)
+          ((and sta stb (= a b)) nil)
+          ((and sta stb (> a b)) -1)
+          ((and sta (null stb)) +1)
+          ((and (null sta) stb) -1)
+          (t nil))))
+
 
 ;;;; org-taskforecast-cache-mode
 
