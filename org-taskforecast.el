@@ -617,8 +617,8 @@ This function returns an instance of `org-taskforecast--deadline'."
 
 ;;;; task class
 
-(defconst org-taskforecast--task-default-section-prop-name
-  "ORG_TASKFORECAST_TASK_DEFAULT_SECTION"
+(defconst org-taskforecast--task-default-section-id-prop-name
+  "ORG_TASKFORECAST_TASK_DEFAULT_SECTION_ID"
   "Property name of a default section ID of a task.")
 
 (defclass org-taskforecast--task ()
@@ -664,9 +664,9 @@ This function returns an instance of `org-taskforecast--deadline'."
     :type (or null org-taskforecast--deadline)
     :documentation
     "A deadline information.")
-   (default-section
-    :initarg :default-section
-    :reader org-taskforecast--task-default-section
+   (default-section-id
+    :initarg :default-section-id
+    :reader org-taskforecast--task-default-section-id
     :type (or null string)
     :documentation
     "A default section ID string."))
@@ -702,8 +702,9 @@ A returned value is an instance of `org-taskforecast--task'."
                         (org-taskforecast--get-scheduled-from-timestamp it)))
            (deadline (-some--> (org-element-property :deadline element)
                        (org-taskforecast--get-deadline-from-timestamp it)))
-           (default-section (org-entry-get
-                             nil org-taskforecast--task-default-section-prop-name)))
+           (default-section-id (org-entry-get
+                                nil
+                                org-taskforecast--task-default-section-id-prop-name)))
       (org-taskforecast--task
        :id id
        :title title
@@ -712,7 +713,7 @@ A returned value is an instance of `org-taskforecast--task'."
        :todo-type todo-type
        :scheduled scheduled
        :deadline deadline
-       :default-section default-section))))
+       :default-section-id default-section-id))))
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task by ID.
@@ -858,8 +859,8 @@ If ENTRY has no effective start time, this returns nil.")
 
 If ENTRY has no effective end time, this returns nil.")
 
-(cl-defgeneric org-taskforecast--entry-default-section (entry)
-  "Default section of ENTRY.
+(cl-defgeneric org-taskforecast--entry-default-section-id (entry)
+  "Default section ID of ENTRY.
 
 If ENTRY has default section, this returns the section ID string.
 If not, this returns nil.")
@@ -1107,9 +1108,9 @@ A returned value is an instance of `org-taskforecast--tlink'."
               (t remaining-effort-sec))
       (floor it))))
 
-(cl-defmethod org-taskforecast--entry-default-section ((task-link org-taskforecast--tlink))
+(cl-defmethod org-taskforecast--entry-default-section-id ((task-link org-taskforecast--tlink))
   (--> (org-taskforecast--tlink-task task-link)
-       (org-taskforecast--task-default-section it)))
+       (org-taskforecast--task-default-section-id it)))
 
 (cl-defmethod org-taskforecast--entry-is-task-link ((_task-link org-taskforecast--tlink))
   t)
@@ -1187,7 +1188,7 @@ A returned value is an instance of `org-taskforecast--tlink'."
   ;; section should have no effective end time
   nil)
 
-(cl-defmethod org-taskforecast--entry-default-section ((section org-taskforecast--section))
+(cl-defmethod org-taskforecast--entry-default-section-id ((section org-taskforecast--section))
   (org-taskforecast--section-section-id section))
 
 (cl-defmethod org-taskforecast--entry-is-section ((_section org-taskforecast--section))
@@ -1833,7 +1834,7 @@ This is an internal comparator, so down version is not defined."
             sections))
           ((sta stb)
            (--> (list a b)
-                (-map #'org-taskforecast--entry-default-section it)
+                (-map #'org-taskforecast--entry-default-section-id it)
                 (--map (when it (alist-get it id-st nil nil #'string=)) it))))
     (cond ((and sta stb (< sta stb)) +1)
           ((and sta stb (= sta stb)) nil)
