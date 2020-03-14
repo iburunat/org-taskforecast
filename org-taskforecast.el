@@ -1188,7 +1188,7 @@ A returned value is an instance of `org-taskforecast--tlink'."
   nil)
 
 (cl-defmethod org-taskforecast--entry-default-section ((section org-taskforecast--section))
-  (org-taskforecast--section-id section))
+  (org-taskforecast--section-section-id section))
 
 (cl-defmethod org-taskforecast--entry-is-section ((_section org-taskforecast--section))
   t)
@@ -1817,7 +1817,7 @@ SECTIONS is a list of instances of `org-taskforecast--section'.
 This is an internal comparator, so down version is not defined."
   (-let* ((id-st
            (--map
-            (cons (org-taskforecast--section-id it)
+            (cons (org-taskforecast--section-section-id it)
                   (org-taskforecast--section-start-time it))
             sections))
           ((sta stb)
