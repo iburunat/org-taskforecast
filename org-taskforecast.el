@@ -2010,20 +2010,58 @@ is needed like below:
              (org-show-context)
              ,@body))))))
 
+(defcustom org-taskforecast-auto-generate-sections 'ask
+  "Whether generate section headings automatically."
+  :type '(choice
+          (const :tag "Always" always)
+          (const :tag "Ask" ask)
+          (const :tag "Never" never))
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
+(defun org-taskforecast--ask-generat-sections (file sections date day-start)
+  "Ask whether generate section headings to FILE if there is no ones.
+
+If the answer is yes, this function generates section headings by
+`org-taskforecast-generate-sections'.
+
+- FILE is a today's daily task list file name
+- SECTIONS is a list of section definitions like `org-taskforecast-sections'
+- DATE is an encoded time as a date of today
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (when (and sections
+             (null (org-taskforecast--get-sections file day-start))
+             (or (eq org-taskforecast-auto-generate-sections 'always)
+                 (and (eq org-taskforecast-auto-generate-sections 'ask)
+                      (yes-or-no-p
+                       (format "There is no section headings in %s, generate them?"
+                               file)))))
+    (org-taskforecast-generate-sections file sections date day-start)))
+
 ;;;###autoload
-(defun org-taskforecast-register-task ()
+(defun org-taskforecast-register-task (file date)
   "Register a task at point as a task for today.
 
-When the task is already registered, this command does nothing."
-  (interactive)
+When the task is already registered, this command does nothing.
+
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today"
+  (interactive
+   (let ((today (org-taskforecast-today)))
+     (list (org-taskforecast-get-dailylist-file today)
+           today)))
   (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
     (let ((id (if (eq 'org-agenda-mode major-mode)
                   (org-taskforecast--at-agenda-heading
                     (org-id-get-create))
-                (org-id-get-create)))
-          (file (org-taskforecast-get-dailylist-file (org-taskforecast-today))))
+                (org-id-get-create))))
       (if (org-taskforecast--get-task-links-for-task id file)
           (message "The task is already registered.")
+        (when (called-interactively-p 'any)
+          (org-taskforecast--ask-generat-sections
+           ;; Here is for interactive call only.
+           ;; So sections and day-start are excluded from parameters.
+           file org-taskforecast-sections date org-taskforecast-day-start))
         (org-taskforecast--append-task-link id file)
         (org-taskforecast--list-refresh-maybe)))))
 
@@ -2044,45 +2082,49 @@ If not, do nothing.
            org-taskforecast-day-start)))
   ;; TODO: consider deadline warning
   ;; TODO: make query and filtering customizable
-  (let ((next-day-start (org-taskforecast--encode-hhmm
-                         (+ day-start 2400)
-                         date))
-        (hh (/ day-start 100))
-        (mm (% day-start 100)))
-    (org-ql-select (org-agenda-files)
-      '(and (todo) (ts-a))
-      :action
-      (lambda ()
-        (let* ((element (org-element-at-point))
-               (stime (-some--> (org-element-property :scheduled element)
-                        (org-taskforecast--get-scheduled-from-timestamp it)
-                        (org-taskforecast--scheduled-start-time it hh mm)))
-               (dtime (-some--> (org-element-property :deadline element)
-                        (org-taskforecast--get-deadline-from-timestamp it)
-                        (org-taskforecast--deadline-time it hh mm)))
-               (todayp (--> (list stime dtime)
-                            (-non-nil it)
-                            (--some (time-less-p it next-day-start) it))))
-          (when todayp
-            (let* ((id (org-id-get-create))
-                   (registerdp (org-taskforecast--get-task-links-for-task
-                                id file))
-                   (comparators (append
-                                 (list
-                                  #'org-taskforecast--ss-interruption-up
-                                  #'org-taskforecast--ss-todo-up
-                                  (-rpartial
-                                   #'org-taskforecast--ss-default-section-up
-                                   (org-taskforecast--get-sections
-                                    file day-start)
-                                   date)
-                                  #'org-taskforecast--ss-section-up)
-                                 org-taskforecast-sorting-storategy)))
-              (when (not registerdp)
-                (--> (org-taskforecast--append-task-link id file)
-                     (org-taskforecast--get-task-link-by-id it)
-                     (org-taskforecast-sort-entry-up
-                      it file comparators org-taskforecast-day-start)))))))))
+  (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
+    (when (called-interactively-p 'any)
+      (org-taskforecast--ask-generat-sections
+       file org-taskforecast-sections date day-start))
+    (let ((next-day-start (org-taskforecast--encode-hhmm
+                           (+ day-start 2400)
+                           date))
+          (hh (/ day-start 100))
+          (mm (% day-start 100)))
+      (org-ql-select (org-agenda-files)
+        '(and (todo) (ts-a))
+        :action
+        (lambda ()
+          (let* ((element (org-element-at-point))
+                 (stime (-some--> (org-element-property :scheduled element)
+                          (org-taskforecast--get-scheduled-from-timestamp it)
+                          (org-taskforecast--scheduled-start-time it hh mm)))
+                 (dtime (-some--> (org-element-property :deadline element)
+                          (org-taskforecast--get-deadline-from-timestamp it)
+                          (org-taskforecast--deadline-time it hh mm)))
+                 (todayp (--> (list stime dtime)
+                              (-non-nil it)
+                              (--some (time-less-p it next-day-start) it))))
+            (when todayp
+              (let* ((id (org-id-get-create))
+                     (registerdp (org-taskforecast--get-task-links-for-task
+                                  id file))
+                     (comparators (append
+                                   (list
+                                    #'org-taskforecast--ss-interruption-up
+                                    #'org-taskforecast--ss-todo-up
+                                    (-rpartial
+                                     #'org-taskforecast--ss-default-section-up
+                                     (org-taskforecast--get-sections
+                                      file day-start)
+                                     date)
+                                    #'org-taskforecast--ss-section-up)
+                                   org-taskforecast-sorting-storategy)))
+                (when (not registerdp)
+                  (--> (org-taskforecast--append-task-link id file)
+                       (org-taskforecast--get-task-link-by-id it)
+                       (org-taskforecast-sort-entry-up
+                        it file comparators org-taskforecast-day-start))))))))))
   (org-taskforecast--list-refresh-maybe))
 
 ;;;###autoload
