@@ -1360,6 +1360,20 @@ This function depends on:
   (expand-file-name
    (format-time-string org-taskforecast-dailylist-file today)))
 
+(defmacro org-taskforecast--with-existing-file (file &rest body)
+  "Eval BODY in a buffer of FILE.
+
+If FILE does not exist, save the buffer of FILE first.
+The reason of that is to find org heading by org-id.
+org-id searches for existing files only."
+  (declare (debug t) (indent 1))
+  (let ((file-sym (cl-gensym "file-")))
+    `(let ((,file-sym ,file))
+       (with-current-buffer (find-file-noselect ,file-sym)
+         (unless (file-exists-p ,file-sym)
+           (save-buffer))
+         ,@body))))
+
 (defun org-taskforecast--map-headings (fn)
   "Call FN on headings in the current buffer.
 
@@ -1428,7 +1442,7 @@ DAY-START is an integer like `org-taskforecast-day-start'."
   "Get a list of entries from FILE.
 
 DAY-START is an integer like `org-taskforecast-day-start'."
-  (with-current-buffer (find-file-noselect file)
+  (org-taskforecast--with-existing-file file
     (--> (org-taskforecast--map-headings
           (lambda ()
             (or (org-taskforecast--get-task-link)
@@ -1446,18 +1460,13 @@ This function returns an ID of the new task link."
          (org-taskforecast--normalize-title
           (org-taskforecast--task-title
            (org-taskforecast--get-task-by-id id)))))
-    (with-current-buffer (find-file-noselect file)
+    (org-taskforecast--with-existing-file file
       (save-excursion
         (goto-char (point-max))
         (unless (bolp)
           (insert "\n"))
         (insert (concat "* [[id:" id "][" normalized-title "]]\n"))
-        (prog1
-            (org-id-get-create)
-          ;; The reason of saving buffer here is to find headnig
-          ;; by org-id properly, org-id doesn't return control when
-          ;; the file doesn't exist.
-          (save-buffer))))))
+        (org-id-get-create)))))
 
 (defun org-taskforecast--append-task-link-maybe (id file date day-start)
   "Append a task link for ID to the end of FILE.
@@ -1491,7 +1500,7 @@ If a first todo task is not found, this function returns nil.
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
-  (with-current-buffer (find-file-noselect file)
+  (org-taskforecast--with-existing-file file
     (save-excursion
       (goto-char
        (org-taskforecast--get-todo-link-head-pos file date day-start))
@@ -1580,7 +1589,7 @@ is non-nil.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (let ((pos nil))
-    (with-current-buffer (find-file-noselect file)
+    (org-taskforecast--with-existing-file file
       (org-taskforecast--map-headings
        (lambda ()
          (unless pos
@@ -1602,7 +1611,7 @@ is non-nil.
     (error "Not a task link ID: %s" link-id))
   (let ((task-link (org-taskforecast--cut-heading-by-id link-id))
         (head (org-taskforecast--get-todo-link-head-pos file date day-start)))
-    (with-current-buffer (find-file-noselect file)
+    (org-taskforecast--with-existing-file file
       (save-excursion
         (goto-char head)
         (insert task-link)))))
@@ -1678,7 +1687,7 @@ This function returns an ID of the section heading.
                          (+ (* 60 60 (/ it 100)) (* 60 (% it 100)))
                          (org-taskforecast--format-second-to-hhmm it)
                          (format "SECTION: %s -" it))))))
-    (with-current-buffer (find-file-noselect file)
+    (org-taskforecast--with-existing-file file
       (save-excursion
         (goto-char (point-max))
         (unless (bolp)
@@ -1753,7 +1762,7 @@ This function moves only ENTRY not all of entries in FILE.
                         (org-taskforecast--entry-id entry)))
                  ((_ . pos) (org-id-find
                              (org-taskforecast--entry-id insert-before))))
-            (with-current-buffer (find-file-noselect file)
+            (org-taskforecast--with-existing-file file
               (save-excursion
                 (save-restriction
                   (widen)
