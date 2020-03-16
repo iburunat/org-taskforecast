@@ -270,6 +270,14 @@ A returned value is a list like (hour minute)."
          (or (time-equal-p start time)
              (time-less-p start time)))))
 
+;;; List
+
+(cl-defun org-taskforecast--sort (seq predicate &key (key #'identity))
+  "Like `cl-sort' but do not modify SEQ.
+
+About SEQ, PREDICATE and KEY, see `cl-sort'."
+  (cl-sort (copy-sequence seq) predicate :key key))
+
 ;;; Cache
 
 ;; Parsing org-mode text consumes many time.
@@ -896,6 +904,33 @@ HOUR, MINUTE and SECOND are default values if the timestamp doesn't have those p
     (-some--> (list stime dtime)
       (-non-nil it)
       (-min-by (-flip #'time-less-p) it))))
+
+(cl-defun org-taskforecast--entry-derive-default-section (entry sections date &optional (hour 0) (minute 0) (second 0))
+  "Derive default section from SECTIONS with ENTRY's scheduled and deadline.
+
+This function tries to derive a default section using timestamp obtained by
+`org-taskforecast--entry-early-planning'.
+If a latest section whose start time is less than or equal to the timestamp
+above is found, the section is the derived section.
+
+If the derived section is found, this function returns it.
+If not, this function returns nil.
+
+- ENTRY is an entry instance
+- SECTIONS is a list of instances of `org-taskforecast--section'
+- DATE is an encoded time as a date of today
+- HOUR, MINUTE and SECOND are used by `org-taskforecast--entry-early-planning'"
+  (-when-let (planning
+              (org-taskforecast--entry-early-planning
+               entry hour minute second))
+    (-some--> (org-taskforecast--sort
+               sections #'> :key #'org-taskforecast--section-start-time)
+      (--first (let ((st (org-taskforecast--encode-hhmm
+                          (org-taskforecast--section-start-time it)
+                          date)))
+                 (or (time-less-p st planning)
+                     (time-equal-p st planning)))
+               it))))
 
 ;;;; tlink class
 
