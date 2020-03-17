@@ -81,11 +81,11 @@ The results of the functions are joind with \" \" and
 empty strings are ignored..
 The functions should have no parameter.
 The functions are obtained information as global variables below:
-- `org-taskforecast-list-info-entry' as an object which
-  implements entry interface
-- `org-taskforecast-list-info-today' as an encoded time
-- `org-taskforecast-list-info-now' as an encoded time
-- `org-taskforecast-list-info-entry-start-end-time' as an instance of
+- `org-taskforecast-list-info-task-link' is an instance of
+  `org-taskforecast--tlink'
+- `org-taskforecast-list-info-today' is an encoded time as a date of today
+- `org-taskforecast-list-info-now' as an encoded time as the current time
+- `org-taskforecast-list-info-task-link-start-end-time' is an instance of
   `org-taskforecast--eclock'
 
 Other global variables also are set for formatting:
@@ -2216,11 +2216,17 @@ When there is no task link data, this function returns nil."
     (get-text-property (point)
                        org-taskforecast--list-task-link-property)))
 
-(defvar org-taskforecast-list-info-entry nil
-  "This variable is used to pass an entry data to formatter.
+(defvar org-taskforecast-list-info-task-link nil
+  "This variable is used to pass a task link to formatter.
 
 This value will be an instance of `org-taskforecast--tlink'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
+
+(defvar org-taskforecast-list-info-section nil
+  "This variable is used to pass a section to formatter.
+
+This value will be an instance of `org-taskforecast--section'.
+See `org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-today nil
   "This variable is used to pass a date of today to formatter.
@@ -2237,17 +2243,11 @@ This value will be an encoded time.
 See `org-taskforecast-list-task-link-formatters' and
 `org-taskforecast-list-section-formatter' for more detail.")
 
-(defvar org-taskforecast-list-info-entry-start-end-time nil
+(defvar org-taskforecast-list-info-task-link-start-end-time nil
   "This variable is used to pass the start and end time to formatter.
 
 This value will be an instance of `org-taskforecast--eclock'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
-
-(defvar org-taskforecast-list-info-section nil
-  "This variable is used to pass a section to formatter.
-
-This value will be an instance of `org-taskforecast--section'.
-See `org-taskforecast-list-section-formatter' for more detail.")
 
 (defun org-taskforecast-list-tlfmt-scheduled-time ()
   "Format scheduled/deadline time of a task.
@@ -2256,12 +2256,12 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   (let* ((today org-taskforecast-list-info-today)
          (day-start org-taskforecast-day-start)
          (todo (org-taskforecast--entry-todo-state-for-today
-                org-taskforecast-list-info-entry
+                org-taskforecast-list-info-task-link
                 today org-taskforecast-day-start))
          (scheduled (org-taskforecast--entry-scheduled
-                     org-taskforecast-list-info-entry))
+                     org-taskforecast-list-info-task-link))
          (deadline (org-taskforecast--entry-deadline
-                    org-taskforecast-list-info-entry))
+                    org-taskforecast-list-info-task-link))
          (stime (and scheduled
                      (not (org-taskforecast--scheduled-date-only-p scheduled))
                      (org-taskforecast--scheduled-start-time scheduled)))
@@ -2282,7 +2282,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
                   (delayp (time-less-p
                            it
                            (org-taskforecast--eclock-start
-                            org-taskforecast-list-info-entry-start-end-time))))
+                            org-taskforecast-list-info-task-link-start-end-time))))
              (--> (format "%d:%02d" hour min)
                   (propertize
                    it 'face
@@ -2305,7 +2305,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let ((effort (org-taskforecast--entry-effective-effort
-                 org-taskforecast-list-info-entry
+                 org-taskforecast-list-info-task-link
                  org-taskforecast-list-info-today
                  org-taskforecast-day-start)))
     (format "%5s"
@@ -2325,10 +2325,10 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
              0))))
   (-let* ((start
            (org-taskforecast--eclock-start
-            org-taskforecast-list-info-entry-start-end-time))
+            org-taskforecast-list-info-task-link-start-end-time))
           (start-estimated-p
            (org-taskforecast--eclock-start-estimated-p
-            org-taskforecast-list-info-entry-start-end-time))
+            org-taskforecast-list-info-task-link-start-end-time))
           ((hour minute)
            (org-taskforecast--time-to-hhmm
             start
@@ -2350,18 +2350,18 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
              0))))
   (-let* ((todo-type
            (org-taskforecast--entry-todo-state-for-today
-            org-taskforecast-list-info-entry
+            org-taskforecast-list-info-task-link
             org-taskforecast-list-info-today
             org-taskforecast-day-start))
           (end
            (org-taskforecast--eclock-end
-            org-taskforecast-list-info-entry-start-end-time))
+            org-taskforecast-list-info-task-link-start-end-time))
           (end-estimated-p
            (org-taskforecast--eclock-end-estimated-p
-            org-taskforecast-list-info-entry-start-end-time))
+            org-taskforecast-list-info-task-link-start-end-time))
           (overrunp_
            (org-taskforecast--eclock-overrun-p
-            org-taskforecast-list-info-entry-start-end-time))
+            org-taskforecast-list-info-task-link-start-end-time))
           (overrunp
            (and end-estimated-p
                 (eq todo-type 'todo)
@@ -2382,7 +2382,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let* ((eclocks (org-taskforecast--entry-effective-clocks
-                   org-taskforecast-list-info-entry
+                   org-taskforecast-list-info-task-link
                    org-taskforecast-list-info-today
                    org-taskforecast-day-start))
          (total (-reduce-from
@@ -2401,7 +2401,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let ((todo-type
          (org-taskforecast--entry-todo-state-for-today
-          org-taskforecast-list-info-entry
+          org-taskforecast-list-info-task-link
           org-taskforecast-list-info-today
           org-taskforecast-day-start)))
     (propertize (cl-case todo-type
@@ -2416,7 +2416,8 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   "Format task's title.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
-  (propertize (org-taskforecast--entry-title org-taskforecast-list-info-entry)
+  (propertize (org-taskforecast--entry-title
+               org-taskforecast-list-info-task-link)
               ;; TODO: define face
               'face 'org-scheduled-today))
 
@@ -2465,7 +2466,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
             (let* ((todo-type
                     (org-taskforecast--entry-todo-state-for-today
                      it today day-start))
-                   (org-taskforecast-list-info-entry-start-end-time
+                   (org-taskforecast-list-info-task-link-start-end-time
                     (org-taskforecast--tlink-start-end-time
                      it
                      today
@@ -2474,7 +2475,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                      (and (eq todo-type 'todo)
                           org-taskforecast-list-info-now))))
               (prog1
-                  (let ((org-taskforecast-list-info-entry it))
+                  (let ((org-taskforecast-list-info-task-link it))
                     (-as-> org-taskforecast-list-task-link-formatters x
                            (-map #'funcall x)
                            (-reject #'s-blank-p x)
@@ -2483,7 +2484,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                 ;; update last done time
                 (setq last-task-done-time
                       (org-taskforecast--eclock-end
-                       org-taskforecast-list-info-entry-start-end-time))))
+                       org-taskforecast-list-info-task-link-start-end-time))))
             links))
          (s-join "\n" links)))
 
