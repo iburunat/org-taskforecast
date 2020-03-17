@@ -94,6 +94,20 @@ Other global variables also are set for formatting:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-list-section-formatter
+  #'org-taskforecast-list-secfmt-section
+  "Function for formatting a section in `org-taskforecast-list'.
+
+The function should have no parameter.
+The function is obtained information as global variables below:
+- `org-taskforecast-list-info-section' is an instance of
+  `org-taskforecast--section'
+- `org-taskforecast-list-info-today' is an encoded time as a date of today
+- `org-taskforecast-list-info-now' as an encoded time as the current time"
+  :type 'function
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.1.0"))
+
 (defcustom org-taskforecast-enable-interruption t
   "Non-nil means enable inturruption representation."
   :type 'boolean
@@ -2203,29 +2217,37 @@ When there is no task link data, this function returns nil."
                        org-taskforecast--list-task-link-property)))
 
 (defvar org-taskforecast-list-info-entry nil
-  "This variable is used to pass an entry data to formatters.
+  "This variable is used to pass an entry data to formatter.
 
 This value will be an instance of `org-taskforecast--tlink'.
 See `org-taskforecast-list-task-formatters' for more detail.")
 
 (defvar org-taskforecast-list-info-today nil
-  "This variable is used to pass a date of today to formatters.
+  "This variable is used to pass a date of today to formatter.
 
 This value will be an encoded time.
 Its hour, minute and second are set to zero.
-See `org-taskforecast-list-task-formatters' for more detail.")
+See `org-taskforecast-list-task-formatters' and
+`org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-now nil
-  "This variable is used to pass the current time to formatters.
+  "This variable is used to pass the current time to formatter.
 
 This value will be an encoded time.
-See `org-taskforecast-list-task-formatters' for more detail.")
+See `org-taskforecast-list-task-formatters' and
+`org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-entry-start-end-time nil
-  "This variable is used to pass the start and end time to formatters.
+  "This variable is used to pass the start and end time to formatter.
 
 This value will be an instance of `org-taskforecast--eclock'.
 See `org-taskforecast-list-task-formatters' for more detail.")
+
+(defvar org-taskforecast-list-info-section nil
+  "This variable is used to pass a section to formatter.
+
+This value will be an instance of `org-taskforecast--section'.
+See `org-taskforecast-list-section-formatter' for more detail.")
 
 (defun org-taskforecast-list-format-scheduled-time ()
   "Format scheduled/deadline time of a task.
@@ -2397,6 +2419,30 @@ This function is used for `org-taskforecast-list-task-formatters'."
   (propertize (org-taskforecast--entry-title org-taskforecast-list-info-entry)
               ;; TODO: define face
               'face 'org-scheduled-today))
+
+(defun org-taskforecast-list-secfmt-section ()
+  "Format section.
+
+This function is used for `org-taskforecast-list-section-formatter'."
+  (let* ((section org-taskforecast-list-info-section)
+         (today org-taskforecast-list-info-today)
+         (day-start org-taskforecast-day-start)
+         (effective-effort
+          (--> (org-taskforecast--section-entries section)
+               (-map (-rpartial #'org-taskforecast--entry-effective-effort
+                                today day-start)
+                     it)
+               (-non-nil it)
+               (-sum it)))
+         (effort (org-taskforecast--section-effort section))
+         (title (org-taskforecast--section-description section)))
+    (format "[%5s / %5s] %s"
+            (propertize
+             (org-taskforecast--format-second-to-hhmm effective-effort)
+             ;; TODO: define face
+             'face (when (> effective-effort effort) 'org-warning))
+            (org-taskforecast--format-second-to-hhmm effort)
+            title)))
 
 (defun org-taskforecast--create-task-list (today day-start)
   "Create a today's task list for TODAY.
