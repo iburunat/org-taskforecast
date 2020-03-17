@@ -67,14 +67,14 @@ Example of a range of today:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
-(defcustom org-taskforecast-list-task-formatters
-  (list #'org-taskforecast-list-format-scheduled-time
-        #'org-taskforecast-list-format-task-start
-        #'org-taskforecast-list-format-task-end
-        #'org-taskforecast-list-format-effort
-        #'org-taskforecast-list-format-clock
-        #'org-taskforecast-list-format-link-todo
-        #'org-taskforecast-list-format-title)
+(defcustom org-taskforecast-list-task-link-formatters
+  (list #'org-taskforecast-list-tlfmt-scheduled-time
+        #'org-taskforecast-list-tlfmt-start
+        #'org-taskforecast-list-tlfmt-end
+        #'org-taskforecast-list-tlfmt-effort
+        #'org-taskforecast-list-tlfmt-clock
+        #'org-taskforecast-list-tlfmt-todo
+        #'org-taskforecast-list-tlfmt-title)
   "Function list for formatting a task link.
 
 The results of the functions are joind with \" \" and
@@ -2183,10 +2183,10 @@ from `org-taskforecast-sections' to today's daily task list file.
 
 ;;;; task-forecast-list mode
 
-(defcustom org-taskforecast-list-format-scheduled-strategy 'earlier
+(defcustom org-taskforecast-list-tlfmt-scheduled-strategy 'earlier
   "Which time to show as a scheduled time of a task between SCHEDULED and DEADLINE.
 
-This changes the behavior of `org-taskforecast-list-format-scheduled-time'."
+This changes the behavior of `org-taskforecast-list-tlfmt-scheduled-time'."
   ;; "Later" is not implemented which may be unused.
   :type '(choice
           (const :tag "SCHEDULED" scheduled)
@@ -2220,28 +2220,28 @@ When there is no task link data, this function returns nil."
   "This variable is used to pass an entry data to formatter.
 
 This value will be an instance of `org-taskforecast--tlink'.
-See `org-taskforecast-list-task-formatters' for more detail.")
+See `org-taskforecast-list-task-link-formatters' for more detail.")
 
 (defvar org-taskforecast-list-info-today nil
   "This variable is used to pass a date of today to formatter.
 
 This value will be an encoded time.
 Its hour, minute and second are set to zero.
-See `org-taskforecast-list-task-formatters' and
+See `org-taskforecast-list-task-link-formatters' and
 `org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-now nil
   "This variable is used to pass the current time to formatter.
 
 This value will be an encoded time.
-See `org-taskforecast-list-task-formatters' and
+See `org-taskforecast-list-task-link-formatters' and
 `org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-entry-start-end-time nil
   "This variable is used to pass the start and end time to formatter.
 
 This value will be an instance of `org-taskforecast--eclock'.
-See `org-taskforecast-list-task-formatters' for more detail.")
+See `org-taskforecast-list-task-link-formatters' for more detail.")
 
 (defvar org-taskforecast-list-info-section nil
   "This variable is used to pass a section to formatter.
@@ -2249,10 +2249,10 @@ See `org-taskforecast-list-task-formatters' for more detail.")
 This value will be an instance of `org-taskforecast--section'.
 See `org-taskforecast-list-section-formatter' for more detail.")
 
-(defun org-taskforecast-list-format-scheduled-time ()
+(defun org-taskforecast-list-tlfmt-scheduled-time ()
   "Format scheduled/deadline time of a task.
 
-This function is used for `org-taskforecast-list-task-formatters'."
+This function is used for `org-taskforecast-list-task-link-formatters'."
   (let* ((today org-taskforecast-list-info-today)
          (day-start org-taskforecast-day-start)
          (todo (org-taskforecast--entry-todo-state-for-today
@@ -2268,7 +2268,7 @@ This function is used for `org-taskforecast-list-task-formatters'."
          (dtime (and deadline
                      (not (org-taskforecast--deadline-date-only-p deadline))
                      (org-taskforecast--deadline-time deadline))))
-    (--> (cl-case org-taskforecast-list-format-scheduled-strategy
+    (--> (cl-case org-taskforecast-list-tlfmt-scheduled-strategy
            (scheduled stime)
            (deadline dtime)
            (earlier (-some--> (-non-nil (list stime dtime))
@@ -2300,10 +2300,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
           (t ""))
          (format "%5s" it))))
 
-(defun org-taskforecast-list-format-effort ()
+(defun org-taskforecast-list-tlfmt-effort ()
   "Format effort property of a task.
 
-This function is used for `org-taskforecast-list-task-formatters'."
+This function is used for `org-taskforecast-list-task-link-formatters'."
   (let ((effort (org-taskforecast--entry-effective-effort
                  org-taskforecast-list-info-entry
                  org-taskforecast-list-info-today
@@ -2313,10 +2313,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
                 (org-taskforecast--format-second-to-hhmm effort)
               "-:--"))))
 
-(defun org-taskforecast-list-format-task-start ()
+(defun org-taskforecast-list-tlfmt-start ()
   "Format time when a task has been started.
 
-This function is used for `org-taskforecast-list-task-formatters'."
+This function is used for `org-taskforecast-list-task-link-formatters'."
   (org-taskforecast-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
      (and (= (decoded-time-hour decoded)
@@ -2338,10 +2338,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
                 ;; TODO: define face
                 'face (if start-estimated-p 'org-scheduled 'default))))
 
-(defun org-taskforecast-list-format-task-end ()
+(defun org-taskforecast-list-tlfmt-end ()
   "Format time when a task has been closed.
 
-This function is used for `org-taskforecast-list-task-formatters'."
+This function is used for `org-taskforecast-list-task-link-formatters'."
   (org-taskforecast-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
      (and (= (decoded-time-hour decoded)
@@ -2377,10 +2377,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
                        (end-estimated-p 'org-scheduled)
                        (t 'default)))))
 
-(defun org-taskforecast-list-format-clock ()
+(defun org-taskforecast-list-tlfmt-clock ()
   "Format clock of a task link.
 
-This function is used for `org-taskforecast-list-task-formatters'."
+This function is used for `org-taskforecast-list-task-link-formatters'."
   (let* ((eclocks (org-taskforecast--entry-effective-clocks
                    org-taskforecast-list-info-entry
                    org-taskforecast-list-info-today
@@ -2395,10 +2395,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
                  (time-to-seconds total))
               "-:--"))))
 
-(defun org-taskforecast-list-format-link-todo ()
+(defun org-taskforecast-list-tlfmt-todo ()
   "Format task link's todo state.
 
-This function is used for `org-taskforecast-list-task-formatters'."
+This function is used for `org-taskforecast-list-task-link-formatters'."
   (let ((todo-type
          (org-taskforecast--entry-todo-state-for-today
           org-taskforecast-list-info-entry
@@ -2412,10 +2412,10 @@ This function is used for `org-taskforecast-list-task-formatters'."
                         ('todo 'org-todo)
                         ('done 'org-done)))))
 
-(defun org-taskforecast-list-format-title ()
+(defun org-taskforecast-list-tlfmt-title ()
   "Format task's title.
 
-This function is used for `org-taskforecast-list-task-formatters'."
+This function is used for `org-taskforecast-list-task-link-formatters'."
   (propertize (org-taskforecast--entry-title org-taskforecast-list-info-entry)
               ;; TODO: define face
               'face 'org-scheduled-today))
@@ -2475,7 +2475,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                           org-taskforecast-list-info-now))))
               (prog1
                   (let ((org-taskforecast-list-info-entry it))
-                    (-as-> org-taskforecast-list-task-formatters x
+                    (-as-> org-taskforecast-list-task-link-formatters x
                            (-map #'funcall x)
                            (-reject #'s-blank-p x)
                            (s-join " " x)
