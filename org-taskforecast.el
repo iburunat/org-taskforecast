@@ -68,7 +68,8 @@ Example of a range of today:
   :package-version '(org-taskforecast . "0.1.0"))
 
 (defcustom org-taskforecast-list-task-link-formatters
-  (list #'org-taskforecast-list-tlfmt-scheduled-time
+  (list #'org-taskforecast-list-tlfmt-default-section-id
+        #'org-taskforecast-list-tlfmt-scheduled-time
         #'org-taskforecast-list-tlfmt-start
         #'org-taskforecast-list-tlfmt-end
         #'org-taskforecast-list-tlfmt-effort
@@ -87,6 +88,8 @@ The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-now' as an encoded time as the current time
 - `org-taskforecast-list-info-task-link-start-end-time' is an instance of
   `org-taskforecast--eclock'
+- `org-taskforecast-list-info-sections' is a list of instances of
+  `org-taskforecast--section'
 
 Other global variables also are set for formatting:
 - `org-taskforecast-day-start'"
@@ -2304,6 +2307,12 @@ See `org-taskforecast-list-task-link-formatters' and
 This value will be an instance of `org-taskforecast--eclock'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
 
+(defvar org-taskforecast-list-info-sections nil
+  "This variable is used to pass the section list to formatter.
+
+This value will be a list of instances of `org-taskforecast--section'.
+See `org-taskforecast-list-task-link-formatters' for more detail.")
+
 (defmacro org-taskforecast--list-define-toggleable-tlfmt (name default docstring &rest body)
   "Define toggleable task link formatter.
 
@@ -2482,6 +2491,26 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
                  (time-to-seconds total))
               "-:--"))))
 
+(org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-default-section-id nil
+  "Format default section id of a task link.
+
+This function is used for `org-taskforecast-list-task-link-formatters'."
+  (let ((task-link org-taskforecast-list-info-task-link)
+        (date org-taskforecast-list-info-today)
+        (sections org-taskforecast-list-info-sections)
+        (len (--> (-map #'cl-first org-taskforecast-sections)
+                  (-map #'length it)
+                  (-max it))))
+    (--> (org-taskforecast--entry-default-section-id task-link)
+         (if it
+             it
+           (-some--> (org-taskforecast--entry-derive-default-section
+                      task-link sections date)
+             (org-taskforecast--section-section-id it)
+             ;; TODO: define face
+             (propertize it 'face 'font-lock-comment-face)))
+         (s-pad-left len " " it))))
+
 (defun org-taskforecast-list-tlfmt-todo ()
   "Format task link's todo state.
 
@@ -2532,15 +2561,17 @@ This function is used for `org-taskforecast-list-section-formatter'."
             (org-taskforecast--format-second-to-hhmm effort)
             title)))
 
-(defun org-taskforecast--list-create-task-link-content (task-link date start-end-time now day-start)
+(defun org-taskforecast--list-create-task-link-content (task-link sections date start-end-time now day-start)
   "Create a content of a task link for today's task list.
 
 - TASK-LINK is an instance of `org-taskforecast--tlink'
+- SECTIONS is a list of instances of `org-taskforecast--section'
 - DATE is an encoded time as a date of today
 - START-END-TIME is an instance of `org-taskforecast--eclock'
 - NOW is an encoded time as the current time
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (let ((org-taskforecast-list-info-task-link task-link)
+        (org-taskforecast-list-info-sections sections)
         (org-taskforecast-list-info-today date)
         (org-taskforecast-list-info-now now)
         (org-taskforecast-day-start day-start)
@@ -2577,7 +2608,9 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
   (--> (org-taskforecast--get-entries
         (org-taskforecast-get-dailylist-file today)
         day-start)
-       (let ((last-task-done-time
+       (let ((sections
+              (-filter #'org-taskforecast--entry-is-section it))
+             (last-task-done-time
               (org-taskforecast--encode-hhmm day-start today))
              (now (current-time)))
          (--map
@@ -2594,7 +2627,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                        (and (eq todo-type 'todo) now))))
                 (prog1
                     (org-taskforecast--list-create-task-link-content
-                     it today start-end-time now day-start)
+                     it sections today start-end-time now day-start)
                   ;; update last done time
                   (setq last-task-done-time
                         (org-taskforecast--eclock-end start-end-time))))
@@ -2637,6 +2670,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "vs") #'org-taskforecast-list-tlfmt-start-toggle)
     (define-key map (kbd "ve") #'org-taskforecast-list-tlfmt-end-toggle)
     (define-key map (kbd "vc") #'org-taskforecast-list-tlfmt-clock-toggle)
+    (define-key map (kbd "vd") #'org-taskforecast-list-tlfmt-default-section-id-toggle)
     map)
   "A key map for `org-taskforecast-list-mode'.")
 
