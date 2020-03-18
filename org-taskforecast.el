@@ -91,7 +91,7 @@ The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-sections' is a list of instances of
   `org-taskforecast--section'
 
-Other global variables also are set for formatting:
+Other global variable is also set for formatting:
 - `org-taskforecast-day-start'"
   :type '(repeat function)
   :group 'org-taskforecast
