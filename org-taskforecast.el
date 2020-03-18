@@ -2437,13 +2437,45 @@ This function is used for `org-taskforecast-list-section-formatter'."
                (-sum it)))
          (effort (org-taskforecast--section-effort section))
          (title (org-taskforecast--section-description section)))
-    (format "[%5s / %5s] %s"
+    (format "[%5s / %5s]: %s"
             (propertize
              (org-taskforecast--format-second-to-hhmm effective-effort)
              ;; TODO: define face
              'face (when (> effective-effort effort) 'org-warning))
             (org-taskforecast--format-second-to-hhmm effort)
             title)))
+
+(defun org-taskforecast--list-create-task-link-content (task-link date start-end-time now day-start)
+  "Create a content of a task link for today's task list.
+
+- TASK-LINK is an instance of `org-taskforecast--tlink'
+- DATE is an encoded time as a date of today
+- START-END-TIME is an instance of `org-taskforecast--eclock'
+- NOW is an encoded time as the current time
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (let ((org-taskforecast-list-info-task-link task-link)
+        (org-taskforecast-list-info-today date)
+        (org-taskforecast-list-info-now now)
+        (org-taskforecast-day-start day-start)
+        (org-taskforecast-list-info-task-link-start-end-time start-end-time))
+    (--> org-taskforecast-list-task-link-formatters
+         (-map #'funcall it)
+         (-reject #'s-blank-p it)
+         (s-join " " it)
+         (org-taskforecast--list-propertize-link-data it task-link))))
+
+(defun org-taskforecast--list-create-section-content (section date now day-start)
+  "Create a content of a section for today's task list.
+
+- SECTION is an instance of `org-taskforecast--section'
+- DATE is an encoded time as a date of today
+- NOW is an encoded time as the current time
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (let ((org-taskforecast-list-info-section section)
+        (org-taskforecast-list-info-today date)
+        (org-taskforecast-list-info-now now)
+        (org-taskforecast-day-start day-start))
+    (funcall org-taskforecast-list-section-formatter)))
 
 (defun org-taskforecast--create-task-list (today day-start)
   "Create a today's task list for TODAY.
@@ -2454,39 +2486,34 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
 
 - TODAY is an encoded time
 - DAY-START is an integer, see `org-taskforecast-day-start'"
-  (-as-> (org-taskforecast--get-task-links
-          (org-taskforecast-get-dailylist-file today))
-         links
-         (let ((last-task-done-time
-                (org-taskforecast--encode-hhmm day-start today))
-               (org-taskforecast-list-info-today today)
-               (org-taskforecast-list-info-now (current-time))
-               (org-taskforecast-day-start day-start))
-           (--map
-            (let* ((todo-type
-                    (org-taskforecast--entry-todo-state-for-today
-                     it today day-start))
-                   (org-taskforecast-list-info-task-link-start-end-time
-                    (org-taskforecast--tlink-start-end-time
-                     it
-                     today
-                     day-start
-                     last-task-done-time
-                     (and (eq todo-type 'todo)
-                          org-taskforecast-list-info-now))))
-              (prog1
-                  (let ((org-taskforecast-list-info-task-link it))
-                    (-as-> org-taskforecast-list-task-link-formatters x
-                           (-map #'funcall x)
-                           (-reject #'s-blank-p x)
-                           (s-join " " x)
-                           (org-taskforecast--list-propertize-link-data x it)))
-                ;; update last done time
-                (setq last-task-done-time
-                      (org-taskforecast--eclock-end
-                       org-taskforecast-list-info-task-link-start-end-time))))
-            links))
-         (s-join "\n" links)))
+  (--> (org-taskforecast--get-entries
+        (org-taskforecast-get-dailylist-file today)
+        day-start)
+       (let ((last-task-done-time
+              (org-taskforecast--encode-hhmm day-start today))
+             (now (current-time)))
+         (--map
+          (if (org-taskforecast--entry-is-task-link it)
+              (let* ((todo-type
+                      (org-taskforecast--entry-todo-state-for-today
+                       it today day-start))
+                     (start-end-time
+                      (org-taskforecast--tlink-start-end-time
+                       it
+                       today
+                       day-start
+                       last-task-done-time
+                       (and (eq todo-type 'todo) now))))
+                (prog1
+                    (org-taskforecast--list-create-task-link-content
+                     it today start-end-time now day-start)
+                  ;; update last done time
+                  (setq last-task-done-time
+                        (org-taskforecast--eclock-end start-end-time))))
+            (org-taskforecast--list-create-section-content
+             it today now day-start))
+          it))
+       (s-join "\n" it)))
 
 (defun org-taskforecast--insert-task-list (today day-start)
   "Insert a TODAY's task list.
