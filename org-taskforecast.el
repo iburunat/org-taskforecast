@@ -2212,6 +2212,18 @@ from `org-taskforecast-sections' to today's daily task list file.
               day-start)))))
   (org-taskforecast--list-refresh-maybe))
 
+;;; Setting properties
+
+;;;###autoload
+(defun org-taskforecast-set-default-section-id (section-id)
+  "Set default section id of the heading at the current point to SECTION-ID."
+  (interactive
+   (list (completing-read "section id: "
+                          (-map #'cl-first org-taskforecast-sections))))
+  (org-entry-put nil
+                 org-taskforecast--task-default-section-id-prop-name
+                 section-id))
+
 
 ;;;; task-forecast-list mode
 
