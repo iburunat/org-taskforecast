@@ -1517,7 +1517,7 @@ exists corresponding to the task.
            link-id
          (org-taskforecast--append-task-link id file))))
 
-(defun org-taskforecast--get-first-todo-task-link (file date day-start)
+(defun org-taskforecast--get-first-todo-task-link (file date day-start now)
   "Get the first todo task link in FILE.
 
 A returned value is an instance of `org-taskforecast--tlink'.
@@ -1525,20 +1525,22 @@ If a first todo task is not found, this function returns nil.
 
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'"
+- DAY-START is an integer like `org-taskforecast-day-start'
+- NOW is an encoded time as the current time"
   (org-taskforecast--with-existing-file file
     (save-excursion
       (goto-char
-       (org-taskforecast--get-todo-link-head-pos file date day-start))
-      ;; `org-taskforecast--get-todo-link-head-pos' returns the end
-      ;; of buffer if there is no todo task link.
-      ;; So checking that the returned task link is really todo task link.
-      (let ((task-link (org-taskforecast--get-task-link)))
-        (when (and task-link
-                   (eq 'todo
-                       (org-taskforecast--entry-todo-state-for-today
-                        task-link date day-start)))
-          task-link)))))
+       (org-taskforecast--get-todo-entry-head-pos file date day-start now))
+      ;; `org-taskforecast--get-todo-entry-head-pos' returns the end
+      ;; of buffer if there is no todo entries.
+      ;; And it may return a position of a section heading.
+      ;; So find a todo task heading from the returned position.
+      (cl-loop until (eobp)
+               for entry = (org-taskforecast--get-entry)
+               if (and entry
+                       (org-taskforecast--entry-is-task-link entry))
+               return entry
+               else do (forward-line)))))
 
 (defun org-taskforecast--split-task-link (link-id time file)
   "Split a task link of LINK-ID on FILE as interrupted at TIME."
@@ -1555,7 +1557,7 @@ If a first todo task is not found, this function returns nil.
       (forward-char -1)
       (org-taskforecast--set-task-link-effective-start-time time))))
 
-(defun org-taskforecast--push-task-link-maybe (id file date day-start)
+(defun org-taskforecast--push-task-link-maybe (id file date day-start now)
   "Add a task link for ID to the head of todo task links in FILE.
 
 If a task link corresponding to ID already exists, this function moves it.
@@ -1571,12 +1573,13 @@ is non-nil.
 - ID is a task id
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'"
+- DAY-START is an integer like `org-taskforecast-day-start'
+- NOW is an encoded time as the current time"
   ;; interruption
   (when org-taskforecast-enable-interruption
     (-when-let* ((first-todo-task-link
                   (org-taskforecast--get-first-todo-task-link
-                   file date day-start))
+                   file date day-start now))
                  (task-id
                   (org-taskforecast--tlink-task-id first-todo-task-link))
                  (link-id
@@ -1589,7 +1592,8 @@ is non-nil.
         (org-taskforecast--split-task-link link-id (current-time) file))))
   (let ((link-id (org-taskforecast--append-task-link-maybe
                   id file date day-start)))
-    (org-taskforecast--move-task-link-to-todo-head link-id file date day-start)
+    (org-taskforecast--move-task-link-to-todo-head
+     link-id file date day-start now)
     link-id))
 
 (defun org-taskforecast--get-task-links (file)
@@ -1608,35 +1612,51 @@ is non-nil.
    (string= task-id (org-taskforecast--tlink-task-id it))
    (org-taskforecast--get-task-links file)))
 
-(defun org-taskforecast--get-todo-link-head-pos (file date day-start)
-  "Get the point of head of todo task links in FILE.
+(defun org-taskforecast--get-todo-entry-head-pos (file date day-start now)
+  "Get the point of head of todo entries in FILE.
+
+If there is no todo entry heading, this function returns the point of
+the end of buffer.
 
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'"
+- DAY-START is an integer like `org-taskforecast-day-start'
+- NOW is an encoded time as the current time"
   (let ((pos nil))
     (org-taskforecast--with-existing-file file
       (org-taskforecast--map-headings
        (lambda ()
          (unless pos
-           (--> (org-taskforecast--get-task-link)
-                (org-taskforecast--entry-todo-state-for-today
-                 it date day-start)
+           (--> (org-taskforecast--get-entry)
+                (cond ((org-taskforecast--entry-is-task-link it)
+                       (org-taskforecast--entry-todo-state-for-today
+                        it date day-start))
+                      ;; pseudo todo state for section to put a task link
+                      ;; heading before a section heading if the section is
+                      ;; not started.
+                      ((org-taskforecast--entry-is-section it)
+                       (let* ((sthhmm (org-taskforecast--section-start-time it))
+                              (st (org-taskforecast--encode-hhmm sthhmm date)))
+                         (if (time-less-p now st)
+                             'todo
+                           'done))))
                 (when (eq it 'todo)
                   (setq pos (point)))))))
       (or pos (point-max)))))
 
-(defun org-taskforecast--move-task-link-to-todo-head (link-id file date day-start)
+(defun org-taskforecast--move-task-link-to-todo-head (link-id file date day-start now)
   "Move a task link of LINK-ID to the head of todo task links of FILE.
 
 - ID is an id of org-id of a task link
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'"
+- DAY-START is an integer like `org-taskforecast-day-start'
+- NOW is an encoded time as the current time"
   (unless (org-taskforecast--at-id link-id (org-taskforecast--get-task-link))
     (error "Not a task link ID: %s" link-id))
   (let ((task-link (org-taskforecast--cut-heading-by-id link-id))
-        (head (org-taskforecast--get-todo-link-head-pos file date day-start)))
+        (head (org-taskforecast--get-todo-entry-head-pos
+               file date day-start now)))
     (org-taskforecast--with-existing-file file
       (save-excursion
         (goto-char head)
@@ -2873,7 +2893,8 @@ ARG is passed to `org-deadline'."
            (file (org-taskforecast-get-dailylist-file today))
            (task (org-taskforecast--get-task))
            (todo-type (org-taskforecast--task-todo-state-for-today
-                       task today org-taskforecast-day-start)))
+                       task today org-taskforecast-day-start))
+           (now (current-time)))
       ;; A new task link will not be registered if the task's state is done
       ;; and some task links for the task is already registered.
       ;; This function's purpose for a clocked-in task are:
@@ -2884,7 +2905,7 @@ ARG is passed to `org-deadline'."
                      (null (org-taskforecast--get-task-links-for-task
                             (org-taskforecast--task-id task) file))))
         (org-taskforecast--push-task-link-maybe
-         (org-id-get-create) file today org-taskforecast-day-start)
+         (org-id-get-create) file today org-taskforecast-day-start now)
         ;; update list buffer
         (when (org-taskforecast--get-list-buffer)
           (org-taskforecast--list-refresh-maybe))))))
@@ -2901,10 +2922,11 @@ ARG is passed to `org-deadline'."
   (when (org-entry-is-done-p)
     (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
       (let* ((today (org-taskforecast-today))
-             (file (org-taskforecast-get-dailylist-file today)))
+             (file (org-taskforecast-get-dailylist-file today))
+             (now (current-time)))
         (-if-let* ((id (org-id-get))
-                   (head-pos (org-taskforecast--get-todo-link-head-pos
-                              file today org-taskforecast-day-start))
+                   (head-pos (org-taskforecast--get-todo-entry-head-pos
+                              file today org-taskforecast-day-start now))
                    (links (org-taskforecast--get-task-links-for-task id file)))
             ;; When task links of task that placed after first todo task link,
             ;; move that task links to the first todo task link position.
@@ -2921,12 +2943,11 @@ ARG is passed to `org-deadline'."
                    (--each it
                      (org-taskforecast--move-task-link-to-todo-head
                       (org-taskforecast--tlink-id it)
-                      file today org-taskforecast-day-start))))
+                      file today org-taskforecast-day-start now))))
           ;; When task is not registered, register it and move it to the
           ;; first todo task link position.
           (org-taskforecast--push-task-link-maybe
-           (org-id-get-create)
-           file today org-taskforecast-day-start)))
+           (org-id-get-create) file today org-taskforecast-day-start now)))
       ;; update list buffer
       (when (org-taskforecast--get-list-buffer)
         (org-taskforecast--list-refresh-maybe)))))
