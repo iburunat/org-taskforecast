@@ -2304,7 +2304,39 @@ See `org-taskforecast-list-task-link-formatters' and
 This value will be an instance of `org-taskforecast--eclock'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
 
-(defun org-taskforecast-list-tlfmt-scheduled-time ()
+(defmacro org-taskforecast--list-define-toggleable-tlfmt (name default docstring &rest body)
+  "Define toggleable task link formatter.
+
+This macro defines two functions and a variable:
+- NAME: a task link formatter function
+- NAME-toggle: a command which toggles show/hide of the formatter
+- NAME-show: a variable which indicates the show/hide state of the formatter
+
+DOCSTRING and BODY are used in NAME function like below:
+
+    (defun NAME ()
+      DOCSTRING
+      (when NAME-show
+        BODY...))
+
+DEFAULT is the default value of NAME-show."
+  (declare (indent 2))
+  (let* ((namestr (symbol-name name))
+         (name-toggle (intern (concat namestr "-toggle")))
+         (name-show (intern (concat namestr "-show"))))
+    `(progn
+       (defvar ,name-show ,default ,(format "Show/hide state of `%s'." name))
+       (defun ,name-toggle ()
+         ,(format "Toggle show/hide of `%s'." name)
+         (interactive)
+         (cl-callf not ,name-show)
+         (org-taskforecast-list-refresh nil))
+       (defun ,name ()
+         ,docstring
+         (when ,name-show
+           ,@body)))))
+
+(org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-scheduled-time t
   "Format scheduled/deadline time of a task.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
@@ -2355,7 +2387,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
           (t ""))
          (format "%5s" it))))
 
-(defun org-taskforecast-list-tlfmt-effort ()
+(org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-effort t
   "Format effort property of a task.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
@@ -2368,7 +2400,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
                 (org-taskforecast--format-second-to-hhmm effort)
               "-:--"))))
 
-(defun org-taskforecast-list-tlfmt-start ()
+(org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-start t
   "Format time when a task has been started.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
@@ -2393,7 +2425,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
                 ;; TODO: define face
                 'face (if start-estimated-p 'org-scheduled 'default))))
 
-(defun org-taskforecast-list-tlfmt-end ()
+(org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-end t
   "Format time when a task has been closed.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
@@ -2432,7 +2464,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
                        (end-estimated-p 'org-scheduled)
                        (t 'default)))))
 
-(defun org-taskforecast-list-tlfmt-clock ()
+(org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-clock t
   "Format clock of a task link.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
@@ -2600,6 +2632,11 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "C-c C-d") #'org-taskforecast-list-deadline)
     (define-key map (kbd "z") #'org-taskforecast-list-add-note)
     (define-key map (kbd "S") #'org-taskforecast-list-set-default-section-id)
+    (define-key map (kbd "vS") #'org-taskforecast-list-tlfmt-scheduled-time-toggle)
+    (define-key map (kbd "vf") #'org-taskforecast-list-tlfmt-effort-toggle)
+    (define-key map (kbd "vs") #'org-taskforecast-list-tlfmt-start-toggle)
+    (define-key map (kbd "ve") #'org-taskforecast-list-tlfmt-end-toggle)
+    (define-key map (kbd "vc") #'org-taskforecast-list-tlfmt-clock-toggle)
     map)
   "A key map for `org-taskforecast-list-mode'.")
 
