@@ -2195,26 +2195,37 @@ This changes the behavior of `org-taskforecast-list-tlfmt-scheduled-time'."
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
-(defvar org-taskforecast--list-task-link-property 'task-link
-  "A property symbol for a task link data to propertize string.")
+(defconst org-taskforecast--list-entry-property 'entry
+  "A property symbol for an entry data to propertize string.")
 
-(defun org-taskforecast--list-propertize-link-data (str task-link)
-  "Put a task link data, TASK-LINK, into STR."
+(defun org-taskforecast--list-propertize-entry-data (str entry)
+  "Put an entry data, ENTRY, into STR."
   (propertize str
-              org-taskforecast--list-task-link-property
-              task-link))
+              org-taskforecast--list-entry-property
+              entry))
+
+(defun org-taskforecast--list-get-entry-at-point ()
+  "Get an entry data via text property from current point.
+
+When there is no entry data, this function returns nil."
+  (save-excursion
+    ;; A character of end of line (newline) is not propertized by
+    ;; `org-taskforecast--list-propertize-entry-data'.
+    ;; So always get the text property from the beginning of line.
+    (beginning-of-line)
+    (get-text-property (point)
+                       org-taskforecast--list-entry-property)))
 
 (defun org-taskforecast--list-get-task-link-at-point ()
   "Get a task link data via text property from current point.
 
 When there is no task link data, this function returns nil."
-  (save-excursion
-    ;; A character of end of line (newline) is not propertized by
-    ;; `org-taskforecast--list-propertize-link-data'.
-    ;; So always get the text property from the beginning of line.
-    (beginning-of-line)
-    (get-text-property (point)
-                       org-taskforecast--list-task-link-property)))
+  (-some--> (org-taskforecast--list-get-entry-at-point)
+    (when (org-taskforecast--entry-is-task-link it)
+      it)))
+
+;; `org-taskforecast--list-get-section-at-point' is currently unused.
+;; So it is not defined
 
 (defvar org-taskforecast-list-info-task-link nil
   "This variable is used to pass a task link to formatter.
@@ -2462,7 +2473,7 @@ This function is used for `org-taskforecast-list-section-formatter'."
          (-map #'funcall it)
          (-reject #'s-blank-p it)
          (s-join " " it)
-         (org-taskforecast--list-propertize-link-data it task-link))))
+         (org-taskforecast--list-propertize-entry-data it task-link))))
 
 (defun org-taskforecast--list-create-section-content (section date now day-start)
   "Create a content of a section for today's task list.
@@ -2475,7 +2486,8 @@ This function is used for `org-taskforecast-list-section-formatter'."
         (org-taskforecast-list-info-today date)
         (org-taskforecast-list-info-now now)
         (org-taskforecast-day-start day-start))
-    (funcall org-taskforecast-list-section-formatter)))
+    (--> (funcall org-taskforecast-list-section-formatter)
+         (org-taskforecast--list-propertize-entry-data it section))))
 
 (defun org-taskforecast--create-task-list (today day-start)
   "Create a today's task list for TODAY.
