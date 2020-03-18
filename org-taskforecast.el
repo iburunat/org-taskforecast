@@ -2545,9 +2545,9 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "p") #'org-taskforecast-list-previous-line)
     (define-key map (kbd "t") #'org-taskforecast-list-todo)
     (define-key map (kbd "e") #'org-taskforecast-list-set-effort)
-    (define-key map (kbd "U") #'org-taskforecast-list-move-link-up)
-    (define-key map (kbd "D") #'org-taskforecast-list-move-link-down)
-    (define-key map (kbd "d") #'org-taskforecast-list-remove-link)
+    (define-key map (kbd "U") #'org-taskforecast-list-move-entry-up)
+    (define-key map (kbd "D") #'org-taskforecast-list-move-entry-down)
+    (define-key map (kbd "d") #'org-taskforecast-list-remove-entry)
     (define-key map (kbd "P") #'org-taskforecast-list-postpone-link)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     (define-key map (kbd "q") #'org-taskforecast-list-quit)
@@ -2606,20 +2606,21 @@ If the buffer already exists, only returns the buffer.
   (-when-let (buffer (org-taskforecast--get-list-buffer))
     (with-current-buffer buffer
       (let ((inhibit-read-only t)
-            (current-link (org-taskforecast--list-get-task-link-at-point)))
+            (current-entry (org-taskforecast--list-get-entry-at-point)))
         (erase-buffer)
         (org-taskforecast--insert-task-list
          (org-taskforecast-today)
          org-taskforecast-day-start)
         ;; Restore the line position of the cursor
         (goto-char (point-min))
-        (-some--> current-link
+        (-some--> current-entry
           (save-excursion
             (cl-loop until (eobp)
-                     for tlink = (org-taskforecast--list-get-task-link-at-point)
-                     if (string=
-                         (org-taskforecast--tlink-id it)
-                         (org-taskforecast--tlink-id tlink))
+                     for entry = (org-taskforecast--list-get-entry-at-point)
+                     if (and entry
+                             (string=
+                              (org-taskforecast--entry-id it)
+                              (org-taskforecast--entry-id entry)))
                      return (point)
                      else do (forward-line)))
           (goto-char it))))))
@@ -2719,23 +2720,23 @@ clear all cache data of `org-taskforecast-cache-mode'."
           (org-taskforecast--list-refresh))
       (user-error "Task link not found at the current line"))))
 
-(defun org-taskforecast-list-move-link-up (&optional arg)
-  "Move task link at the current line up past ARG others."
+(defun org-taskforecast-list-move-entry-up (&optional arg)
+  "Move entry at the current line up past ARG others."
   (interactive "p")
   (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
-    (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-               (id (org-taskforecast--tlink-id task-link)))
+    (-if-let* ((entry (org-taskforecast--list-get-entry-at-point))
+               (id (org-taskforecast--entry-id entry)))
         (progn
           (org-taskforecast--at-id id
             (org-move-subtree-up arg))
           (org-taskforecast--list-refresh))
-      (user-error "Task link not found at the current line"))))
+      (user-error "Entry not found at the current line"))))
 
-(defun org-taskforecast-list-move-link-down (&optional arg)
-  "Move task link at the current line down past ARG others."
+(defun org-taskforecast-list-move-entry-down (&optional arg)
+  "Move entry at the current line down past ARG others."
   (interactive "p")
   (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
-    (org-taskforecast-list-move-link-up (- arg))))
+    (org-taskforecast-list-move-entry-up (- arg))))
 
 (defun org-taskforecast--list-remove-link (link-id)
   "Remove a task-link of LINK-ID."
@@ -2746,13 +2747,13 @@ clear all cache data of `org-taskforecast-cache-mode'."
         (org-narrow-to-subtree)
         (delete-region (point-min) (point-max))))))
 
-(defun org-taskforecast-list-remove-link ()
-  "Remove a task link at the current line."
+(defun org-taskforecast-list-remove-entry ()
+  "Remove an entry at the current line."
   (interactive)
   (org-taskforecast--memoize-use-cache org-taskforecast--cache-table
-    (-when-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
-                 (id (org-taskforecast--tlink-id task-link))
-                 (title (org-taskforecast--entry-title task-link)))
+    (-when-let* ((entry (org-taskforecast--list-get-entry-at-point))
+                 (id (org-taskforecast--entry-id entry))
+                 (title (org-taskforecast--entry-title entry)))
       (org-taskforecast--list-remove-link id)
       ;; Move the cursor to the next line or the previous line to prevent
       ;; moving the cursor to the top of a task list.
