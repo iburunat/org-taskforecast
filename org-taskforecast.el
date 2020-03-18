@@ -1452,15 +1452,27 @@ DAY-START is an integer like `org-taskforecast-day-start'."
                    next-start this-start)))))
   entries)
 
+(defun org-taskforecast--get-entry ()
+  "Get an entry at the current point.
+
+A returned value is an entry instance.
+If the heading is not an entry, this function returns nil.
+
+WARNING:
+If the heading is a section heading,
+this function does not set the effort and entries slot of the returned section.
+So those slots are still nil.
+If you want to get a section which contains them,
+consider using `org-taskforecast--get-sections' instead."
+  (or (org-taskforecast--get-task-link)
+      (org-taskforecast--get-section)))
+
 (defun org-taskforecast--get-entries (file day-start)
   "Get a list of entries from FILE.
 
 DAY-START is an integer like `org-taskforecast-day-start'."
   (org-taskforecast--with-existing-file file
-    (--> (org-taskforecast--map-headings
-          (lambda ()
-            (or (org-taskforecast--get-task-link)
-                (org-taskforecast--get-section))))
+    (--> (org-taskforecast--map-headings #'org-taskforecast--get-entry)
          (-non-nil it)
          (org-taskforecast--set-section-slots it day-start))))
 
