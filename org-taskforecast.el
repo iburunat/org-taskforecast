@@ -45,7 +45,7 @@
   :group 'org
   :prefix "org-taskforecast")
 
-(defcustom org-taskforecast-dailylist-file "~/org-taskforecast/%Y/%Y-%m-%d.org"
+(defcustom org-taskforecast-dailylist-file "~/org-taskforecast/%Y/%Y-%m/%Y-%m-%d.org"
   "A file name which indicates the location to store daily task list.
 
 This string is expanded by `format-time-string'."
