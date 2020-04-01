@@ -1560,7 +1560,7 @@ If a first todo task is not found, this function returns nil.
       (forward-char -1)
       (org-taskforecast--set-task-link-effective-start-time time))))
 
-(defun org-taskforecast--push-task-link-maybe (id file date day-start now)
+(defun org-taskforecast--push-task-link-maybe (id file date day-start now &optional allow-interruption)
   "Add a task link for ID to the head of todo task links in FILE.
 
 If a task link corresponding to ID already exists, this function moves it.
@@ -1570,8 +1570,8 @@ This function returns an ID of the task link corresponding to the task.
 If the first todo task link of the task link list has effective clocks and
 its task is not the pushed task, this function splits the first todo task
 link as interrupted.
-This feature is enabled while `org-taskforecast-enable-interruption'
-is non-nil.
+This feature is enabled while ALLOW-INTERRUPTION and
+`org-taskforecast-enable-interruption' are non-nil.
 
 - ID is a task id
 - FILE is a today's daily task list file name
@@ -1579,7 +1579,7 @@ is non-nil.
 - DAY-START is an integer like `org-taskforecast-day-start'
 - NOW is an encoded time as the current time"
   ;; interruption
-  (when org-taskforecast-enable-interruption
+  (when (and allow-interruption org-taskforecast-enable-interruption)
     (-when-let* ((first-todo-task-link
                   (org-taskforecast--get-first-todo-task-link
                    file date day-start now))
@@ -3001,7 +3001,7 @@ ARG is passed to `org-deadline'."
                      (null (org-taskforecast--get-task-links-for-task
                             (org-taskforecast--task-id task) file))))
         (org-taskforecast--push-task-link-maybe
-         (org-id-get-create) file today org-taskforecast-day-start now)
+         (org-id-get-create) file today org-taskforecast-day-start now t)
         ;; update list buffer
         (when (org-taskforecast--get-list-buffer)
           (org-taskforecast--list-refresh-maybe))))))
