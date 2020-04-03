@@ -2027,11 +2027,8 @@ is needed like below:
 
 (defun org-taskforecast--cache-mode-setup ()
   "Enable `org-taskforecast-cache-mode' if needed."
-  ;; not ((non-nil and non-nil) or (nil and nil))
-  (unless (or (and org-taskforecast-use-cache org-taskforecast-cache-mode)
-              (not
-               (or org-taskforecast-use-cache org-taskforecast-cache-mode)))
-    (org-taskforecast-cache-mode (if org-taskforecast-use-cache 1 -1))))
+  (when (and org-taskforecast-use-cache (not org-taskforecast-cache-mode))
+    (org-taskforecast-cache-mode 1)))
 
 (defun org-taskforecast-cache-clear ()
   "Clear all cache data of `org-taskforecast-cache-mode'."
