@@ -414,6 +414,14 @@ ID is an id of org-id."
   (-some--> org-taskforecast--memoize-cache
     (remhash id it)))
 
+(defun org-taskforecast--memoize-clear ()
+  "Clear all cached values.
+
+The returned value is undefined.
+This function clears the hash table `org-taskforecast--memoize-cache'."
+  (-some--> org-taskforecast--memoize-cache
+    (clrhash it)))
+
 ;;; Org-mode
 
 ;;;; Internal Utility
@@ -2033,8 +2041,7 @@ is needed like below:
 (defun org-taskforecast-cache-clear ()
   "Clear all cache data of `org-taskforecast-cache-mode'."
   (interactive)
-  (-some--> org-taskforecast--cache-table
-    (clrhash it)))
+  (org-taskforecast--memoize-clear))
 
 
 ;;;; General Commands
