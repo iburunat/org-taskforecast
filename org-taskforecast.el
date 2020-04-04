@@ -159,10 +159,7 @@ Example:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
-
-;;;; Lisp Utility
-
-;;; Debug
+;;;; Debug
 
 (defvar org-taskforecast-enable-assert nil
   "When non-nil, enable `org-taskforecast-assert'.")
@@ -176,7 +173,7 @@ If `org-taskforecast-enable-assert' is nil, this assertion is disabled."
        (error ,(or message
                    (format "Assertion failed: %s" expr))))))
 
-;;; Type
+;;;; Type
 
 (defun org-taskforecast--encoded-time-p (x)
   "Non-nil means X is an encoded time.
@@ -192,7 +189,7 @@ Encoded time is a type of a returned value of `encode-time'."
 (cl-deftype org-taskforecast--encoded-time ()
   '(satisfies org-taskforecast--encoded-time-p))
 
-;;; Time
+;;;; Time
 
 (defun org-taskforecast--encode-hhmm (hhmm day)
   "Return an encoded time from HHMM as a time of DAY.
@@ -287,7 +284,7 @@ A returned value is a list like (hour minute)."
          (or (time-equal-p start time)
              (time-less-p start time)))))
 
-;;; List
+;;;; List
 
 (cl-defun org-taskforecast--sort (seq predicate &key (key #'identity))
   "Like `cl-sort' but do not modify SEQ.
@@ -295,7 +292,7 @@ A returned value is a list like (hour minute)."
 About SEQ, PREDICATE and KEY, see `cl-sort'."
   (cl-sort (copy-sequence seq) predicate :key key))
 
-;;; Cache
+;;;; Memoize
 
 ;; Parsing org-mode text consumes many time.
 ;; To reduce that time, introduce memoize utility to cache parsing results
@@ -421,9 +418,9 @@ This function clears the hash table `org-taskforecast--memoize-cache'."
   (-some--> org-taskforecast--memoize-cache
     (clrhash it)))
 
-;;; Org-mode
+;;;; Org-mode
 
-;;;; Internal Utility
+;;;;; Internal utility
 
 (defmacro org-taskforecast--at-id (id &rest body)
   "Eval BODY at a heading of ID.
@@ -467,7 +464,7 @@ If STR is not a org-id link string, this function returns nil."
     (-when-let (((_ id)) (s-match-strings-all re str))
       id)))
 
-;;;; clock class
+;;;;; Clock class
 
 (defclass org-taskforecast--clock ()
   ((start
@@ -541,7 +538,7 @@ If hour and minute part do not exist, they are set to zero."
           (time-less-p cstart end)))
    clocks))
 
-;;;; scheduled class
+;;;;; Scheduled class
 
 (defclass org-taskforecast--scheduled ()
   ((start-time
@@ -594,7 +591,7 @@ This function returns an instance of `org-taskforecast--scheduled'."
      :date-only-p date-only-p
      :repeatp repeatp)))
 
-;;;; deadline class
+;;;;; Deadline class
 
 (defclass org-taskforecast--deadline ()
   ((time
@@ -647,7 +644,7 @@ This function returns an instance of `org-taskforecast--deadline'."
      :date-only-p date-only-p
      :repeatp repeatp)))
 
-;;;; task class
+;;;;; Task class
 
 (defconst org-taskforecast--task-default-section-id-prop-name
   "ORG_TASKFORECAST_TASK_DEFAULT_SECTION_ID"
@@ -829,7 +826,7 @@ This function returns a symbol, todo or done.
           ;; day-start =< last-repeat
           (t 'done))))
 
-;;;; Entry interface
+;;;;; Entry interface
 
 ;; Entry interface is the interface for items shown in
 ;; `org-taskforecast-list' buffer.
@@ -956,7 +953,7 @@ If not, this function returns nil.
                      (time-equal-p st planning)))
                it))))
 
-;;;; tlink class
+;;;;; Tlink class
 
 (defconst org-taskforecast--task-link-effective-start-time-prop-name
   "ORG_TASKFORECAST_TASK_LINK_EFFECTIVE_START_TIME"
@@ -1174,7 +1171,7 @@ A returned value is an instance of `org-taskforecast--tlink'."
 (cl-defmethod org-taskforecast--entry-is-task-link ((_task-link org-taskforecast--tlink))
   t)
 
-;;;; section class
+;;;;; Section class
 
 (defclass org-taskforecast--section ()
   ((id
@@ -1253,7 +1250,7 @@ A returned value is an instance of `org-taskforecast--tlink'."
 (cl-defmethod org-taskforecast--entry-is-section ((_section org-taskforecast--section))
   t)
 
-;;;; eclock class (entry clock)
+;;;;; Eclock class (entry clock)
 
 (defclass org-taskforecast--eclock ()
   ((start
@@ -1371,9 +1368,9 @@ This function returns an instance of `org-taskforecast--eclock'.
      :end-estimated-p end-estimated-p
      :overrunp overrunp)))
 
-;;; File
+;;;; File
 
-;;;; Internal Utility
+;;;;; Internal utility
 
 (defun org-taskforecast-get-dailylist-file (today)
   "Get the path of today's daily task list file for TODAY.
@@ -1429,7 +1426,7 @@ When this function failed, returns nil."
             (buffer-substring begin end)
           (delete-region begin end))))))
 
-;;;; Entry
+;;;;; Entry
 
 (defun org-taskforecast--set-section-slots (entries day-start)
   "Set entries and effort slot of `org-taskforecast--section' in ENTRIES.
@@ -1486,7 +1483,7 @@ DAY-START is an integer like `org-taskforecast-day-start'."
          (-non-nil it)
          (org-taskforecast--set-section-slots it day-start))))
 
-;;;; Task Link
+;;;;; Task link
 
 (defun org-taskforecast--append-task-link (id file)
   "Append a task link for ID to the end of FILE.
@@ -1672,7 +1669,7 @@ the end of buffer.
         (goto-char head)
         (insert task-link)))))
 
-;;;; Section
+;;;;; Section
 
 (defconst org-taskforecast--section-id-prop-name
   "ORG_TASKFORECAST_SECTION_ID"
@@ -1777,8 +1774,7 @@ already exists corresponding to SECTION-ID.
          (org-taskforecast--append-section
           section-id start-time description file))))
 
-
-;;; Sort
+;;;; Sort
 
 (defun org-taskforecast--sort-compare (a b comparators)
   "Compare A and B with COMPARATORS.
@@ -2032,9 +2028,9 @@ to nil."
   (org-taskforecast--memoize-clear))
 
 
-;;;; General Commands
+;;;; General commands
 
-;;; Registration
+;;;;; Registration
 
 (defmacro org-taskforecast--at-agenda-heading (&rest body)
   "Eval BODY at a heading of the current line of `org-agenda' buffer."
@@ -2204,7 +2200,7 @@ from `org-taskforecast-sections' to today's daily task list file.
             day-start))))
   (org-taskforecast--list-refresh-maybe))
 
-;;; Setting properties
+;;;;; Setting properties
 
 ;;;###autoload
 (defun org-taskforecast-set-default-section-id (section-id)
