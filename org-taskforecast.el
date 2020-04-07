@@ -117,12 +117,6 @@ The function is obtained information as global variables below:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
-(defcustom org-taskforecast-auto-refresh-list-buffer nil
-  "Non-nil means that refresh `org-taskforecast-list-mode' buffer when a task is registered."
-  :type 'boolean
-  :group 'rog-taskforecast
-  :package-version '(org-taskforecast . "0.1.0"))
-
 (defcustom org-taskforecast-sorting-storategy
   (list #'org-taskforecast-ss-time-up)
   "A list of functions to sort task links.
@@ -2098,8 +2092,7 @@ When the task is already registered, this command does nothing.
          ;; Here is for interactive call only.
          ;; So sections and day-start are excluded from parameters.
          file org-taskforecast-sections date org-taskforecast-day-start))
-      (org-taskforecast--append-task-link id file)
-      (org-taskforecast--list-refresh-maybe))))
+      (org-taskforecast--append-task-link id file))))
 
 ;;;###autoload
 (defun org-taskforecast-register-tasks-for-today (file date day-start)
@@ -2159,8 +2152,7 @@ If not, do nothing.
                 (--> (org-taskforecast--append-task-link id file)
                      (org-taskforecast--get-task-link-by-id it)
                      (org-taskforecast-sort-entry-up
-                      it file comparators org-taskforecast-day-start)))))))))
-  (org-taskforecast--list-refresh-maybe))
+                      it file comparators org-taskforecast-day-start))))))))))
 
 ;;;###autoload
 (defun org-taskforecast-generate-sections (file sections date day-start)
@@ -2197,8 +2189,7 @@ from `org-taskforecast-sections' to today's daily task list file.
                         (org-taskforecast--get-sections file day-start)
                         date)
              #'org-taskforecast--ss-section-up)
-            day-start))))
-  (org-taskforecast--list-refresh-maybe))
+            day-start)))))
 
 ;;;;; Setting properties
 
@@ -2725,11 +2716,6 @@ If the buffer already exists, only returns the buffer.
                      else do (forward-line)))
           (goto-char it))))))
 
-(defun org-taskforecast--list-refresh-maybe ()
-  "Refresh `org-taskforecast-list-mode' buffer if `org-taskforecast-auto-refresh-list-buffer' is non-nil."
-  (when org-taskforecast-auto-refresh-list-buffer
-    (org-taskforecast--list-refresh)))
-
 (defun org-taskforecast-list-refresh (clear-cache)
   "Refresh `org-taskforecast-list-mode' buffer.
 
@@ -2970,10 +2956,7 @@ ARG is passed to `org-deadline'."
                    (null (org-taskforecast--get-task-links-for-task
                           (org-taskforecast--task-id task) file))))
       (org-taskforecast--push-task-link-maybe
-       (org-id-get-create) file today org-taskforecast-day-start now t)
-      ;; update list buffer
-      (when (org-taskforecast--get-list-buffer)
-        (org-taskforecast--list-refresh-maybe)))))
+       (org-id-get-create) file today org-taskforecast-day-start now t))))
 
 (defun org-taskforecast--track-done-task ()
   "Register done task and move it to top of todo tasks."
@@ -3011,10 +2994,7 @@ ARG is passed to `org-deadline'."
         ;; When task is not registered, register it and move it to the
         ;; first todo task link position.
         (org-taskforecast--push-task-link-maybe
-         (org-id-get-create) file today org-taskforecast-day-start now)))
-    ;; update list buffer
-    (when (org-taskforecast--get-list-buffer)
-      (org-taskforecast--list-refresh-maybe))))
+         (org-id-get-create) file today org-taskforecast-day-start now)))))
 
 (defvar org-taskforecast-track-mode nil
   "Track changes of original tasks and update today's task list.")
