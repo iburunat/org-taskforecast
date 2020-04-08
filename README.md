@@ -60,6 +60,30 @@ The basic usage of this package is making a task list for today and show the lis
    Also you can manipulate tasks, e.g. changing todo state, moving up/down in the list and setting effort.  
    See [Key Bindings](#key-bindings) for what you can do in the list.
 
+### Date on org-taskforecast
+
+You can set the delimiter time of a day.
+Based on the delimiter time, the date of a task specified by SCHEDULED or DEADLINE is determined.
+
+To change the delimiter time, set `org-taskforecast-day-start` to an integer in HHMM format.
+
+```emacs-lisp
+;; 4:00 am (today) - 3:59 am (tomorrow)
+(setq org-taskforecast-day-start 0400)
+```
+
+In this package, 24 hours from the time of `org-taskforecast-day-start` on a certain day is treated as the day.
+However, if the time is not specified in the timestamp of SCHEDULED or DEADLINE, the date is treated as is.
+
+Examples:
+
+| day-start | timestamp                | date on org-taskforecast |
+|-----------|--------------------------|--------------------------|
+|      0000 | `<2020-04-01 Wed>`       |               2020-04-01 |
+|      0000 | `<2020-04-01 Wed 00:00>` |               2020-04-01 |
+|      0400 | `<2020-04-01 Wed>`       |               2020-04-01 |
+|      0400 | `<2020-04-01 Wed 00:00>` |               2020-03-31 |
+
 ## Architecture
 
 TODO
