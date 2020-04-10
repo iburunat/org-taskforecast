@@ -648,41 +648,54 @@ ELEMENT is a clock element of org element api."
 (defun org-taskforecast--get-task ()
   "Get a task at the current point.
 
-A returned value is an instance of `org-taskforecast--task'."
+A returned value is an instance of `org-taskforecast--task'.
+If the heading is not a task this function returns nil."
   (save-excursion
     ;; go to heading line for `org-element-at-point' to get a headline element
     (org-back-to-heading)
-    (let* ((id (org-id-get-create))
-           (element (org-element-at-point))
-           (title (substring-no-properties
-                   (org-element-property :title element)))
-           (effort (org-entry-get nil org-effort-property))
-           (todo (org-element-property :todo-keyword element))
-           (todo-type (org-element-property :todo-type element))
-           (scheduled (-some--> (org-element-property :scheduled element)
+    ;; task must have todo state
+    (-when-let* ((element (org-element-at-point))
+                 (todo (org-element-property :todo-keyword element))
+                 (todo-type (org-element-property :todo-type element)))
+      (let ((id (org-id-get-create))
+            (title (substring-no-properties
+                    (org-element-property :title element)))
+            (effort (org-entry-get nil org-effort-property))
+            (scheduled (-some--> (org-element-property :scheduled element)
+                         (org-taskforecast--get-timestamp-from-timestamp it)))
+            (deadline (-some--> (org-element-property :deadline element)
                         (org-taskforecast--get-timestamp-from-timestamp it)))
-           (deadline (-some--> (org-element-property :deadline element)
-                       (org-taskforecast--get-timestamp-from-timestamp it)))
-           (default-section-id (org-entry-get
-                                nil
-                                org-taskforecast--task-default-section-id-prop-name)))
-      (org-taskforecast--task
-       :id id
-       :title title
-       :effort effort
-       :todo todo
-       :todo-type todo-type
-       :scheduled scheduled
-       :deadline deadline
-       :default-section-id default-section-id))))
+            (default-section-id (org-entry-get
+                                 nil
+                                 org-taskforecast--task-default-section-id-prop-name)))
+        (org-taskforecast--task
+         :id id
+         :title title
+         :effort effort
+         :todo todo
+         :todo-type todo-type
+         :scheduled scheduled
+         :deadline deadline
+         :default-section-id default-section-id)))))
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task by ID.
 
-A returned value is an instance of `org-taskforecast--task'."
-  (org-taskforecast--memoize id
-    (org-taskforecast--at-id id
-      (org-taskforecast--get-task))))
+A returned value is an instance of `org-taskforecast--task'.
+If the heading of ID is not a task, this function throws an error."
+  (--> (org-taskforecast--memoize id
+         (org-taskforecast--at-id id
+           (org-taskforecast--get-task)))
+       (if (null it)
+           (error "Not a task headnig, ID: %s" id)
+         it)))
+
+(defun org-taskforecast--is-task-id (id)
+  "Non-nil means ID is an ID of a task heading."
+  (and (org-taskforecast--memoize id
+         (org-taskforecast--at-id id
+           (org-taskforecast--get-task)))
+       t))
 
 (defun org-taskforecast--task-clocks (task)
   "A list of clock data of TASK.
@@ -1007,15 +1020,15 @@ If the heading is not a task link, this function returns nil."
       (org-back-to-heading))
     (let* ((element (org-element-at-point))
            (title (org-element-property :title element))
+           (task-id (org-taskforecast--get-link-id title))
            (effective-start-time
             (org-taskforecast--get-task-link-effective-start-time))
            (effective-end-time
             (org-taskforecast--get-task-link-effective-end-time)))
-      (-when-let* ((task-id (org-taskforecast--get-link-id title))
-                   ;; Create id when this heading is a task link.
-                   (id (org-id-get-create)))
+      ;; Ignore if the linked heading is not a task.
+      (when (and task-id (org-taskforecast--is-task-id task-id))
         (org-taskforecast--tlink
-         :id id
+         :id (org-id-get-create) ; Create id when this heading is a task link.
          :task-id task-id
          :effective-start-time effective-start-time
          :effective-end-time effective-end-time)))))
@@ -1023,9 +1036,13 @@ If the heading is not a task link, this function returns nil."
 (defun org-taskforecast--get-task-link-by-id (id)
   "Get a task link by ID.
 
-A returned value is an instance of `org-taskforecast--tlink'."
-  (org-taskforecast--at-id id
-    (org-taskforecast--get-task-link)))
+A returned value is an instance of `org-taskforecast--tlink'.
+If the heading of ID is not a task link, this function throws an error."
+  (--> (org-taskforecast--at-id id
+         (org-taskforecast--get-task-link))
+       (if (null it)
+           (error "Not a task link headnig, ID: %s" id)
+         it)))
 
 (cl-defmethod org-taskforecast--entry-effective-clocks ((task-link org-taskforecast--tlink) date day-start)
   (let* ((task-id
@@ -2019,18 +2036,20 @@ When the task is already registered, this command does nothing.
    (let ((today (org-taskforecast-today)))
      (list (org-taskforecast-get-dailylist-file today)
            today)))
-  (let ((id (if (eq 'org-agenda-mode major-mode)
-                (org-taskforecast--at-agenda-heading
-                  (org-id-get-create))
-              (org-id-get-create))))
-    (if (org-taskforecast--get-task-links-for-task id file)
-        (message "The task is already registered.")
-      (when (called-interactively-p 'any)
-        (org-taskforecast--ask-generat-sections
-         ;; Here is for interactive call only.
-         ;; So sections and day-start are excluded from parameters.
-         file org-taskforecast-sections date org-taskforecast-day-start))
-      (org-taskforecast--append-task-link id file))))
+  (-if-let* ((task (if (eq 'org-agenda-mode major-mode)
+                       (org-taskforecast--at-agenda-heading
+                         (org-taskforecast--get-task))
+                     (org-taskforecast--get-task)))
+             (id (org-taskforecast--task-id task)))
+      (if (org-taskforecast--get-task-links-for-task id file)
+          (message "The task is already registered.")
+        (when (called-interactively-p 'any)
+          (org-taskforecast--ask-generat-sections
+           ;; Here is for interactive call only.
+           ;; So sections and day-start are excluded from parameters.
+           file org-taskforecast-sections date org-taskforecast-day-start))
+        (org-taskforecast--append-task-link id file))
+    (user-error "Heading is not a task")))
 
 ;;;###autoload
 (defun org-taskforecast-register-tasks-for-today (file date day-start)
@@ -2880,12 +2899,12 @@ ARG is passed to `org-deadline'."
 
 (defun org-taskforecast--track-clock-in-task ()
   "Register clocked-in task and move it to top of todo tasks."
-  (let* ((today (org-taskforecast-today))
-         (file (org-taskforecast-get-dailylist-file today))
-         (task (org-taskforecast--get-task))
-         (todo-type (org-taskforecast--task-todo-state-for-today
-                     task today org-taskforecast-day-start))
-         (now (current-time)))
+  (-when-let* ((today (org-taskforecast-today))
+               (file (org-taskforecast-get-dailylist-file today))
+               (task (org-taskforecast--get-task))
+               (todo-type (org-taskforecast--task-todo-state-for-today
+                           task today org-taskforecast-day-start))
+               (now (current-time)))
     ;; A new task link will not be registered if the task's state is done
     ;; and some task links for the task is already registered.
     ;; This function's purpose for a clocked-in task are:
@@ -2908,6 +2927,7 @@ ARG is passed to `org-deadline'."
   ;; "reference to free variable" warning without definition of the variable
   ;; in this file.
   (when (org-entry-is-done-p)
+    (org-taskforecast-assert (org-taskforecast--get-task))
     (let* ((today (org-taskforecast-today))
            (file (org-taskforecast-get-dailylist-file today))
            (now (current-time)))
