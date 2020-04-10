@@ -638,6 +638,55 @@ This function returns an instance of `org-taskforecast--deadline'."
      :date-only-p date-only-p
      :repeatp repeatp)))
 
+;;;;; Timestamp class
+
+(defclass org-taskforecast--timestamp ()
+  ((ts-list
+    :initarg :tsllist
+    :type list
+    :documentation
+    "Timestamp object of org element api"))
+  :documentation
+  "A timestamp.")
+
+(defun org-taskforecast--get-timestamp-from-timestamp (timestamp)
+  "Get a timestamp information from TIMESTAMP.
+
+TIMESTAMP is a timestamp element of org element api.
+This function returns an instance of `org-taskforecast--timestamp'."
+  (org-taskforecast--timestamp
+   :timestamp timestamp))
+
+(cl-defun org-taskforecast--timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
+  "An encoded time of the start time of TIMESTAMP.
+
+TIMESTAMP is an instance of `org-taskforecast--timestamp'.
+HOUR, MINUTE and SECOND are the default values if TIMESTAMP doesn't
+have those part."
+  (with-slots (ts-list) timestamp
+    (encode-time
+     second
+     (or (org-element-property :minute-start ts-list) minute)
+     (or (org-element-property :hour-start ts-list) hour)
+     (org-element-property :day-start ts-list)
+     (org-element-property :month-start ts-list)
+     (org-element-property :year-start ts-list))))
+
+(defun org-taskforecast--timestamp-start-date-only-p (timestamp)
+  "Non-nil means start time of TIMESTAMP has no hour and minute sections.
+
+TIMESTAMP is an instance of `org-taskforecast--timestamp'."
+  (with-slots (ts-list) timestamp
+    (not (or (org-element-property :hour-start ts-list)
+             (org-element-property :minute-start ts-list)))))
+
+(defun org-taskforecast--timestamp-repeatp (timestamp)
+  "Non-nil means the TIMESTAMP has a repeater.
+
+TIMESTAMP is an instance of `org-taskforecast--timestamp'."
+  (with-slots (ts-list) timestamp
+    (and (org-element-property :repeater-type ts-list) t)))
+
 ;;;;; Task class
 
 (defconst org-taskforecast--task-default-section-id-prop-name
