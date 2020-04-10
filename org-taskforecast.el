@@ -492,21 +492,21 @@ A and B are instances of `org-taskforecast--clock'."
   (time-less-p (org-taskforecast--clock-start a)
                (org-taskforecast--clock-start b)))
 
-(defun org-taskforecast--timestamp-start-time (timestamp)
+(cl-defun org-taskforecast--encode-timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
   "Get an encoded time of the start time of TIMESTAMP.
 
 TIMESTAMP is an element of timestamp of org element api.
-The second part of a returned time is set to zero.
-If hour and minute part do not exist, they are set to zero."
+HOUR, MINUTE and SECOND are the default values if TIMESTAMP doesn't
+have those part."
   (encode-time
-   0
-   (or (org-element-property :minute-start timestamp) 0)
-   (or (org-element-property :hour-start timestamp) 0)
+   second
+   (or (org-element-property :minute-start timestamp) minute)
+   (or (org-element-property :hour-start timestamp) hour)
    (org-element-property :day-start timestamp)
    (org-element-property :month-start timestamp)
    (org-element-property :year-start timestamp)))
 
-(defun org-taskforecast--timestamp-end-time (timestamp)
+(defun org-taskforecast--encode-timestamp-end-time (timestamp)
   "Get an encoded time of the end time of TIMESTAMP.
 
 TIMESTAMP is an element of timestamp of org element api.
@@ -532,111 +532,49 @@ If hour and minute part do not exist, they are set to zero."
           (time-less-p cstart end)))
    clocks))
 
-;;;;; Scheduled class
+;;;;; Timestamp class
 
-(defclass org-taskforecast--scheduled ()
-  ((start-time
-    :initarg :start-time
-    :type org-taskforecast--encoded-time
+(defclass org-taskforecast--timestamp ()
+  ((ts-list
+    :initarg :ts-list
+    :type list
     :documentation
-    "An encoded time of the start time of a schedule.")
-   (date-only-p
-    :initarg :date-only-p
-    :reader org-taskforecast--scheduled-date-only-p
-    :type boolean
-    :documentation
-    "Non-nil means the time stamp of a schedule has no hour and minute sections.")
-   (repeatp
-    :initarg :repeatp
-    :reader org-taskforecast--scheduled-repeat-p
-    :type boolean
-    :documentation
-    "Non-nil means the time stamp of a schedule has a repeater."))
+    "Timestamp object of org element api"))
   :documentation
-  "A SCHEDULED property of a task.")
+  "A timestamp.")
 
-(cl-defun org-taskforecast--scheduled-start-time (scheduled &optional (hour 0) (minute 0) (second 0))
-  "An encoded time of the start time of SCHEDULED.
+(defun org-taskforecast--get-timestamp-from-timestamp (timestamp)
+  "Get a timestamp information from TIMESTAMP.
 
-SCHEDULED is an instance of `org-taskforecast--scheduled'.
-HOUR, MINUTE and SECOND are the default values if SCHEDULED doesn't have those part."
-  (let ((dtime (decode-time (slot-value scheduled 'start-time)))
-        (date-only-p (org-taskforecast--scheduled-date-only-p scheduled)))
-    (encode-time
-     second
-     (if date-only-p minute (decoded-time-minute dtime))
-     (if date-only-p hour (decoded-time-hour dtime))
-     (decoded-time-day dtime)
-     (decoded-time-month dtime)
-     (decoded-time-year dtime))))
+TIMESTAMP is a timestamp element of org element api.
+This function returns an instance of `org-taskforecast--timestamp'."
+  (org-taskforecast--timestamp
+   :ts-list timestamp))
 
-(defun org-taskforecast--get-scheduled-from-timestamp (timestamp)
-  "Get a scheduled information from TIMESTAMP.
+(cl-defun org-taskforecast--timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
+  "An encoded time of the start time of TIMESTAMP.
 
-TIMESTAMP is a timestamp element of a scheduled property of a heading
-of org element api.
-This function returns an instance of `org-taskforecast--scheduled'."
-  (let ((start-time (org-taskforecast--timestamp-start-time timestamp))
-        (date-only-p (not (or (org-element-property :hour-start timestamp)
-                              (org-element-property :minute-start timestamp))))
-        (repeatp (and (org-element-property :repeater-type timestamp) t)))
-    (org-taskforecast--scheduled
-     :start-time start-time
-     :date-only-p date-only-p
-     :repeatp repeatp)))
+TIMESTAMP is an instance of `org-taskforecast--timestamp'.
+HOUR, MINUTE and SECOND are the default values if TIMESTAMP doesn't
+have those part."
+  (with-slots (ts-list) timestamp
+    (org-taskforecast--encode-timestamp-start-time
+     ts-list hour minute second)))
 
-;;;;; Deadline class
+(defun org-taskforecast--timestamp-start-date-only-p (timestamp)
+  "Non-nil means start time of TIMESTAMP has no hour and minute sections.
 
-(defclass org-taskforecast--deadline ()
-  ((time
-    :initarg :time
-    :type org-taskforecast--encoded-time
-    :documentation
-    "An encoded time of a deadline.")
-   (date-only-p
-    :initarg :date-only-p
-    :reader org-taskforecast--deadline-date-only-p
-    :type boolean
-    :documentation
-    "Non-nil means the time stamp of a deadline has no hour and minute sections.")
-   (repeatp
-    :initarg :repeatp
-    :reader org-taskforecast--deadline-repeat-p
-    :type boolean
-    :documentation
-    "Non-nil means the time stamp of a deadline has a repeater."))
-  :documentation
-  "A DEADLINE property of a task.")
+TIMESTAMP is an instance of `org-taskforecast--timestamp'."
+  (with-slots (ts-list) timestamp
+    (not (or (org-element-property :hour-start ts-list)
+             (org-element-property :minute-start ts-list)))))
 
-(cl-defun org-taskforecast--deadline-time (deadline &optional (hour 0) (minute 0) (second 0))
-  "An encoded time of the time of DEADLINE.
+(defun org-taskforecast--timestamp-repeat-p (timestamp)
+  "Non-nil means the TIMESTAMP has a repeater.
 
-DEADLINE is an instance of `org-taskforecast--deadline'.
-HOUR, MINUTE and SECOND are the default values if DEADLINE doesn't have those part."
-  (let ((dtime (decode-time (slot-value deadline 'time)))
-        (date-only-p (org-taskforecast--deadline-date-only-p deadline)))
-    (encode-time
-     second
-     (if date-only-p minute (decoded-time-minute dtime))
-     (if date-only-p hour (decoded-time-hour dtime))
-     (decoded-time-day dtime)
-     (decoded-time-month dtime)
-     (decoded-time-year dtime))))
-
-(defun org-taskforecast--get-deadline-from-timestamp (timestamp)
-  "Get a deadline information from TIMESTAMP.
-
-TIMESTAMP is a timestamp element of a deadline property of a heading
-of org element api.
-This function returns an instance of `org-taskforecast--deadline'."
-  (let ((time (org-taskforecast--timestamp-start-time timestamp))
-        (date-only-p (not (or (org-element-property :hour-start timestamp)
-                              (org-element-property :minute-start timestamp))))
-        (repeatp (and (org-element-property :repeater-type timestamp) t)))
-    (org-taskforecast--deadline
-     :time time
-     :date-only-p date-only-p
-     :repeatp repeatp)))
+TIMESTAMP is an instance of `org-taskforecast--timestamp'."
+  (with-slots (ts-list) timestamp
+    (and (org-element-property :repeater-type ts-list) t)))
 
 ;;;;; Task class
 
@@ -678,13 +616,13 @@ This function returns an instance of `org-taskforecast--deadline'."
    (scheduled
     :initarg :scheduled
     :reader org-taskforecast--task-scheduled
-    :type (or null org-taskforecast--scheduled)
+    :type (or null org-taskforecast--timestamp)
     :documentation
     "A schedule infomaton.")
    (deadline
     :initarg :deadline
     :reader org-taskforecast--task-deadline
-    :type (or null org-taskforecast--deadline)
+    :type (or null org-taskforecast--timestamp)
     :documentation
     "A deadline information.")
    (default-section-id
@@ -702,9 +640,9 @@ This function returns an instance of `org-taskforecast--deadline'."
 ELEMENT is a clock element of org element api."
   (let* ((timestamp (org-element-property :value element))
          (runnigp (eq 'running (org-element-property :status element)))
-         (start (org-taskforecast--timestamp-start-time timestamp))
+         (start (org-taskforecast--encode-timestamp-start-time timestamp))
          (end (and (not runnigp)
-                   (org-taskforecast--timestamp-end-time timestamp))))
+                   (org-taskforecast--encode-timestamp-end-time timestamp))))
     (org-taskforecast--clock :start start :end end)))
 
 (defun org-taskforecast--get-task ()
@@ -722,9 +660,9 @@ A returned value is an instance of `org-taskforecast--task'."
            (todo (org-element-property :todo-keyword element))
            (todo-type (org-element-property :todo-type element))
            (scheduled (-some--> (org-element-property :scheduled element)
-                        (org-taskforecast--get-scheduled-from-timestamp it)))
+                        (org-taskforecast--get-timestamp-from-timestamp it)))
            (deadline (-some--> (org-element-property :deadline element)
-                       (org-taskforecast--get-deadline-from-timestamp it)))
+                       (org-taskforecast--get-timestamp-from-timestamp it)))
            (default-section-id (org-entry-get
                                 nil
                                 org-taskforecast--task-default-section-id-prop-name)))
@@ -763,9 +701,9 @@ Each element is an instance of `org-taskforecast--clock'."
 TASK is an instance of `org-taskforecast--task'."
   (org-taskforecast--memoize (org-taskforecast--task-id task)
     (or (-some--> (org-taskforecast--task-scheduled task)
-          (org-taskforecast--scheduled-repeat-p it))
+          (org-taskforecast--timestamp-repeat-p it))
         (-some--> (org-taskforecast--task-deadline task)
-          (org-taskforecast--deadline-repeat-p it)))))
+          (org-taskforecast--timestamp-repeat-p it)))))
 
 (defun org-taskforecast--task-last-repeat (task)
   "Get the value of LAST_REPEAT of TASK.
@@ -790,14 +728,17 @@ This function returns a symbol, todo or done.
          (scheduled (org-taskforecast--task-scheduled task))
          (deadline (org-taskforecast--task-deadline task))
          (stime (when scheduled
-                  (let ((time (org-taskforecast--scheduled-start-time
+                  (let ((time (org-taskforecast--timestamp-start-time
                                scheduled)))
-                    (if (org-taskforecast--scheduled-date-only-p scheduled)
+                    (if (org-taskforecast--timestamp-start-date-only-p
+                         scheduled)
                         (org-taskforecast--encode-hhmm day-start time)
                       time))))
          (dtime (when deadline
-                  (let ((time (org-taskforecast--deadline-time deadline)))
-                    (if (org-taskforecast--deadline-date-only-p deadline)
+                  (let ((time (org-taskforecast--timestamp-start-time
+                               deadline)))
+                    (if (org-taskforecast--timestamp-start-date-only-p
+                         deadline)
                         (org-taskforecast--encode-hhmm day-start time)
                       time))))
          (repeatp (org-taskforecast--task-repeat-p task))
@@ -862,14 +803,14 @@ This function returns a symbol, todo or done.
   "Schedule information of ENTRY.
 
 If ENTRY has scheduled, this returns an instance of
-`org-taskforecast--scheduled'.
+`org-taskforecast--timestamp'.
 If not, this returns nil.")
 
 (cl-defgeneric org-taskforecast--entry-deadline (entry)
   "Deadline information of ENTRY.
 
 If ENTRY has deadline, this returns an instance of
-`org-taskforecast--deadline'.
+`org-taskforecast--timestamp'.
 If not, this returns nil.")
 
 (cl-defgeneric org-taskforecast--entry-effective-start-time (entry)
@@ -910,14 +851,11 @@ See `org-taskforecast--entry-effective-clocks' about effective clock.
 
 This function returns nil if ENTRY has no scheduled and deadline.
 HOUR, MINUTE and SECOND are default values if the timestamp doesn't have those parts."
-  (let* ((scheduled (org-taskforecast--entry-scheduled entry))
-         (deadline (org-taskforecast--entry-deadline entry))
-         (stime (and scheduled (org-taskforecast--scheduled-start-time
-                                scheduled hour minute second)))
-         (dtime (and deadline (org-taskforecast--deadline-time
-                               deadline hour minute second))))
-    (-some--> (list stime dtime)
+  (let ((scheduled (org-taskforecast--entry-scheduled entry))
+        (deadline (org-taskforecast--entry-deadline entry)))
+    (-some--> (list scheduled deadline)
       (-non-nil it)
+      (--map (org-taskforecast--timestamp-start-time it hour minute second) it)
       (-min-by (-flip #'time-less-p) it))))
 
 (cl-defun org-taskforecast--entry-derive-default-section (entry sections date &optional (hour 0) (minute 0) (second 0))
@@ -2125,11 +2063,11 @@ If not, do nothing.
       (lambda ()
         (let* ((element (org-element-at-point))
                (stime (-some--> (org-element-property :scheduled element)
-                        (org-taskforecast--get-scheduled-from-timestamp it)
-                        (org-taskforecast--scheduled-start-time it hh mm)))
+                        (org-taskforecast--get-timestamp-from-timestamp it)
+                        (org-taskforecast--timestamp-start-time it hh mm)))
                (dtime (-some--> (org-element-property :deadline element)
-                        (org-taskforecast--get-deadline-from-timestamp it)
-                        (org-taskforecast--deadline-time it hh mm)))
+                        (org-taskforecast--get-timestamp-from-timestamp it)
+                        (org-taskforecast--timestamp-start-time it hh mm)))
                (todayp (--> (list stime dtime)
                             (-non-nil it)
                             (--some (time-less-p it next-day-start) it))))
@@ -2335,11 +2273,13 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
          (deadline (org-taskforecast--entry-deadline
                     org-taskforecast-list-info-task-link))
          (stime (and scheduled
-                     (not (org-taskforecast--scheduled-date-only-p scheduled))
-                     (org-taskforecast--scheduled-start-time scheduled)))
+                     (not (org-taskforecast--timestamp-start-date-only-p
+                           scheduled))
+                     (org-taskforecast--timestamp-start-time scheduled)))
          (dtime (and deadline
-                     (not (org-taskforecast--deadline-date-only-p deadline))
-                     (org-taskforecast--deadline-time deadline))))
+                     (not (org-taskforecast--timestamp-start-date-only-p
+                           deadline))
+                     (org-taskforecast--timestamp-start-time deadline))))
     (--> (cl-case org-taskforecast-list-tlfmt-scheduled-strategy
            (scheduled stime)
            (deadline dtime)
