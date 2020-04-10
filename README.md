@@ -84,9 +84,9 @@ Examples:
 |      0400 | `<2020-04-01 Wed>`       |               2020-04-01 |
 |      0400 | `<2020-04-01 Wed 00:00>` |               2020-03-31 |
 
-## Architecture
+## Difference from org-agenda
 
-TODO
+In this package, the task list for today is created by registering tasks by user not a result of searching like org-agenda.
 
 ```
         [org-taskforecast-list] ----+
@@ -103,6 +103,46 @@ TODO
                  |                  |
            [org agenda files] <-----+
 ```
+
+To register task(s), you can use following commands:
+
+- `org-taskforecast-register-task`  
+  Register a task at the current point.
+
+- `org-taskforecast-register-tasks-for-today`  
+  Register tasks from org-agenda files based on SCHEDULED and DEADLINE.
+
+Registered tasks are contained in a daily task list file as task link headings like below:
+
+```
+* [[id:ID-OF-TASK-HEADING][TASK-TITLE]]
+:PROPERTIES:
+:ID:       ID-OF-TASK-LINK-HEADING
+:END:
+```
+
+That file is created for each day (default is like `~/org-taskforecast/2020/2020-04/2020-04-01.org`).
+`org-taskforecast-list` shows only the tasks registered in the file.
+
+### Why manual registration
+
+The reason of why use manual registration not searching every time is to manage the daily task list more flexible.  
+The flexibility is:
+- Registering and removing arbitary tasks without any tricks (e.g. filtering by tag like "today" or "dont_show")
+- Changing the order of the tasks without any tricks (e.g. setting fake scheduled time like 14:59 to put a task before other tasks scheduled at 15:00)
+
+The purpose of this package is to simulate the tasks and the time for today.
+To simulate that, it is needed that the way to keep that the daily task list contains only the tasks to do today and to keep the list in the order to begin them.
+
+### Why the daily task list file is in org-mode
+
+The reasons are below:
+
+- To make editing the list easier.  
+  For example, killing and yanking helps you to change the order of many tasks.
+
+- To make the list readable without `org-taskforecast-list`.  
+  You can see the tasks for today and jump to the task from a task link heading in that file.
 
 ## List mode - `org-taskforecast-list-mode`
 
