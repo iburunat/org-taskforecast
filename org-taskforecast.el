@@ -422,16 +422,19 @@ This function clears the hash table `org-taskforecast--memoize-cache'."
 BODY is evaluated in widened buffer to go to appropriate point of
 the buffer whether the buffer narrowed."
   (declare (indent 1) (debug t))
-  `(-let (((file . pos) (org-id-find ,id)))
-     (with-current-buffer (find-file-noselect file)
-       (save-excursion
-         (save-restriction
-           (widen)
-           (goto-char pos)
-           ;; To parse with org element api properly
-           ;; even when the heading is folded and invisible.
-           (org-show-context)
-           ,@body)))))
+  (let ((id-sym (cl-gensym "id-")))
+    `(let ((,id-sym ,id))
+       (-if-let ((file . pos) (org-id-find ,id-sym))
+           (with-current-buffer (find-file-noselect file)
+             (save-excursion
+               (save-restriction
+                 (widen)
+                 (goto-char pos)
+                 ;; To parse with org element api properly
+                 ;; even when the heading is folded and invisible.
+                 (org-show-context)
+                 ,@body)))
+         (error "The location of org heading is not found, ID: %s" ,id-sym)))))
 
 (defun org-taskforecast--normalize-title (title)
   "Normalize a TITLE of a heading."
