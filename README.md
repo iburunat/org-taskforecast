@@ -144,6 +144,53 @@ The reasons are below:
 - To make the list readable without `org-taskforecast-list`.  
   You can see the tasks for today and jump to the task from a task link heading in that file.
 
+## Section
+
+Section devides the time of a day and makes it easy to check the total effort of the registered tasks for a section.  
+Sections are showed in `org-taskforecast-list` like below:
+
+![section](./section.png)
+
+The default format is `[TOTAL-EFFORT / SECTION-DURATION]: TITLE`.
+
+A section is expressed as a section heading in a daily task list file.
+The tasks between a section heading and the next section heading are the elements of that section.
+
+### Define sections
+
+To define sections, you need to set `org-taskforecast-sections` like below:
+
+```emacs-lisp
+(setq org-taskforecast-sections
+      ’(("morning"   0600)
+        ("daytime-a" 0900)
+        ("noon"      1200 "Lunch and nap")
+        ("daytime-b" 1300)
+        ("evening"   1700)
+        ("night"     2000 "Reading books")))
+```
+
+Each element of `org-taskforecast-sections` is `(ID START-TIME &optional DESCRIPTION)`.
+- `ID` is a section id used to set the default section of a task (see [Default section](#default-section))
+- `START-TIME` is the start time of a section in HHMM format
+- `DESCRIPTION` is a description string (optional)
+
+`org-taskforecast-sections` is a template of sections.
+So to use the sections for today, you need to generate section headings into a daily task list file.
+
+### Generate section headings
+
+You can generate section headings by `M-x org-taskforecast-generate-sections`.
+However if you set `org-taskforecast-sections` and the section headings are not generated for today yet, `org-taskforecast-register-tasks-for-today` calls that command.
+So you use `org-taskforecast-register-tasks-for-today`, usually do not need to call `org-taskforecast-generate-sections` manually.
+
+### Default section
+
+Default section is a hint where a task link should be placed.
+When a task is registered by `org-taskforecast-register-tasks-for-today`, it will be placed into its default section if the section exists.
+If a task has no default section, this package derives the default section corresponds to its time of SCHEDULED or DEADLINE.
+To set default section, call `org-taskforecast-set-default-section-id` in org-mode buffer or call `org-taskforecast-list-set-default-section-id` in `org-taskforecast-list` buffer.
+
 ## List mode - `org-taskforecast-list-mode`
 
 Show the task list for today with some information.
