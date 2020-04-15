@@ -1914,6 +1914,21 @@ This is an internal comparator, so down version is not defined."
           ((and (not sa) sb) -1)
           (t nil))))
 
+(defun org-taskforecast--sort-comparators-for-task-link (file date day-start &optional sorting-storategies)
+  "Get sort comparators for registering task link.
+
+- FILE is a today's daily task list file name
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'
+- SORTING-STORATEGIES is a list of additional comparators"
+  (append (list #'org-taskforecast--ss-interruption-up
+                #'org-taskforecast--ss-todo-up
+                (-rpartial
+                 #'org-taskforecast--ss-default-section-up
+                 (org-taskforecast--get-sections file day-start) date)
+                #'org-taskforecast--ss-section-up)
+          sorting-storategies))
+
 
 ;;;; org-taskforecast-cache-mode
 
@@ -2097,16 +2112,8 @@ If not, do nothing.
             (let* ((id (org-id-get-create))
                    (registerdp (org-taskforecast--get-task-links-for-task
                                 id file))
-                   (comparators (append
-                                 (list
-                                  #'org-taskforecast--ss-interruption-up
-                                  #'org-taskforecast--ss-todo-up
-                                  (-rpartial
-                                   #'org-taskforecast--ss-default-section-up
-                                   (org-taskforecast--get-sections
-                                    file day-start)
-                                   date)
-                                  #'org-taskforecast--ss-section-up)
+                   (comparators (org-taskforecast--sort-comparators-for-task-link
+                                 file date day-start
                                  org-taskforecast-sorting-storategy)))
               (when (not registerdp)
                 (--> (org-taskforecast--append-task-link id file)
@@ -2826,15 +2833,25 @@ DATE is an encoded time."
                (task-id (org-taskforecast--tlink-task-id link))
                (file (org-taskforecast-get-dailylist-file date))
                (now (current-time)))
+    (when (called-interactively-p 'any)
+      (org-taskforecast--ask-generat-sections
+       file org-taskforecast-sections date org-taskforecast-day-start))
     (if (org-taskforecast--entry-has-effective-clock
          link now org-taskforecast-day-start)
         (org-taskforecast--at-id link-id
           (org-taskforecast--set-task-link-effective-end-time now))
       (org-taskforecast--list-remove-link link-id))
-    (--> (org-taskforecast--append-task-link-maybe
-          task-id file date org-taskforecast-day-start)
-         (org-taskforecast--at-id it
-           (org-taskforecast--set-task-link-effective-start-time now)))
+    (let ((new-link-id
+           (org-taskforecast--append-task-link-maybe
+            task-id file date org-taskforecast-day-start)))
+      (org-taskforecast--at-id new-link-id
+        (org-taskforecast--set-task-link-effective-start-time now))
+      (org-taskforecast-sort-entry-up
+       (org-taskforecast--get-task-link-by-id new-link-id)
+       file
+       (org-taskforecast--sort-comparators-for-task-link
+        file date org-taskforecast-day-start org-taskforecast-sorting-storategy)
+       org-taskforecast-day-start))
     ;; Move the cursor to the next line or the previous line to prevent
     ;; moving the cursor to the top of a task list.
     (when (or (/= 0 (forward-line 1)) (eobp))
