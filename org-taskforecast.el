@@ -579,6 +579,17 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
   (with-slots (ts-list) timestamp
     (and (org-element-property :repeater-type ts-list) t)))
 
+(defun org-taskforecast--timestamp-start-date (timestamp day-start)
+  "Get the date of TIMESTAMP when the day starts at DAY-START.
+
+- TIMESTAMP is an instance of `org-taskforecast--timestamp'
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (if (org-taskforecast--timestamp-start-date-only-p timestamp)
+      (org-taskforecast--timestamp-start-time timestamp)
+    (org-taskforecast--today
+     (org-taskforecast--timestamp-start-time timestamp)
+     day-start)))
+
 ;;;;; Task class
 
 (defconst org-taskforecast--task-default-section-id-prop-name
@@ -862,17 +873,36 @@ See `org-taskforecast--entry-effective-clocks' about effective clock.
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (not (null (org-taskforecast--entry-effective-clocks entry date day-start))))
 
-(cl-defun org-taskforecast--entry-early-planning (entry &optional (hour 0) (minute 0) (second 0))
-  "An encoded time of earlier of scheduled and deadline of ENTRY.
+(defun org-taskforecast--entry-early-planning (entry day-start)
+  "A timestamp of earlier of scheduled and deadline of ENTRY.
 
 This function returns nil if ENTRY has no scheduled and deadline.
-HOUR, MINUTE and SECOND are default values if the timestamp doesn't have those parts."
-  (let ((scheduled (org-taskforecast--entry-scheduled entry))
-        (deadline (org-taskforecast--entry-deadline entry)))
-    (-some--> (list scheduled deadline)
-      (-non-nil it)
-      (--map (org-taskforecast--timestamp-start-time it hour minute second) it)
-      (-min-by (-flip #'time-less-p) it))))
+DAY-START is an integer, see `org-taskforecast-day-start'."
+  (-some--> (list (org-taskforecast--entry-scheduled entry)
+                  (org-taskforecast--entry-deadline entry))
+    (-non-nil it)
+    (--reduce
+     (let ((it-date (org-taskforecast--timestamp-start-date it day-start))
+           (acc-date (org-taskforecast--timestamp-start-date acc day-start))
+           (it-date-only-p (org-taskforecast--timestamp-start-date-only-p it))
+           (acc-date-only-p (org-taskforecast--timestamp-start-date-only-p acc))
+           (it-time (org-taskforecast--timestamp-start-start-time it))
+           (acc-time (org-taskforecast--timestamp-start-start-time acc)))
+       (if (or
+            ;; compare date
+            (time-less-p it-date acc-date)
+            ;; for same date
+            (and (time-equal-p it-date acc-date)
+                 (or
+                  ;; compare date-only-p
+                  (and (not it-date-only-p) acc-date-only-p)
+                  ;; compare time
+                  (and (not it-date-only-p)
+                       (not acc-date-only-p)
+                       (time-less-p it-time acc-time)))))
+           it
+         acc))
+     it)))
 
 (cl-defun org-taskforecast--entry-derive-default-section (entry sections date &optional (hour 0) (minute 0) (second 0))
   "Derive default section from SECTIONS with ENTRY's scheduled and deadline.
