@@ -2066,7 +2066,14 @@ When the task is already registered, this command does nothing.
            ;; Here is for interactive call only.
            ;; So sections and day-start are excluded from parameters.
            file org-taskforecast-sections date org-taskforecast-day-start))
-        (org-taskforecast--append-task-link id file))
+        (--> (org-taskforecast--append-task-link id file)
+             (org-taskforecast--get-task-link-by-id it)
+             (org-taskforecast-sort-entry-up
+              it file
+              (org-taskforecast--sort-comparators-for-task-link
+               file date org-taskforecast-day-start
+               org-taskforecast-sorting-storategy)
+              org-taskforecast-day-start)))
     (user-error "Heading is not a task")))
 
 ;;;###autoload
