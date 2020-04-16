@@ -629,11 +629,11 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
     :documentation
     "A deadline information.")
    (default-section-id
-    :initarg :default-section-id
-    :reader org-taskforecast--task-default-section-id
-    :type (or null string)
-    :documentation
-    "A default section ID string."))
+     :initarg :default-section-id
+     :reader org-taskforecast--task-default-section-id
+     :type (or null string)
+     :documentation
+     "A default section ID string."))
   :documentation
   "A task heading data.")
 
