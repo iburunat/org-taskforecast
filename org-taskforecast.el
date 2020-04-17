@@ -590,6 +590,30 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
      (org-taskforecast--timestamp-start-time timestamp)
      day-start)))
 
+(defun org-taskforecast--timestamp-start-earlier-p (a b day-start)
+  "Non-nil if the start time of A is earlier than one of B.
+
+- A and B is an instance of `org-taskfoercast--timestamp'
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (let ((a-date (org-taskforecast--timestamp-start-date a day-start))
+        (b-date (org-taskforecast--timestamp-start-date b day-start))
+        (a-date-only-p (org-taskforecast--timestamp-start-date-only-p a))
+        (b-date-only-p (org-taskforecast--timestamp-start-date-only-p b))
+        (a-time (org-taskforecast--timestamp-start-start-time a))
+        (b-time (org-taskforecast--timestamp-start-start-time b)))
+    (or
+     ;; compare date
+     (time-less-p a-date b-date)
+     ;; for same date
+     (and (time-equal-p a-date b-date)
+          (or
+           ;; compare date-only-p
+           (and (not a-date-only-p) b-date-only-p)
+           ;; compare time
+           (and (not a-date-only-p)
+                (not b-date-only-p)
+                (time-less-p a-time b-time)))))))
+
 ;;;;; Task class
 
 (defconst org-taskforecast--task-default-section-id-prop-name
@@ -881,28 +905,9 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
   (-some--> (list (org-taskforecast--entry-scheduled entry)
                   (org-taskforecast--entry-deadline entry))
     (-non-nil it)
-    (--reduce
-     (let ((it-date (org-taskforecast--timestamp-start-date it day-start))
-           (acc-date (org-taskforecast--timestamp-start-date acc day-start))
-           (it-date-only-p (org-taskforecast--timestamp-start-date-only-p it))
-           (acc-date-only-p (org-taskforecast--timestamp-start-date-only-p acc))
-           (it-time (org-taskforecast--timestamp-start-start-time it))
-           (acc-time (org-taskforecast--timestamp-start-start-time acc)))
-       (if (or
-            ;; compare date
-            (time-less-p it-date acc-date)
-            ;; for same date
-            (and (time-equal-p it-date acc-date)
-                 (or
-                  ;; compare date-only-p
-                  (and (not it-date-only-p) acc-date-only-p)
-                  ;; compare time
-                  (and (not it-date-only-p)
-                       (not acc-date-only-p)
-                       (time-less-p it-time acc-time)))))
-           it
-         acc))
-     it)))
+    (-min-by (-flip (-rpartial #'org-taskforecast--timestamp-start-earlier-p
+                               day-start))
+              it)))
 
 (cl-defun org-taskforecast--entry-derive-default-section (entry sections date &optional (hour 0) (minute 0) (second 0))
   "Derive default section from SECTIONS with ENTRY's scheduled and deadline.
