@@ -943,7 +943,18 @@ If not, this function returns nil.
                (planning-time
                 (and
                  (not (org-taskforecast--timestamp-start-date-only-p planning))
-                 (org-taskforecast--timestamp-start-time planning))))
+                 (org-taskforecast--timestamp-start-time planning)))
+               ;; when the entry is a repeat task and it has already been done
+               ;; on the date, derive the default section on the future day.
+               (date
+                (if (and (org-taskforecast--entry-is-task-link entry)
+                         (org-taskforecast--task-repeat-p
+                          (org-taskforecast--tlink-task entry))
+                         (eq (org-taskforecast--entry-todo-state-for-today
+                              entry date day-start)
+                             'done))
+                    (org-taskforecast--timestamp-start-date planning day-start)
+                  date)))
     (-some--> (org-taskforecast--sort
                sections #'> :key #'org-taskforecast--section-start-time)
       (--first (let ((st (org-taskforecast--encode-hhmm
