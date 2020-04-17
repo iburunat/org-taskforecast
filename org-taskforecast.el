@@ -599,8 +599,8 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
         (b-date (org-taskforecast--timestamp-start-date b day-start))
         (a-date-only-p (org-taskforecast--timestamp-start-date-only-p a))
         (b-date-only-p (org-taskforecast--timestamp-start-date-only-p b))
-        (a-time (org-taskforecast--timestamp-start-start-time a))
-        (b-time (org-taskforecast--timestamp-start-start-time b)))
+        (a-time (org-taskforecast--timestamp-start-time a))
+        (b-time (org-taskforecast--timestamp-start-time b)))
     (or
      ;; compare date
      (time-less-p a-date b-date)
@@ -613,6 +613,18 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
            (and (not a-date-only-p)
                 (not b-date-only-p)
                 (time-less-p a-time b-time)))))))
+
+(defun org-taskforecast--timestamp-start-equal-p (a b)
+  "Non-nil if the start time of A equals to one of B.
+
+- A and B is an instance of `org-taskfoercast--timestamp'
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (let ((a-date-only-p (org-taskforecast--timestamp-start-date-only-p a))
+        (b-date-only-p (org-taskforecast--timestamp-start-date-only-p b))
+        (a-time (org-taskforecast--timestamp-start-time a))
+        (b-time (org-taskforecast--timestamp-start-time b)))
+    (and (eq a-date-only-p b-date-only-p)
+         (time-equal-p a-time b-time))))
 
 ;;;;; Task class
 
@@ -1813,15 +1825,18 @@ This function moves only ENTRY not all of entries in FILE.
 (defun org-taskforecast-ss-time-up (a b)
   "Compare A and B by scheduled/deadline, early first."
   (let* (;; date with hh:mm > date only
-         (hh (+ (/ org-taskforecast-day-start 100) 24))
-         (mm (% org-taskforecast-day-start 100))
-         (tta (org-taskforecast--entry-early-planning a hh mm))
-         (ttb (org-taskforecast--entry-early-planning b hh mm)))
-    (cond ((and tta ttb (time-less-p tta ttb) +1))
-          ((and tta ttb (time-less-p ttb tta) -1))
-          ((and tta ttb (time-equal-p tta ttb) nil))
-          ((and tta (null ttb)) +1)
-          ((and (null tta) ttb) -1)
+         (day-start org-taskforecast-day-start)
+         (ta (org-taskforecast--entry-early-planning a day-start))
+         (tb (org-taskforecast--entry-early-planning b day-start)))
+    (cond ((and ta tb
+                (org-taskforecast--timestamp-start-earlier-p ta tb day-start))
+           +1)
+          ((and ta tb
+                (org-taskforecast--timestamp-start-earlier-p tb ta day-start))
+           -1)
+          ((and ta tb (org-taskforecast--timestamp-start-equal-p ta tb)) nil)
+          ((and ta (null tb)) +1)
+          ((and (null ta) tb) -1)
           (t nil))))
 
 (defalias 'org-taskforecast-ss-time-down (-flip #'org-taskforecast-ss-time-up)
