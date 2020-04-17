@@ -579,6 +579,53 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
   (with-slots (ts-list) timestamp
     (and (org-element-property :repeater-type ts-list) t)))
 
+(defun org-taskforecast--timestamp-start-date (timestamp day-start)
+  "Get the date of TIMESTAMP when the day starts at DAY-START.
+
+- TIMESTAMP is an instance of `org-taskforecast--timestamp'
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (if (org-taskforecast--timestamp-start-date-only-p timestamp)
+      (org-taskforecast--timestamp-start-time timestamp)
+    (org-taskforecast--today
+     (org-taskforecast--timestamp-start-time timestamp)
+     day-start)))
+
+(defun org-taskforecast--timestamp-start-earlier-p (a b day-start)
+  "Non-nil if the start time of A is earlier than one of B.
+
+- A and B is an instance of `org-taskfoercast--timestamp'
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (let ((a-date (org-taskforecast--timestamp-start-date a day-start))
+        (b-date (org-taskforecast--timestamp-start-date b day-start))
+        (a-date-only-p (org-taskforecast--timestamp-start-date-only-p a))
+        (b-date-only-p (org-taskforecast--timestamp-start-date-only-p b))
+        (a-time (org-taskforecast--timestamp-start-time a))
+        (b-time (org-taskforecast--timestamp-start-time b)))
+    (or
+     ;; compare date
+     (time-less-p a-date b-date)
+     ;; for same date
+     (and (time-equal-p a-date b-date)
+          (or
+           ;; compare date-only-p
+           (and (not a-date-only-p) b-date-only-p)
+           ;; compare time
+           (and (not a-date-only-p)
+                (not b-date-only-p)
+                (time-less-p a-time b-time)))))))
+
+(defun org-taskforecast--timestamp-start-equal-p (a b)
+  "Non-nil if the start time of A equals to one of B.
+
+- A and B is an instance of `org-taskfoercast--timestamp'
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (let ((a-date-only-p (org-taskforecast--timestamp-start-date-only-p a))
+        (b-date-only-p (org-taskforecast--timestamp-start-date-only-p b))
+        (a-time (org-taskforecast--timestamp-start-time a))
+        (b-time (org-taskforecast--timestamp-start-time b)))
+    (and (eq a-date-only-p b-date-only-p)
+         (time-equal-p a-time b-time))))
+
 ;;;;; Task class
 
 (defconst org-taskforecast--task-default-section-id-prop-name
@@ -862,25 +909,27 @@ See `org-taskforecast--entry-effective-clocks' about effective clock.
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (not (null (org-taskforecast--entry-effective-clocks entry date day-start))))
 
-(cl-defun org-taskforecast--entry-early-planning (entry &optional (hour 0) (minute 0) (second 0))
-  "An encoded time of earlier of scheduled and deadline of ENTRY.
+(defun org-taskforecast--entry-early-planning (entry day-start)
+  "A timestamp of earlier of scheduled and deadline of ENTRY.
 
 This function returns nil if ENTRY has no scheduled and deadline.
-HOUR, MINUTE and SECOND are default values if the timestamp doesn't have those parts."
-  (let ((scheduled (org-taskforecast--entry-scheduled entry))
-        (deadline (org-taskforecast--entry-deadline entry)))
-    (-some--> (list scheduled deadline)
-      (-non-nil it)
-      (--map (org-taskforecast--timestamp-start-time it hour minute second) it)
-      (-min-by (-flip #'time-less-p) it))))
+DAY-START is an integer, see `org-taskforecast-day-start'."
+  (-some--> (list (org-taskforecast--entry-scheduled entry)
+                  (org-taskforecast--entry-deadline entry))
+    (-non-nil it)
+    (-min-by (-flip (-rpartial #'org-taskforecast--timestamp-start-earlier-p
+                               day-start))
+              it)))
 
-(cl-defun org-taskforecast--entry-derive-default-section (entry sections date &optional (hour 0) (minute 0) (second 0))
+(defun org-taskforecast--entry-derive-default-section (entry sections date day-start)
   "Derive default section from SECTIONS with ENTRY's scheduled and deadline.
 
 This function tries to derive a default section using timestamp obtained by
 `org-taskforecast--entry-early-planning'.
 If a latest section whose start time is less than or equal to the timestamp
 above is found, the section is the derived section.
+If the timestamp has no hour and minute section, this function doesn't derive
+the default section.
 
 If the derived section is found, this function returns it.
 If not, this function returns nil.
@@ -888,17 +937,31 @@ If not, this function returns nil.
 - ENTRY is an entry instance
 - SECTIONS is a list of instances of `org-taskforecast--section'
 - DATE is an encoded time as a date of today
-- HOUR, MINUTE and SECOND are used by `org-taskforecast--entry-early-planning'"
-  (-when-let (planning
-              (org-taskforecast--entry-early-planning
-               entry hour minute second))
+- DAY-START is an integer, see `org-taskforecast-day-start'"
+  (-when-let* ((planning
+                (org-taskforecast--entry-early-planning entry day-start))
+               (planning-time
+                (and
+                 (not (org-taskforecast--timestamp-start-date-only-p planning))
+                 (org-taskforecast--timestamp-start-time planning)))
+               ;; when the entry is a repeat task and it has already been done
+               ;; on the date, derive the default section on the future day.
+               (date
+                (if (and (org-taskforecast--entry-is-task-link entry)
+                         (org-taskforecast--task-repeat-p
+                          (org-taskforecast--tlink-task entry))
+                         (eq (org-taskforecast--entry-todo-state-for-today
+                              entry date day-start)
+                             'done))
+                    (org-taskforecast--timestamp-start-date planning day-start)
+                  date)))
     (-some--> (org-taskforecast--sort
                sections #'> :key #'org-taskforecast--section-start-time)
       (--first (let ((st (org-taskforecast--encode-hhmm
                           (org-taskforecast--section-start-time it)
                           date)))
-                 (or (time-less-p st planning)
-                     (time-equal-p st planning)))
+                 (or (time-less-p st planning-time)
+                     (time-equal-p st planning-time)))
                it))))
 
 ;;;;; Tlink class
@@ -1778,15 +1841,18 @@ This function moves only ENTRY not all of entries in FILE.
 (defun org-taskforecast-ss-time-up (a b)
   "Compare A and B by scheduled/deadline, early first."
   (let* (;; date with hh:mm > date only
-         (hh (+ (/ org-taskforecast-day-start 100) 24))
-         (mm (% org-taskforecast-day-start 100))
-         (tta (org-taskforecast--entry-early-planning a hh mm))
-         (ttb (org-taskforecast--entry-early-planning b hh mm)))
-    (cond ((and tta ttb (time-less-p tta ttb) +1))
-          ((and tta ttb (time-less-p ttb tta) -1))
-          ((and tta ttb (time-equal-p tta ttb) nil))
-          ((and tta (null ttb)) +1)
-          ((and (null tta) ttb) -1)
+         (day-start org-taskforecast-day-start)
+         (ta (org-taskforecast--entry-early-planning a day-start))
+         (tb (org-taskforecast--entry-early-planning b day-start)))
+    (cond ((and ta tb
+                (org-taskforecast--timestamp-start-earlier-p ta tb day-start))
+           +1)
+          ((and ta tb
+                (org-taskforecast--timestamp-start-earlier-p tb ta day-start))
+           -1)
+          ((and ta tb (org-taskforecast--timestamp-start-equal-p ta tb)) nil)
+          ((and ta (null tb)) +1)
+          ((and (null ta) tb) -1)
           (t nil))))
 
 (defalias 'org-taskforecast-ss-time-down (-flip #'org-taskforecast-ss-time-up)
@@ -1879,7 +1945,8 @@ a section by `org-taskforecast--entry-derive-default-section'.
 
 - SECTIONS is a list of instances of `org-taskforecast--section'.
 - DATE is an encoded time as a date of today"
-  (-let* ((id-st
+  (-let* ((day-start org-taskforecast-day-start)
+          (id-st
            (--map
             (cons (org-taskforecast--section-section-id it)
                   (org-taskforecast--section-start-time it))
@@ -1890,7 +1957,7 @@ a section by `org-taskforecast--entry-derive-default-section'.
                  (or
                   (org-taskforecast--entry-default-section-id it)
                   (-some--> (org-taskforecast--entry-derive-default-section
-                             it sections date)
+                             it sections date day-start)
                     (org-taskforecast--section-section-id it)))
                  it)
                 (--map
@@ -2447,7 +2514,8 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   "Format default section id of a task link.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
-  (let ((task-link org-taskforecast-list-info-task-link)
+  (let ((day-start org-taskforecast-day-start)
+        (task-link org-taskforecast-list-info-task-link)
         (date org-taskforecast-list-info-today)
         (sections org-taskforecast-list-info-sections)
         (len (--> (-map #'cl-first org-taskforecast-sections)
@@ -2457,7 +2525,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
          (if it
              it
            (-some--> (org-taskforecast--entry-derive-default-section
-                      task-link sections date)
+                      task-link sections date day-start)
              (org-taskforecast--section-section-id it)
              ;; TODO: define face
              (propertize it 'face 'font-lock-comment-face)))
