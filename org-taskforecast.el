@@ -227,8 +227,8 @@ A returned value is an encoded time."
           (decoded-time-second decoded) 0)
     (encode-time decoded)))
 
-(defun org-taskforecast--today (time day-start)
-  "Get today's date of TIME when the day starts at DAY-START.
+(defun org-taskforecast--date-of-time (time day-start)
+  "Get the date of TIME when the day starts at DAY-START.
 
 TIME is an encoded time.
 DAY-START is an integer like `org-taskforecast-day-start'.
@@ -251,8 +251,8 @@ This function returns an encoded time as a date of today."
 
 This function depends on:
 - `org-taskforecast-day-start'"
-  (org-taskforecast--today (or org-taskforecast--today (current-time))
-                           org-taskforecast-day-start))
+  (org-taskforecast--date-of-time (or org-taskforecast--today (current-time))
+                                  org-taskforecast-day-start))
 
 (defun org-taskforecast--time-to-hhmm (time today)
   "Convert TIME to hour and minute as time of TODAY.
@@ -586,7 +586,7 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (if (org-taskforecast--timestamp-start-date-only-p timestamp)
       (org-taskforecast--timestamp-start-time timestamp)
-    (org-taskforecast--today
+    (org-taskforecast--date-of-time
      (org-taskforecast--timestamp-start-time timestamp)
      day-start)))
 
@@ -2409,7 +2409,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
                                ;; may not be today.
                                ;; So adjusting date is needed to show
                                ;; hour and minute.
-                               (org-taskforecast--today it day-start))))
+                               (org-taskforecast--date-of-time it day-start))))
              (--> (format "%d:%02d" hour min)
                   (propertize it 'face 'org-scheduled-previously))))
           (t ""))
