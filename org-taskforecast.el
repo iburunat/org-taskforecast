@@ -580,12 +580,18 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
     (and (org-element-property :repeater-type ts-list) t)))
 
 (defun org-taskforecast--timestamp-start-date (timestamp day-start)
-  "Get the date of TIMESTAMP when the day starts at DAY-START.
+  "Get the date of the start time of TIMESTAMP when the day starts at DAY-START.
+
+If the start time of TIMESTAMP has no hour and minute sections, this function
+ignores DAY-START.
 
 - TIMESTAMP is an instance of `org-taskforecast--timestamp'
 - DAY-START is an integer, see `org-taskforecast-day-start'"
-  (if (org-taskforecast--timestamp-start-date-only-p timestamp)
-      (org-taskforecast--timestamp-start-time timestamp)
+  (let ((day-start
+         (if (org-taskforecast--timestamp-start-date-only-p timestamp)
+             ;; do not consider the day start time
+             0000
+           day-start)))
     (org-taskforecast--date-of-time
      (org-taskforecast--timestamp-start-time timestamp)
      day-start)))
