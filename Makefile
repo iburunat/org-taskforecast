@@ -1,5 +1,5 @@
 EMACS ?= emacs
-CASK  ?= cask
+MAKEM = ./makem.sh/makem.sh
 
 # directories
 SRC = .
@@ -13,55 +13,25 @@ TEST_ELC = $(TEST_EL:.el=.elc)
 
 # tasks
 
-.PHONY: init-dev
-init-dev:
-	$(CASK)
+.PHONY: default
+default: test
+
+.PHONY: init
+init:
+	git submodule update --init
 
 .PHONY: clean
 clean:
-	$(CASK) clean-elc
 	-rm $(SRC_ELC) $(TEST_ELC)
 
-$(SRC)/%.elc: $(SRC)/%.el
-	$(CASK) exec $(EMACS) -Q -batch -L $(SRC) -f batch-byte-compile $<
-
-# the only difference from SRC is including test directory to load-path.
-$(TEST)/%.elc: $(TEST)/%.el
-	$(CASK) exec $(EMACS) -Q -batch -L $(SRC) -L $(TEST) -f batch-byte-compile $<
-
 .PHONY: compile
-compile: ${SRC_ELC} ${TEST_ELC}
+compile:
+	$(MAKEM) compile --emacs $(EMACS) --verbose
 
-.PHONY: raw-test
-raw-test: clean
-	$(CASK) exec ert-runner $(TEST_EL)
-
-.PHONY: compiled-test
-compiled-test: compile
-	$(CASK) exec ert-runner $(TEST_ELC)
-
-# Pushing melpa is needed because package-lint refers package information.
-# package-initialize is needed to call package-lint-batch-and-exit.
-.PHONY: lint
-lint:
-	$(CASK) exec emacs \
-	  -batch \
-	  -eval "(progn \
-	           (require 'package) \
-	           (push '(\"melpa\" . \"https://melpa.org/packages/\") \
-	                 package-archives) \
-	           (package-initialize))" \
-	  -f package-lint-batch-and-exit $(SRC_EL)
-
-# "compile" is a checking for byte compilation warning.
 .PHONY: test
-test: raw-test compile compiled-test lint
+test:
+	$(MAKEM) all --emacs $(EMACS) --verbose
 
-# do not compile when using undercover.el
-.PHONY: coverage
-coverage: raw-test
-
-.PHONY: precommit
-precommit:
-	$(CASK) pkg-file
-	$(MAKE) test
+.PHONY: test-sandbox
+test-sandbox:
+	$(MAKEM) all --sandbox --install-deps --install-linters --emacs $(EMACS) --verbose
