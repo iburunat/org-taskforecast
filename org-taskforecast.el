@@ -919,7 +919,7 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
     (-non-nil it)
     (-min-by (-flip (-rpartial #'org-taskforecast--timestamp-start-earlier-p
                                day-start))
-              it)))
+             it)))
 
 (defun org-taskforecast--entry-derive-default-section (entry sections date day-start)
   "Derive default section from SECTIONS with ENTRY's scheduled and deadline.
