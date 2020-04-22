@@ -134,7 +134,7 @@ The flexibility is:
 The purpose of this package is to simulate the tasks and the time for today.
 To simulate that, it is needed that the way to keep that the daily task list contains only the tasks to do today and to keep the list in the order to begin them.
 
-### Why the daily task list file is in org-mode
+### Why the daily task list file is written in org-mode
 
 The reasons are below:
 
