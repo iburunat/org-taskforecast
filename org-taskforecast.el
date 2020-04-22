@@ -185,15 +185,24 @@ Encoded time is a type of a returned value of `encode-time'."
 
 ;;;; Time
 
+(defun org-taskforecast--split-hhmm (hhmm)
+  "Split HHMM integer into a list like (HOUR MINUTE)."
+  (list (/ hhmm 100)
+        (% hhmm 100)))
+
+(defun org-taskforecast--hhmm-to-second (hhmm)
+  "Convert HHMM integer into an integer in second counted from 00:00."
+  (-let (((hh mm) (org-taskforecast--split-hhmm hhmm)))
+    (+ (* 60 60 hh) (* 60 mm))))
+
 (defun org-taskforecast--encode-hhmm (hhmm day)
   "Return an encoded time from HHMM as a time of DAY.
 
 HHMM is an integer like `org-taskforecast-day-start'.
 DAY is an encoded time."
   (org-taskforecast-assert (integerp hhmm))
-  (let ((hour (/ hhmm 100))
-        (minute (% hhmm 100))
-        (time (decode-time day)))
+  (-let (((hour minute) (org-taskforecast--split-hhmm hhmm))
+         (time (decode-time day)))
     (setf (decoded-time-hour time) hour
           (decoded-time-minute time) minute
           (decoded-time-second time) 0)
@@ -1469,12 +1478,10 @@ DAY-START is an integer like `org-taskforecast-day-start'."
        ;; set effort slot
        ;; NOTE: leap second is not considered
        (let ((next-start (+ (* 60 60 24)
-                            (* 60 60 (/ day-start 100))
-                            (* 60 (% day-start 100)))))
+                            (org-taskforecast--hhmm-to-second day-start))))
          (--each-r it
            (let* ((s (org-taskforecast--section-start-time it))
-                  (this-start (+ (* 60 60 (/ s 100))
-                                 (* 60 (% s 100))))
+                  (this-start (org-taskforecast--hhmm-to-second s))
                   (effort (max (- next-start this-start) 0)))
              (setf (slot-value it 'effort) effort
                    next-start this-start)))))
@@ -1758,7 +1765,7 @@ This function returns an ID of the section heading.
   (let ((title (org-taskforecast--normalize-title
                 (or description
                     (--> start-time
-                         (+ (* 60 60 (/ it 100)) (* 60 (% it 100)))
+                         (org-taskforecast--hhmm-to-second it)
                          (org-taskforecast--format-second-to-hhmm it)
                          (format "SECTION: %s -" it))))))
     (org-taskforecast--with-existing-file file
@@ -2169,11 +2176,10 @@ If not, do nothing.
   (when (called-interactively-p 'any)
     (org-taskforecast--ask-generat-sections
      file org-taskforecast-sections date day-start))
-  (let ((next-day-start (org-taskforecast--encode-hhmm
-                         (+ day-start 2400)
-                         date))
-        (hh (/ day-start 100))
-        (mm (% day-start 100)))
+  (-let ((next-day-start (org-taskforecast--encode-hhmm
+                          (+ day-start 2400)
+                          date))
+         ((hh mm) (org-taskforecast--split-hhmm day-start)))
     (org-ql-select (org-agenda-files)
       '(and (todo) (ts-a))
       :action
