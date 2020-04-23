@@ -220,7 +220,7 @@ DAY is an encoded time."
     (setf (decoded-time-hour time) hour
           (decoded-time-minute time) minute
           (decoded-time-second time) 0)
-    (encode-time time)))
+    (apply #'encode-time time)))
 
 (defun org-taskforecast--format-second-to-hhmm (second)
   "Format SECOND to HH:MM style string."
@@ -248,7 +248,7 @@ A returned value is an encoded time."
     (setf (decoded-time-hour decoded) 0
           (decoded-time-minute decoded) 0
           (decoded-time-second decoded) 0)
-    (encode-time decoded)))
+    (apply #'encode-time decoded)))
 
 (defun org-taskforecast--date-of-time (time day-start)
   "Get the date of TIME when the day starts at DAY-START.
@@ -264,7 +264,7 @@ This function returns an encoded time as a date of today."
           (decoded-time-minute decoded) 0
           (decoded-time-second decoded) dsec)
     (org-taskforecast--time-as-date
-     (encode-time decoded))))
+     (apply #'encode-time decoded))))
 
 (defvar org-taskforecast--today nil
   "Current time for `org-taskforecast-today' to override.")
@@ -807,7 +807,7 @@ If TASK has no property, this function returns nil."
       (org-taskforecast--at-id id
         (-some--> (org-entry-get nil "LAST_REPEAT")
           (org-parse-time-string it)
-          (encode-time it))))))
+          (apply #'encode-time it))))))
 
 (defun org-taskforecast--task-todo-state-for-today (task date day-start)
   "Get todo state of TASK for today.
@@ -1012,7 +1012,7 @@ A returned value is an encoded time."
        nil
        org-taskforecast--task-link-effective-start-time-prop-name)
     (org-parse-time-string it)
-    (encode-time it)))
+    (apply #'encode-time it)))
 
 (defun org-taskforecast--get-task-link-effective-end-time ()
   "Get the task link's effective end time property from a heading.
@@ -1023,7 +1023,7 @@ A returned value is an encoded time."
        nil
        org-taskforecast--task-link-effective-end-time-prop-name)
     (org-parse-time-string it)
-    (encode-time it)))
+    (apply #'encode-time it)))
 
 (defun org-taskforecast--set-task-link-effective-start-time (time)
   "Set the task link's effective start time property to TIME.
