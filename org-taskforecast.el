@@ -2731,8 +2731,8 @@ This function inserts contents of `org-taskforecast-list-mode'.
   "A major-mode to manage today's tasks."
   :group 'org-taskforecast
   (org-taskforecast--cache-mode-setup)
-  (setq-local truncate-lines t
-              buffer-read-only t))
+  (setq-local truncate-lines t)
+  (setq-local buffer-read-only t))
 
 (defvar org-taskforecast--list-buffer-name "*org-taskforecast list*"
   "A buffer name for `org-taskforecast-list-mode'.")
