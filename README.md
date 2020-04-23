@@ -187,7 +187,7 @@ So you use `org-taskforecast-register-tasks-for-today`, usually do not need to c
 ### Default section
 
 Default section is a hint where a task link should be placed.
-When a task is registered by `org-taskforecast-register-tasks-for-today`, it will be placed into its default section if the section exists.
+When a task is registered, it will be placed into its default section if the section exists.
 If a task has no default section, this package derives the default section corresponds to its time of SCHEDULED or DEADLINE.
 To set default section, call `org-taskforecast-set-default-section-id` at the target heading in org-mode buffer or call `org-taskforecast-list-set-default-section-id` in `org-taskforecast-list` buffer.
 
