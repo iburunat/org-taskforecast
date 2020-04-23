@@ -2137,17 +2137,23 @@ If the answer is yes, this function generates section headings by
     (org-taskforecast-generate-sections file sections date day-start)))
 
 ;;;###autoload
-(defun org-taskforecast-register-task (file date)
+(defun org-taskforecast-register-task (file date day-start &optional sections sorting-storategy)
   "Register a task at point as a task for today.
 
 When the task is already registered, this command does nothing.
 
 - FILE is a today's daily task list file name
-- DATE is an encoded time as a date of today"
+- DATE is an encoded time as a date of today
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- SECTIONS is a list of section definitions like `org-taskforecast-sections'
+- SORTING-STORATEGY is a list, see `org-taskforecast-sorting-storategy'"
   (interactive
    (let ((today (org-taskforecast-today)))
      (list (org-taskforecast-get-dailylist-file today)
-           today)))
+           today
+           org-taskforecast-day-start
+           org-taskforecast-sections
+           org-taskforecast-sorting-storategy)))
   (-if-let* ((task (if (eq 'org-agenda-mode major-mode)
                        (org-taskforecast--at-agenda-heading
                          (org-taskforecast--get-task))
@@ -2159,19 +2165,18 @@ When the task is already registered, this command does nothing.
           (org-taskforecast--ask-generat-sections
            ;; Here is for interactive call only.
            ;; So sections and day-start are excluded from parameters.
-           file org-taskforecast-sections date org-taskforecast-day-start))
+           file sections date day-start))
         (--> (org-taskforecast--append-task-link id file)
              (org-taskforecast--get-task-link-by-id it)
              (org-taskforecast-sort-entry-up
               it file
               (org-taskforecast--sort-comparators-for-task-link
-               file date org-taskforecast-day-start
-               org-taskforecast-sorting-storategy)
-              org-taskforecast-day-start)))
+               file date day-start sorting-storategy)
+              day-start)))
     (user-error "Heading is not a task")))
 
 ;;;###autoload
-(defun org-taskforecast-register-tasks-for-today (file date day-start)
+(defun org-taskforecast-register-tasks-for-today (file date day-start &optional sections sorting-storategy)
   "Register tasks for today or before as tasks for today from agenda files.
 
 If a task is not registered, register and sort it.
@@ -2179,17 +2184,20 @@ If not, do nothing.
 
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
-- DAY-START is an integer, see `org-taskforecast-day-start'"
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- SECTIONS is a list of section definitions like `org-taskforecast-sections'
+- SORTING-STORATEGY is a list, see `org-taskforecast-sorting-storategy'"
   (interactive
    (let ((today (org-taskforecast-today)))
      (list (org-taskforecast-get-dailylist-file today)
            today
-           org-taskforecast-day-start)))
+           org-taskforecast-day-start
+           org-taskforecast-sections
+           org-taskforecast-sorting-storategy)))
   ;; TODO: consider deadline warning
   ;; TODO: make query and filtering customizable
   (when (called-interactively-p 'any)
-    (org-taskforecast--ask-generat-sections
-     file org-taskforecast-sections date day-start))
+    (org-taskforecast--ask-generat-sections file sections date day-start))
   (-let ((next-day-start (org-taskforecast--encode-hhmm
                           (+ day-start 2400)
                           date))
@@ -2213,13 +2221,12 @@ If not, do nothing.
                    (registerdp (org-taskforecast--get-task-links-for-task
                                 id file))
                    (comparators (org-taskforecast--sort-comparators-for-task-link
-                                 file date day-start
-                                 org-taskforecast-sorting-storategy)))
+                                 file date day-start sorting-storategy)))
               (when (not registerdp)
                 (--> (org-taskforecast--append-task-link id file)
                      (org-taskforecast--get-task-link-by-id it)
                      (org-taskforecast-sort-entry-up
-                      it file comparators org-taskforecast-day-start))))))))))
+                      it file comparators day-start))))))))))
 
 ;;;###autoload
 (defun org-taskforecast-generate-sections (file sections date day-start)
@@ -2754,13 +2761,14 @@ If the buffer already exists, only returns the buffer.
           (current-buffer)))))
 
 ;;;###autoload
-(defun org-taskforecast-list ()
-  "Show the buffer of `org-taskforecast-list-mode'."
-  (interactive)
+(defun org-taskforecast-list (day-start)
+  "Show the buffer of `org-taskforecast-list-mode'.
+
+DAY-START is an integer, see `org-taskforecast-day-start'."
+  (interactive
+   (list org-taskforecast-day-start))
   (switch-to-buffer
-   (org-taskforecast--create-list-buffer
-    (org-taskforecast-today)
-    org-taskforecast-day-start)))
+   (org-taskforecast--create-list-buffer (org-taskforecast-today) day-start)))
 
 (defun org-taskforecast--list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
