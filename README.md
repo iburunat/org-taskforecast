@@ -18,6 +18,35 @@ So `ID` property of an org heading is set as needed.
 
 ![screenshot](./screenshot.png)
 
+## Table of contents
+
+<!--ts-->
+   * [org-taskforecast](#org-taskforecast)
+      * [Screenshot](#screenshot)
+      * [Table of contents](#table-of-contents)
+      * [Requirements](#requirements)
+      * [Installation](#installation)
+      * [Basic usage](#basic-usage)
+         * [Date on org-taskforecast](#date-on-org-taskforecast)
+      * [Difference from org-agenda](#difference-from-org-agenda)
+         * [Why manual registration](#why-manual-registration)
+         * [Why the daily task list file is written in org-mode](#why-the-daily-task-list-file-is-written-in-org-mode)
+      * [Section](#section)
+         * [Define sections](#define-sections)
+         * [Generate section headings](#generate-section-headings)
+         * [Default section](#default-section)
+      * [List mode - org-taskforecast-list-mode](#list-mode---org-taskforecast-list-mode)
+         * [Key bindings](#key-bindings)
+            * [Manipulate list](#manipulate-list)
+            * [Manipulate task](#manipulate-task)
+            * [Control formatter](#control-formatter)
+      * [Tracking mode](#tracking-mode)
+      * [Interruption](#interruption)
+      * [Versioning](#versioning)
+
+
+<!--te-->
+
 ## Requirements
 
 - Emacs 25.1 or later

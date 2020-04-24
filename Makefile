@@ -1,5 +1,7 @@
 EMACS ?= emacs
 MAKEM = ./makem.sh/makem.sh
+# https://github.com/ekalinin/github-markdown-toc
+GH_MD_TOC ?= gh-md-toc
 
 # directories
 SRC = .
@@ -35,3 +37,12 @@ test:
 .PHONY: test-sandbox
 test-sandbox:
 	$(MAKEM) all --sandbox --install-deps --install-linters --emacs $(EMACS) --verbose
+
+.PHONY: readme-toc
+readme-toc:
+	$(GH_MD_TOC) --insert README.md
+# remove timestamp comment
+	sed -i '/^<!-- Added by:.* -->/d' README.md
+# remove backups
+	rm README.md.orig.*
+	rm README.md.toc.*
