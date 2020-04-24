@@ -1830,7 +1830,7 @@ A returned value is:
            when (eql res +1) return +1
            when (eql res -1) return -1))
 
-(defun org-taskforecast-sort-entry-up (entry file comparators day-start)
+(defun org-taskforecast--sort-entry-up (entry file comparators day-start)
   "Sort ENTRY up in FILE.
 
 Move ENTRY up while it > previous one in FILE, like bubble sort.
@@ -2168,7 +2168,7 @@ When the task is already registered, this command does nothing.
            file sections date day-start))
         (--> (org-taskforecast--append-task-link id file)
              (org-taskforecast--get-task-link-by-id it)
-             (org-taskforecast-sort-entry-up
+             (org-taskforecast--sort-entry-up
               it file
               (org-taskforecast--sort-comparators-for-task-link
                file date day-start sorting-storategy)
@@ -2225,7 +2225,7 @@ If not, do nothing.
               (when (not registerdp)
                 (--> (org-taskforecast--append-task-link id file)
                      (org-taskforecast--get-task-link-by-id it)
-                     (org-taskforecast-sort-entry-up
+                     (org-taskforecast--sort-entry-up
                       it file comparators day-start))))))))))
 
 ;;;###autoload
@@ -2255,7 +2255,7 @@ from `org-taskforecast-sections' to today's daily task list file.
              (org-taskforecast--append-section
               id start-time description file))
            (org-taskforecast--get-section-by-id it)
-           (org-taskforecast-sort-entry-up
+           (org-taskforecast--sort-entry-up
             it file
             (list
              (-rpartial #'org-taskforecast--ss-default-section-up
@@ -2955,7 +2955,7 @@ DATE is an encoded time."
             task-id file date org-taskforecast-day-start)))
       (org-taskforecast--at-id new-link-id
         (org-taskforecast--set-task-link-effective-start-time now))
-      (org-taskforecast-sort-entry-up
+      (org-taskforecast--sort-entry-up
        (org-taskforecast--get-task-link-by-id new-link-id)
        file
        (org-taskforecast--sort-comparators-for-task-link
