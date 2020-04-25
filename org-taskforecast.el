@@ -167,20 +167,6 @@ Example:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
-;;;; Debug
-
-(defvar org-taskforecast-enable-assert nil
-  "When non-nil, enable `org-taskforecast-assert'.")
-
-(defmacro org-taskforecast-assert (expr &optional message)
-  "Assert EXPR.
-When EXPR returns nil call error with MESSAGE.
-If `org-taskforecast-enable-assert' is nil, this assertion is disabled."
-  `(when org-taskforecast-enable-assert
-     (unless ,expr
-       (error ,(or message
-                   (format "Assertion failed: %s" expr))))))
-
 ;;;; Type
 
 (defun org-taskforecast--encoded-time-p (x)
@@ -214,7 +200,6 @@ Encoded time is a type of a returned value of `encode-time'."
 
 HHMM is an integer like `org-taskforecast-day-start'.
 DAY is an encoded time."
-  (org-taskforecast-assert (integerp hhmm))
   (-let (((hour minute) (org-taskforecast--split-hhmm hhmm))
          (time (decode-time day)))
     (setf (decoded-time-hour time) hour
@@ -256,7 +241,6 @@ A returned value is an encoded time."
 TIME is an encoded time.
 DAY-START is an integer like `org-taskforecast-day-start'.
 This function returns an encoded time as a date of today."
-  (org-taskforecast-assert (integerp day-start))
   (let* ((decoded (decode-time time))
          (start-time (org-taskforecast--encode-hhmm day-start time))
          (dsec (time-to-seconds (time-subtract time start-time))))
@@ -286,7 +270,7 @@ A returned value is a list like (hour minute)."
          (dmin (/ dsec 60))
          (hour (/ dmin 60))
          (minute (% dmin 60)))
-    (org-taskforecast-assert (<= 0 dsec))
+    (cl-assert (<= 0 dsec))
     (list hour minute)))
 
 (defun org-taskforecast--today-p (time today day-start)
@@ -1809,7 +1793,7 @@ already exists corresponding to SECTION-ID.
   (--> (org-taskforecast--get-sections file day-start)
        (--filter (string= section-id (org-taskforecast--section-section-id it))
                  it)
-       (progn (org-taskforecast-assert (member (length it) '(0 1)))
+       (progn (cl-assert (member (length it) '(0 1)))
               (cl-first it))
        (if it
            (org-taskforecast--section-id it)
@@ -2465,12 +2449,12 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   "Format time when a task has been started.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
-  (org-taskforecast-assert
+  (cl-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
-     (and (= (decoded-time-hour decoded)
-             (decoded-time-minute decoded)
-             (decoded-time-second decoded)
-             0))))
+     (= (decoded-time-hour decoded)
+        (decoded-time-minute decoded)
+        (decoded-time-second decoded)
+        0)))
   (-let* ((start
            (org-taskforecast--eclock-start
             org-taskforecast-list-info-task-link-start-end-time))
@@ -2481,7 +2465,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
            (org-taskforecast--time-to-hhmm
             start
             org-taskforecast-list-info-today)))
-    (org-taskforecast-assert (--all-p (>= it 0) (list hour minute)))
+    (cl-assert (--all-p (>= it 0) (list hour minute)))
     (propertize (format "%2d:%02d" hour minute)
                 ;; TODO: define face
                 'face (if start-estimated-p 'org-scheduled 'default))))
@@ -2490,12 +2474,12 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   "Format time when a task has been closed.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
-  (org-taskforecast-assert
+  (cl-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
-     (and (= (decoded-time-hour decoded)
-             (decoded-time-minute decoded)
-             (decoded-time-second decoded)
-             0))))
+     (= (decoded-time-hour decoded)
+        (decoded-time-minute decoded)
+        (decoded-time-second decoded)
+        0)))
   (-let* ((todo-type
            (org-taskforecast--entry-todo-state-for-today
             org-taskforecast-list-info-task-link
@@ -3056,11 +3040,11 @@ ARG is passed to `org-deadline'."
   ;; "reference to free variable" warning without definition of the variable
   ;; in this file.
   (when (org-entry-is-done-p)
-    (org-taskforecast-assert (org-taskforecast--get-task))
     (let* ((today (org-taskforecast-today))
            (file (org-taskforecast-get-dailylist-file today))
            (now (current-time)))
-      (-if-let* ((id (org-id-get))
+      (-if-let* ((task (org-taskforecast--get-task))
+                 (id (org-taskforecast--task-id task))
                  (head-pos (org-taskforecast--get-todo-entry-head-pos
                             file today org-taskforecast-day-start now))
                  (links (org-taskforecast--get-task-links-for-task id file)))

@@ -7,16 +7,6 @@
 
 ;;; Test:
 
-;;;; Debug
-
-(ert-deftest org-taskforecast-assert ()
-  (let ((org-taskforecast-enable-assert nil))
-    (should-not-error (org-taskforecast-assert t))
-    (should-not-error (org-taskforecast-assert nil)))
-  (let ((org-taskforecast-enable-assert t))
-    (should-not-error (org-taskforecast-assert t))
-    (should-error (org-taskforecast-assert nil))))
-
 ;;;; Cache
 
 (defmacro with-cache-minor-mode (&rest body)
