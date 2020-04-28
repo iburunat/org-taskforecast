@@ -3,3 +3,6 @@
 
 # for cask pkg-file
 dist
+
+# for makem.sh
+sandbox

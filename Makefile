@@ -1,3 +1,4 @@
+# commands
 EMACS ?= emacs
 MAKEM = ./makem.sh/makem.sh
 # https://github.com/ekalinin/github-markdown-toc
@@ -6,12 +7,18 @@ GH_MD_TOC ?= gh-md-toc
 # directories
 SRC = .
 TEST = ./test
+SANDBOX = ./sandbox
 
 # files
 SRC_EL = $(wildcard $(SRC)/*.el)
 TEST_EL = $(wildcard $(TEST)/*.el)
 SRC_ELC = $(SRC_EL:.el=.elc)
 TEST_ELC = $(TEST_EL:.el=.elc)
+
+# makem options
+MAKEM_LINT = lint-compile lint-declare lint-indent lint-package lint-regexps
+MAKEM_TEST = tests
+MAKEM_SANDBOX =
 
 # tasks
 
@@ -25,6 +32,7 @@ init:
 .PHONY: clean
 clean:
 	-rm $(SRC_ELC) $(TEST_ELC)
+	-rm -r $(SANDBOX)
 
 .PHONY: compile
 compile:
@@ -32,11 +40,14 @@ compile:
 
 .PHONY: test
 test:
-	$(MAKEM) all --emacs $(EMACS) --verbose
+# lint-checkdoc may report false positive errors and warnings.
+# run lint-checkdoc as advice.
+	-$(MAKEM) lint-checkdoc --emacs $(EMACS) --verbose $(MAKEM_SANDBOX)
+	$(MAKEM) $(MAKEM_LINT) $(MAKEM_TEST) --emacs $(EMACS) --verbose $(MAKEM_SANDBOX) --install-deps --install-linters
 
-.PHONY: test-sandbox
-test-sandbox:
-	$(MAKEM) all --sandbox --install-deps --install-linters --emacs $(EMACS) --verbose
+.PHONY: test-sandboxed
+test-sandboxed:
+	$(MAKE) test MAKEM_SANDBOX="--sandbox=$(SANDBOX)"
 
 .PHONY: readme-toc
 readme-toc:
