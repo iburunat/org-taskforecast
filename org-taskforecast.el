@@ -167,6 +167,41 @@ Example:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+;;;; Compatibility
+
+;; TODO: when dropping support of emacs 26 and older, remove these functions
+;;       and use functions that emacs provides.
+
+;; these functions are introduces since emacs 27
+(defalias 'org-taskforecast--decoded-time-hour
+  (if (fboundp 'decoded-time-hour)
+      (symbol-function 'decoded-time-hour)
+    (lambda (time) (nth 2 time))))
+(gv-define-setter org-taskforecast--decoded-time-hour (val time)
+  `(setf (nth 2 ,time) ,val))
+
+(defalias 'org-taskforecast--decoded-time-minute
+  (if (fboundp 'decoded-time-minute)
+      (symbol-function 'decoded-time-minute)
+    (lambda (time) (nth 1 time))))
+(gv-define-setter org-taskforecast--decoded-time-minute (val time)
+  `(setf (nth 1 ,time) ,val))
+
+(defalias 'org-taskforecast--decoded-time-second
+  (if (fboundp 'decoded-time-second)
+      (symbol-function 'decoded-time-second)
+    (lambda (time) (nth 0 time))))
+(gv-define-setter org-taskforecast--decoded-time-second (val time)
+  `(setf (nth 0 ,time) ,val))
+
+(defalias 'org-taskforecast--time-equal-p
+  (if (fboundp 'time-equal-p)
+      (symbol-function 'time-equal-p)
+    (lambda (a b)
+      (let ((now (current-time)))
+        ;; nil means the current time
+        (equal (or a now) (or b now))))))
+
 ;;;; Type
 
 (defun org-taskforecast--encoded-time-p (x)
@@ -202,9 +237,9 @@ HHMM is an integer like `org-taskforecast-day-start'.
 DAY is an encoded time."
   (-let (((hour minute) (org-taskforecast--split-hhmm hhmm))
          (time (decode-time day)))
-    (setf (decoded-time-hour time) hour
-          (decoded-time-minute time) minute
-          (decoded-time-second time) 0)
+    (setf (org-taskforecast--decoded-time-hour time) hour
+          (org-taskforecast--decoded-time-minute time) minute
+          (org-taskforecast--decoded-time-second time) 0)
     (apply #'encode-time time)))
 
 (defun org-taskforecast--format-second-to-hhmm (second)
@@ -230,9 +265,9 @@ If effort-str invalid, this function returns nil."
 TIME is an encoded time.
 A returned value is an encoded time."
   (let ((decoded (decode-time time)))
-    (setf (decoded-time-hour decoded) 0
-          (decoded-time-minute decoded) 0
-          (decoded-time-second decoded) 0)
+    (setf (org-taskforecast--decoded-time-hour decoded) 0
+          (org-taskforecast--decoded-time-minute decoded) 0
+          (org-taskforecast--decoded-time-second decoded) 0)
     (apply #'encode-time decoded)))
 
 (defun org-taskforecast--date-of-time (time day-start)
@@ -244,9 +279,9 @@ This function returns an encoded time as a date of today."
   (let* ((decoded (decode-time time))
          (start-time (org-taskforecast--encode-hhmm day-start time))
          (dsec (time-to-seconds (time-subtract time start-time))))
-    (setf (decoded-time-hour decoded) 0
-          (decoded-time-minute decoded) 0
-          (decoded-time-second decoded) dsec)
+    (setf (org-taskforecast--decoded-time-hour decoded) 0
+          (org-taskforecast--decoded-time-minute decoded) 0
+          (org-taskforecast--decoded-time-second decoded) dsec)
     (org-taskforecast--time-as-date
      (apply #'encode-time decoded))))
 
@@ -282,7 +317,7 @@ A returned value is a list like (hour minute)."
   (let ((start (org-taskforecast--encode-hhmm day-start today))
         (end (org-taskforecast--encode-hhmm (+ day-start 2400) today)))
     (and (time-less-p time end)
-         (or (time-equal-p start time)
+         (or (org-taskforecast--time-equal-p start time)
              (time-less-p start time)))))
 
 ;;;; List
@@ -618,7 +653,7 @@ ignores DAY-START.
      ;; compare date
      (time-less-p a-date b-date)
      ;; for same date
-     (and (time-equal-p a-date b-date)
+     (and (org-taskforecast--time-equal-p a-date b-date)
           (or
            ;; compare date-only-p
            (and (not a-date-only-p) b-date-only-p)
@@ -637,7 +672,7 @@ ignores DAY-START.
         (a-time (org-taskforecast--timestamp-start-time a))
         (b-time (org-taskforecast--timestamp-start-time b)))
     (and (eq a-date-only-p b-date-only-p)
-         (time-equal-p a-time b-time))))
+         (org-taskforecast--time-equal-p a-time b-time))))
 
 ;;;;; Task class
 
@@ -974,7 +1009,7 @@ If not, this function returns nil.
                           (org-taskforecast--section-start-time it)
                           date)))
                  (or (time-less-p st planning-time)
-                     (time-equal-p st planning-time)))
+                     (org-taskforecast--time-equal-p st planning-time)))
                it))))
 
 ;;;;; Tlink class
@@ -2451,9 +2486,9 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (cl-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
-     (= (decoded-time-hour decoded)
-        (decoded-time-minute decoded)
-        (decoded-time-second decoded)
+     (= (org-taskforecast--decoded-time-hour decoded)
+        (org-taskforecast--decoded-time-minute decoded)
+        (org-taskforecast--decoded-time-second decoded)
         0)))
   (-let* ((start
            (org-taskforecast--eclock-start
@@ -2476,9 +2511,9 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (cl-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
-     (= (decoded-time-hour decoded)
-        (decoded-time-minute decoded)
-        (decoded-time-second decoded)
+     (= (org-taskforecast--decoded-time-hour decoded)
+        (org-taskforecast--decoded-time-minute decoded)
+        (org-taskforecast--decoded-time-second decoded)
         0)))
   (-let* ((todo-type
            (org-taskforecast--entry-todo-state-for-today
