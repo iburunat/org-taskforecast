@@ -202,6 +202,14 @@ Example:
         ;; nil means the current time
         (equal (or a now) (or b now))))))
 
+;; since emacs 27, `encode-time' accepts float value as "second" parameter,
+;; but emacs 26 and older, the function does not accept that.
+(defalias 'org-taskforecast--encode-time
+  (if (version<= "27.0.0" emacs-version)
+      (symbol-function 'encode-time)
+    (lambda (second &rest rest)
+      (apply #'encode-time (truncate second) rest))))
+
 ;;;; Type
 
 (defun org-taskforecast--encoded-time-p (x)
@@ -240,7 +248,7 @@ DAY is an encoded time."
     (setf (org-taskforecast--decoded-time-hour time) hour
           (org-taskforecast--decoded-time-minute time) minute
           (org-taskforecast--decoded-time-second time) 0)
-    (apply #'encode-time time)))
+    (apply #'org-taskforecast--encode-time time)))
 
 (defun org-taskforecast--format-second-to-hhmm (second)
   "Format SECOND to HH:MM style string."
@@ -268,7 +276,7 @@ A returned value is an encoded time."
     (setf (org-taskforecast--decoded-time-hour decoded) 0
           (org-taskforecast--decoded-time-minute decoded) 0
           (org-taskforecast--decoded-time-second decoded) 0)
-    (apply #'encode-time decoded)))
+    (apply #'org-taskforecast--encode-time decoded)))
 
 (defun org-taskforecast--date-of-time (time day-start)
   "Get the date of TIME when the day starts at DAY-START.
@@ -283,7 +291,7 @@ This function returns an encoded time as a date of today."
           (org-taskforecast--decoded-time-minute decoded) 0
           (org-taskforecast--decoded-time-second decoded) dsec)
     (org-taskforecast--time-as-date
-     (apply #'encode-time decoded))))
+     (apply #'org-taskforecast--encode-time decoded))))
 
 (defvar org-taskforecast--today nil
   "Current time for `org-taskforecast-today' to override.")
@@ -543,7 +551,7 @@ A and B are instances of `org-taskforecast--clock'."
 TIMESTAMP is an element of timestamp of org element api.
 HOUR, MINUTE and SECOND are the default values if TIMESTAMP doesn't
 have those part."
-  (encode-time
+  (org-taskforecast--encode-time
    second
    (or (org-element-property :minute-start timestamp) minute)
    (or (org-element-property :hour-start timestamp) hour)
@@ -557,7 +565,7 @@ have those part."
 TIMESTAMP is an element of timestamp of org element api.
 The second part of a returned time is set to zero.
 If hour and minute part do not exist, they are set to zero."
-  (encode-time
+  (org-taskforecast--encode-time
    0
    (or (org-element-property :minute-end timestamp) 0)
    (or (org-element-property :hour-end timestamp) 0)
@@ -826,7 +834,7 @@ If TASK has no property, this function returns nil."
       (org-taskforecast--at-id id
         (-some--> (org-entry-get nil "LAST_REPEAT")
           (org-parse-time-string it)
-          (apply #'encode-time it))))))
+          (apply #'org-taskforecast--encode-time it))))))
 
 (defun org-taskforecast--task-todo-state-for-today (task date day-start)
   "Get todo state of TASK for today.
@@ -1031,7 +1039,7 @@ A returned value is an encoded time."
        nil
        org-taskforecast--task-link-effective-start-time-prop-name)
     (org-parse-time-string it)
-    (apply #'encode-time it)))
+    (apply #'org-taskforecast--encode-time it)))
 
 (defun org-taskforecast--get-task-link-effective-end-time ()
   "Get the task link's effective end time property from a heading.
@@ -1042,7 +1050,7 @@ A returned value is an encoded time."
        nil
        org-taskforecast--task-link-effective-end-time-prop-name)
     (org-parse-time-string it)
-    (apply #'encode-time it)))
+    (apply #'org-taskforecast--encode-time it)))
 
 (defun org-taskforecast--set-task-link-effective-start-time (time)
   "Set the task link's effective start time property to TIME.
