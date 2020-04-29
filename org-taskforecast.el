@@ -70,9 +70,9 @@ This string is expanded by `format-time-string'."
 (defcustom org-taskforecast-day-start 0000
   "A start time of a day.
 
-It is an integer as hhmm.
+It is an integer as HHMM.
 The value is less than zero, which means yesterday or older.
-The value is over than 2359, which means tommorow or more future.
+The value is over than 2359, which means tomorrow or more future.
 
 Example of a range of today:
    0300 => 03:00 ~ 27:00 (03:00 of tomorrow)
@@ -92,7 +92,7 @@ Example of a range of today:
         #'org-taskforecast-list-tlfmt-title)
   "Function list for formatting a task link.
 
-The results of the functions are joind with \" \" and
+The results of the functions are joined with \" \" and
 empty strings are ignored..
 The functions should have no parameter.
 The functions are obtained information as global variables below:
@@ -126,7 +126,7 @@ The function is obtained information as global variables below:
   :package-version '(org-taskforecast . "0.1.0"))
 
 (defcustom org-taskforecast-enable-interruption t
-  "Non-nil means enable inturruption representation."
+  "Non-nil means enable interruption representation."
   :type 'boolean
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
@@ -251,7 +251,7 @@ DAY is an encoded time."
   "Convert string of effort property to second.
 
 EFFORT-STR is a string of a value of an effort property.
-If effort-str invalid, this function returns nil."
+If EFFORT-STR is invalid, this function returns nil."
   (-let* ((re (rx bos (? (group (+ num)) ":") (group (+ num)) eos))
           (((_ h m)) (s-match-strings-all re effort-str)))
     ;; Effort property sometimes has no colon format like "0".
@@ -641,7 +641,7 @@ ignores DAY-START.
 (defun org-taskforecast--timestamp-start-earlier-p (a b day-start)
   "Non-nil if the start time of A is earlier than one of B.
 
-- A and B is an instance of `org-taskfoercast--timestamp'
+- A and B is an instance of `org-taskforecast--timestamp'
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (let ((a-date (org-taskforecast--timestamp-start-date a day-start))
         (b-date (org-taskforecast--timestamp-start-date b day-start))
@@ -665,7 +665,7 @@ ignores DAY-START.
 (defun org-taskforecast--timestamp-start-equal-p (a b)
   "Non-nil if the start time of A equals to one of B.
 
-- A and B is an instance of `org-taskfoercast--timestamp'
+- A and B is an instance of `org-taskforecast--timestamp'
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (let ((a-date-only-p (org-taskforecast--timestamp-start-date-only-p a))
         (b-date-only-p (org-taskforecast--timestamp-start-date-only-p b))
