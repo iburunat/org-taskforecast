@@ -922,13 +922,13 @@ If the end time is not found, the value will be an estimated time.")
 ;; Entry interface is the interface for items shown in
 ;; `org-taskforecast-list' buffer.
 
-(cl-defgeneric org-taskforecast--entry-title (entry)
+(cl-defgeneric org-taskforecast-entry-title (entry)
   "Title of ENTRY.")
 
-(cl-defgeneric org-taskforecast--entry-id (entry)
+(cl-defgeneric org-taskforecast-entry-id (entry)
   "An org-id ID of ENTRY's heading.")
 
-(cl-defgeneric org-taskforecast--entry-effective-effort (entry date day-start)
+(cl-defgeneric org-taskforecast-entry-effective-effort (entry date day-start)
   "Get effort value of ENTRY.
 
 A returned value is an effort second.
@@ -936,7 +936,7 @@ A returned value is an effort second.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'")
 
-(cl-defgeneric org-taskforecast--entry-effective-clocks (entry date day-start)
+(cl-defgeneric org-taskforecast-entry-effective-clocks (entry date day-start)
   "Effective clocks of ENTRY.
 
 An effective clock is a clock information that clocked today.
@@ -948,77 +948,77 @@ the following conditions:
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'")
 
-(cl-defgeneric org-taskforecast--entry-todo-state-for-today (entry date day-start)
+(cl-defgeneric org-taskforecast-entry-todo-state-for-today (entry date day-start)
   "Get todo state of ENTRY for today.
 
 This function returns a symbol, todo or done.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'")
 
-(cl-defgeneric org-taskforecast--entry-scheduled (entry)
+(cl-defgeneric org-taskforecast-entry-scheduled (entry)
   "Schedule information of ENTRY.
 
 If ENTRY has scheduled, this returns an instance of
 `org-taskforecast--timestamp'.
 If not, this returns nil.")
 
-(cl-defgeneric org-taskforecast--entry-deadline (entry)
+(cl-defgeneric org-taskforecast-entry-deadline (entry)
   "Deadline information of ENTRY.
 
 If ENTRY has deadline, this returns an instance of
 `org-taskforecast--timestamp'.
 If not, this returns nil.")
 
-(cl-defgeneric org-taskforecast--entry-effective-start-time (entry)
+(cl-defgeneric org-taskforecast-entry-effective-start-time (entry)
   "An encoded time when ENTRY is effective after.
 
 If ENTRY has no effective start time, this returns nil.")
 
-(cl-defgeneric org-taskforecast--entry-effective-end-time (entry)
+(cl-defgeneric org-taskforecast-entry-effective-end-time (entry)
   "An encoded time when ENTRY is effective before.
 
 If ENTRY has no effective end time, this returns nil.")
 
-(cl-defgeneric org-taskforecast--entry-default-section-id (entry)
+(cl-defgeneric org-taskforecast-entry-default-section-id (entry)
   "Default section ID of ENTRY.
 
 If ENTRY has default section, this returns the section ID string.
 If not, this returns nil.")
 
-(cl-defgeneric org-taskforecast--entry-is-task-link (_entry)
+(cl-defgeneric org-taskforecast-entry-is-task-link (_entry)
   "Non-nil if ENTRY is an instance of `org-taskforecast--tlink'."
   nil)
 
-(cl-defgeneric org-taskforecast--entry-is-section (_entry)
+(cl-defgeneric org-taskforecast-entry-is-section (_entry)
   "Non-nil if ENTRY is an instance of `org-taskforecast--section'."
   nil)
 
-(defun org-taskforecast--entry-has-effective-clock (entry date day-start)
+(defun org-taskforecast-entry-has-effective-clock (entry date day-start)
   "Non-nil means ENTRY has some effective clocks.
 
-See `org-taskforecast--entry-effective-clocks' about effective clock.
+See `org-taskforecast-entry-effective-clocks' about effective clock.
 
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
-  (not (null (org-taskforecast--entry-effective-clocks entry date day-start))))
+  (not (null (org-taskforecast-entry-effective-clocks entry date day-start))))
 
-(defun org-taskforecast--entry-early-planning (entry day-start)
+(defun org-taskforecast-entry-early-planning (entry day-start)
   "A timestamp of earlier of scheduled and deadline of ENTRY.
 
 This function returns nil if ENTRY has no scheduled and deadline.
 DAY-START is an integer, see `org-taskforecast-day-start'."
-  (-some--> (list (org-taskforecast--entry-scheduled entry)
-                  (org-taskforecast--entry-deadline entry))
+  (-some--> (list (org-taskforecast-entry-scheduled entry)
+                  (org-taskforecast-entry-deadline entry))
     (-non-nil it)
     (-min-by (-flip (-rpartial #'org-taskforecast--timestamp-start-earlier-p
                                day-start))
              it)))
 
-(defun org-taskforecast--entry-derive-default-section (entry sections date day-start)
+(defun org-taskforecast-entry-derive-default-section (entry sections date day-start)
   "Derive default section from SECTIONS with ENTRY's scheduled and deadline.
 
 This function tries to derive a default section using timestamp obtained by
-`org-taskforecast--entry-early-planning'.
+`org-taskforecast-entry-early-planning'.
 If a latest section whose start time is less than or equal to the timestamp
 above is found, the section is the derived section.
 If the timestamp has no hour and minute section, this function doesn't derive
@@ -1032,7 +1032,7 @@ If not, this function returns nil.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (-when-let* ((planning
-                (org-taskforecast--entry-early-planning entry day-start))
+                (org-taskforecast-entry-early-planning entry day-start))
                (planning-time
                 (and
                  (not (org-taskforecast--timestamp-start-date-only-p planning))
@@ -1040,10 +1040,10 @@ If not, this function returns nil.
                ;; when the entry is a repeat task and it has already been done
                ;; on the date, derive the default section on the future day.
                (date
-                (if (and (org-taskforecast--entry-is-task-link entry)
+                (if (and (org-taskforecast-entry-is-task-link entry)
                          (org-taskforecast--task-repeat-p
                           (org-taskforecast--tlink-task entry))
-                         (eq (org-taskforecast--entry-todo-state-for-today
+                         (eq (org-taskforecast-entry-todo-state-for-today
                               entry date day-start)
                              'done))
                     (org-taskforecast--timestamp-start-date planning day-start)
@@ -1120,44 +1120,44 @@ TIME is an encoded time."
     "An ID of a task where this links to.")
    (effective-start-time
     :initarg :effective-start-time
-    :reader org-taskforecast--entry-effective-start-time
+    :reader org-taskforecast-entry-effective-start-time
     :type (or null org-taskforecast--encoded-time)
     :documentation
     "An encoded time when the task link is effective after.")
    (effective-end-time
     :initarg :effective-end-time
-    :reader org-taskforecast--entry-effective-end-time
+    :reader org-taskforecast-entry-effective-end-time
     :type (or null org-taskforecast--encoded-time)
     :documentation
     "An encoded time when the task link is effective before."))
   :documentation
   "A task link data.")
 
-(cl-defmethod org-taskforecast--entry-title ((task-link org-taskforecast--tlink))
+(cl-defmethod org-taskforecast-entry-title ((task-link org-taskforecast--tlink))
   (org-taskforecast--task-title
    (org-taskforecast--get-task-by-id
     (org-taskforecast--tlink-task-id task-link))))
 
-(cl-defmethod org-taskforecast--entry-id ((task-link org-taskforecast--tlink))
+(cl-defmethod org-taskforecast-entry-id ((task-link org-taskforecast--tlink))
   (org-taskforecast--tlink-id task-link))
 
-(cl-defmethod org-taskforecast--entry-todo-state-for-today ((task-link org-taskforecast--tlink) date day-start)
+(cl-defmethod org-taskforecast-entry-todo-state-for-today ((task-link org-taskforecast--tlink) date day-start)
   (let ((task
          (org-taskforecast--get-task-by-id
           (org-taskforecast--tlink-task-id task-link)))
         (effective-end-time
-         (org-taskforecast--entry-effective-end-time task-link)))
+         (org-taskforecast-entry-effective-end-time task-link)))
     (if effective-end-time
         ;; interrupted if efective-end-time exists
         'done
       (org-taskforecast--task-todo-state-for-today task date day-start))))
 
-(cl-defmethod org-taskforecast--entry-scheduled ((task-link org-taskforecast--tlink))
+(cl-defmethod org-taskforecast-entry-scheduled ((task-link org-taskforecast--tlink))
   (org-taskforecast--task-scheduled
    (org-taskforecast--get-task-by-id
     (org-taskforecast--tlink-task-id task-link))))
 
-(cl-defmethod org-taskforecast--entry-deadline ((task-link org-taskforecast--tlink))
+(cl-defmethod org-taskforecast-entry-deadline ((task-link org-taskforecast--tlink))
   (org-taskforecast--task-deadline
    (org-taskforecast--get-task-by-id
     (org-taskforecast--tlink-task-id task-link))))
@@ -1185,17 +1185,17 @@ This function returns an instance of `org-taskforecast--eclock'.
          (next-day-start-time
           (org-taskforecast--encode-hhmm (+ day-start 2400) date))
          (effective-start-time
-          (org-taskforecast--entry-effective-start-time task-link))
+          (org-taskforecast-entry-effective-start-time task-link))
          (effective-end-time
-          (org-taskforecast--entry-effective-end-time task-link))
+          (org-taskforecast-entry-effective-end-time task-link))
          (todo
-          (org-taskforecast--entry-todo-state-for-today
+          (org-taskforecast-entry-todo-state-for-today
            task-link date day-start))
          (task
           (org-taskforecast--get-task-by-id
            (org-taskforecast--tlink-task-id task-link)))
          (effort-sec
-          (or (org-taskforecast--entry-effective-effort task-link date day-start)
+          (or (org-taskforecast-entry-effective-effort task-link date day-start)
               0))
          (clock-start-greater-p
           (-flip #'org-taskforecast--clock-start-less-p))
@@ -1283,13 +1283,13 @@ If the heading of ID is not a task link, this function throws an error."
            (error "Not a task link headnig, ID: %s" id)
          it)))
 
-(cl-defmethod org-taskforecast--entry-effective-clocks ((task-link org-taskforecast--tlink) date day-start)
+(cl-defmethod org-taskforecast-entry-effective-clocks ((task-link org-taskforecast--tlink) date day-start)
   (let* ((task-id
           (org-taskforecast--tlink-task-id task-link))
          (effective-start-time
-          (org-taskforecast--entry-effective-start-time task-link))
+          (org-taskforecast-entry-effective-start-time task-link))
          (effective-end-time
-          (org-taskforecast--entry-effective-end-time task-link))
+          (org-taskforecast-entry-effective-end-time task-link))
          (clocks
           (org-taskforecast--task-clocks
            (org-taskforecast--get-task-by-id task-id)))
@@ -1306,11 +1306,11 @@ If the heading of ID is not a task link, this function throws an error."
                 (time-less-p start effective-end-time))))
      clocks)))
 
-(cl-defmethod org-taskforecast--entry-effective-effort ((task-link org-taskforecast--tlink) date day-start)
+(cl-defmethod org-taskforecast-entry-effective-effort ((task-link org-taskforecast--tlink) date day-start)
   (let* ((effective-start-time
-          (org-taskforecast--entry-effective-start-time task-link))
+          (org-taskforecast-entry-effective-start-time task-link))
          (effective-end-time
-          (org-taskforecast--entry-effective-end-time task-link))
+          (org-taskforecast-entry-effective-end-time task-link))
          (task
           (org-taskforecast--get-task-by-id
            (org-taskforecast--tlink-task-id task-link)))
@@ -1352,11 +1352,11 @@ If the heading of ID is not a task link, this function throws an error."
               (t remaining-effort-sec))
       (floor it))))
 
-(cl-defmethod org-taskforecast--entry-default-section-id ((task-link org-taskforecast--tlink))
+(cl-defmethod org-taskforecast-entry-default-section-id ((task-link org-taskforecast--tlink))
   (--> (org-taskforecast--tlink-task task-link)
        (org-taskforecast--task-default-section-id it)))
 
-(cl-defmethod org-taskforecast--entry-is-task-link ((_task-link org-taskforecast--tlink))
+(cl-defmethod org-taskforecast-entry-is-task-link ((_task-link org-taskforecast--tlink))
   t)
 
 ;;;;; Section class
@@ -1399,43 +1399,43 @@ If the heading of ID is not a task link, this function throws an error."
     :documentation
     "Entries")))
 
-(cl-defmethod org-taskforecast--entry-title ((section org-taskforecast--section))
+(cl-defmethod org-taskforecast-entry-title ((section org-taskforecast--section))
   (org-taskforecast--section-description section))
 
-(cl-defmethod org-taskforecast--entry-id ((section org-taskforecast--section))
+(cl-defmethod org-taskforecast-entry-id ((section org-taskforecast--section))
   (org-taskforecast--section-id section))
 
-(cl-defmethod org-taskforecast--entry-effective-effort ((section org-taskforecast--section) date day-start)
+(cl-defmethod org-taskforecast-entry-effective-effort ((section org-taskforecast--section) date day-start)
   (--> (org-taskforecast--section-entries section)
-       (--map (org-taskforecast--entry-effective-effort it date day-start) it)
+       (--map (org-taskforecast-entry-effective-effort it date day-start) it)
        (-reduce-from #'+ 0 it)))
 
-(cl-defmethod org-taskforecast--entry-effective-clocks ((section org-taskforecast--section) date day-start)
+(cl-defmethod org-taskforecast-entry-effective-clocks ((section org-taskforecast--section) date day-start)
   (--> (org-taskforecast--section-entries section)
-       (--map (org-taskforecast--entry-effective-clocks it date day-start) it)
+       (--map (org-taskforecast-entry-effective-clocks it date day-start) it)
        (apply #'append it)))
 
-(cl-defmethod org-taskforecast--entry-todo-state-for-today ((_section org-taskforecast--section) _date _day-start)
-  (error "Do not call `org-taskforecast--entry-todo-state-for-today' for `org-taskforecast--section'"))
+(cl-defmethod org-taskforecast-entry-todo-state-for-today ((_section org-taskforecast--section) _date _day-start)
+  (error "Do not call `org-taskforecast-entry-todo-state-for-today' for `org-taskforecast--section'"))
 
-(cl-defmethod org-taskforecast--entry-scheduled ((_section org-taskforecast--section))
+(cl-defmethod org-taskforecast-entry-scheduled ((_section org-taskforecast--section))
   nil)
 
-(cl-defmethod org-taskforecast--entry-deadline ((_section org-taskforecast--section))
+(cl-defmethod org-taskforecast-entry-deadline ((_section org-taskforecast--section))
   nil)
 
-(cl-defmethod org-taskforecast--entry-effective-start-time ((_section org-taskforecast--section))
+(cl-defmethod org-taskforecast-entry-effective-start-time ((_section org-taskforecast--section))
   ;; section should have no effective start time
   nil)
 
-(cl-defmethod org-taskforecast--entry-effective-end-time ((_section org-taskforecast--section))
+(cl-defmethod org-taskforecast-entry-effective-end-time ((_section org-taskforecast--section))
   ;; section should have no effective end time
   nil)
 
-(cl-defmethod org-taskforecast--entry-default-section-id ((section org-taskforecast--section))
+(cl-defmethod org-taskforecast-entry-default-section-id ((section org-taskforecast--section))
   (org-taskforecast--section-section-id section))
 
-(cl-defmethod org-taskforecast--entry-is-section ((_section org-taskforecast--section))
+(cl-defmethod org-taskforecast-entry-is-section ((_section org-taskforecast--section))
   t)
 
 ;;;; File
@@ -1507,8 +1507,8 @@ DAY-START is an integer like `org-taskforecast-day-start'."
   (--> entries
        (-non-nil it)
        ;; drop non-section task links
-       (-drop-while (-not #'org-taskforecast--entry-is-section) it)
-       (-partition-before-pred #'org-taskforecast--entry-is-section it)
+       (-drop-while (-not #'org-taskforecast-entry-is-section) it)
+       (-partition-before-pred #'org-taskforecast-entry-is-section it)
        ;; set entries slot
        (--map
         (-let (((section . entries) it))
@@ -1584,7 +1584,7 @@ exists corresponding to the task.
   (--> (org-taskforecast--get-task-links-for-task id file)
        (--filter
         (eq 'todo
-            (org-taskforecast--entry-todo-state-for-today
+            (org-taskforecast-entry-todo-state-for-today
              it date day-start))
         it)
        (-if-let* ((task-link (-first-item it))
@@ -1613,7 +1613,7 @@ If a first todo task is not found, this function returns nil.
       (cl-loop until (eobp)
                for entry = (org-taskforecast--get-entry)
                if (and entry
-                       (org-taskforecast--entry-is-task-link entry))
+                       (org-taskforecast-entry-is-task-link entry))
                return entry
                else do (forward-line)))))
 
@@ -1660,7 +1660,7 @@ This feature is enabled while ALLOW-INTERRUPTION and
                  (link-id
                   (org-taskforecast--tlink-id first-todo-task-link)))
       (when (and (not (equal id task-id))
-                 (org-taskforecast--entry-has-effective-clock
+                 (org-taskforecast-entry-has-effective-clock
                   first-todo-task-link
                   date
                   day-start))
@@ -1673,7 +1673,7 @@ This feature is enabled while ALLOW-INTERRUPTION and
 
 (defun org-taskforecast--get-task-links (file)
   "Get a task link list from FILE."
-  (-filter #'org-taskforecast--entry-is-task-link
+  (-filter #'org-taskforecast-entry-is-task-link
            ;; day-start is not necessary to get task links,
            ;; it is only necessary for getting sectios.
            (org-taskforecast--get-entries file 0000)))
@@ -1703,13 +1703,13 @@ the end of buffer.
        (lambda ()
          (unless pos
            (--> (org-taskforecast--get-entry)
-                (cond ((org-taskforecast--entry-is-task-link it)
-                       (org-taskforecast--entry-todo-state-for-today
+                (cond ((org-taskforecast-entry-is-task-link it)
+                       (org-taskforecast-entry-todo-state-for-today
                         it date day-start))
                       ;; pseudo todo state for section to put a task link
                       ;; heading before a section heading if the section is
                       ;; not started.
-                      ((org-taskforecast--entry-is-section it)
+                      ((org-taskforecast-entry-is-section it)
                        (let* ((sthhmm (org-taskforecast--section-start-time it))
                               (st (org-taskforecast--encode-hhmm sthhmm date)))
                          (if (time-less-p now st)
@@ -1791,7 +1791,7 @@ consider using `org-taskforecast--get-sections' instead."
   "Get a section list from FILE.
 
 DAY-START is an integer like `org-taskforecast-day-start'."
-  (-filter #'org-taskforecast--entry-is-section
+  (-filter #'org-taskforecast-entry-is-section
            (org-taskforecast--get-entries file day-start)))
 
 (defun org-taskforecast--append-section (section-id start-time description file)
@@ -1868,8 +1868,8 @@ This function moves only ENTRY not all of entries in FILE.
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (let* ((entries (org-taskforecast--get-entries file day-start))
          (target-entry-p (lambda (a)
-                           (string= (org-taskforecast--entry-id a)
-                                    (org-taskforecast--entry-id entry))))
+                           (string= (org-taskforecast-entry-id a)
+                                    (org-taskforecast-entry-id entry))))
          (registeredp (-some target-entry-p entries)))
     (when registeredp
       (-let (((head _) (-split-when target-entry-p entries))
@@ -1879,9 +1879,9 @@ This function moves only ENTRY not all of entries in FILE.
           (setq insert-before it))
         (when insert-before
           (-let ((tree (org-taskforecast--cut-heading-by-id
-                        (org-taskforecast--entry-id entry)))
+                        (org-taskforecast-entry-id entry)))
                  ((_ . pos) (org-id-find
-                             (org-taskforecast--entry-id insert-before))))
+                             (org-taskforecast-entry-id insert-before))))
             (org-taskforecast--with-existing-file file
               (save-excursion
                 (save-restriction
@@ -1895,8 +1895,8 @@ This function moves only ENTRY not all of entries in FILE.
   "Compare A and B by scheduled/deadline, early first."
   (let* (;; date with hh:mm > date only
          (day-start org-taskforecast-day-start)
-         (ta (org-taskforecast--entry-early-planning a day-start))
-         (tb (org-taskforecast--entry-early-planning b day-start)))
+         (ta (org-taskforecast-entry-early-planning a day-start))
+         (tb (org-taskforecast-entry-early-planning b day-start)))
     (cond ((and ta tb
                 (org-taskforecast--timestamp-start-earlier-p ta tb day-start))
            +1)
@@ -1919,9 +1919,9 @@ The order is:
 2. high effort
 3. no effort"
   (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-         (eea (org-taskforecast--entry-effective-effort
+         (eea (org-taskforecast-entry-effective-effort
                a today org-taskforecast-day-start))
-         (eeb (org-taskforecast--entry-effective-effort
+         (eeb (org-taskforecast-entry-effective-effort
                b today org-taskforecast-day-start)))
     (cond ((and eea eeb (< eea eeb)) +1)
           ((and eea eeb (> eea eeb)) -1)
@@ -1938,9 +1938,9 @@ The order is:
 2. low effort
 3. no effort"
   (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-         (eea (org-taskforecast--entry-effective-effort
+         (eea (org-taskforecast-entry-effective-effort
                a today org-taskforecast-day-start))
-         (eeb (org-taskforecast--entry-effective-effort
+         (eeb (org-taskforecast-entry-effective-effort
                b today org-taskforecast-day-start)))
     (cond ((and eea (null eeb)) +1)
           ((and (null eea) eeb) -1)
@@ -1954,11 +1954,11 @@ this function does not compare them.
 So the returned value is nil.
 
 This is an internal comparator, so down version is not defined."
-  (unless (-any #'org-taskforecast--entry-is-section (list a b))
+  (unless (-any #'org-taskforecast-entry-is-section (list a b))
     (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-           (sa (org-taskforecast--entry-todo-state-for-today
+           (sa (org-taskforecast-entry-todo-state-for-today
                 a today org-taskforecast-day-start))
-           (sb (org-taskforecast--entry-todo-state-for-today
+           (sb (org-taskforecast-entry-todo-state-for-today
                 b today org-taskforecast-day-start)))
       (cond ((and (eq sa 'done) (eq sb 'todo)) +1)
             ((and (eq sa 'todo) (eq sb 'done)) -1)
@@ -1972,11 +1972,11 @@ this function does not compare them.
 So the returned value is nil.
 
 This is an internal comparator, so down version is not defined."
-  (unless (-any #'org-taskforecast--entry-is-section (list a b))
-    (let ((esa (org-taskforecast--entry-effective-start-time a))
-          (esb (org-taskforecast--entry-effective-start-time b))
-          (eea (org-taskforecast--entry-effective-end-time a))
-          (eeb (org-taskforecast--entry-effective-end-time b))
+  (unless (-any #'org-taskforecast-entry-is-section (list a b))
+    (let ((esa (org-taskforecast-entry-effective-start-time a))
+          (esb (org-taskforecast-entry-effective-start-time b))
+          (eea (org-taskforecast-entry-effective-end-time a))
+          (eeb (org-taskforecast-entry-effective-end-time b))
           (tida (org-taskforecast--tlink-task-id a))
           (tidb (org-taskforecast--tlink-task-id b)))
       (cond ((not (string= tida tidb)) nil)
@@ -1994,7 +1994,7 @@ This is an internal comparator, so down version is not defined."
 This is an internal comparator, so down version is not defined.
 
 If an entry has no default section, this function tries to derive
-a section by `org-taskforecast--entry-derive-default-section'.
+a section by `org-taskforecast-entry-derive-default-section'.
 
 - SECTIONS is a list of instances of `org-taskforecast--section'.
 - DATE is an encoded time as a date of today"
@@ -2008,8 +2008,8 @@ a section by `org-taskforecast--entry-derive-default-section'.
            (--> (list a b)
                 (--map
                  (or
-                  (org-taskforecast--entry-default-section-id it)
-                  (-some--> (org-taskforecast--entry-derive-default-section
+                  (org-taskforecast-entry-default-section-id it)
+                  (-some--> (org-taskforecast-entry-derive-default-section
                              it sections date day-start)
                     (org-taskforecast--section-section-id it)))
                  it)
@@ -2029,7 +2029,7 @@ a section by `org-taskforecast--entry-derive-default-section'.
 
 This is an internal comparator, so down version is not defined."
   (-let (((sa sb)
-          (-map #'org-taskforecast--entry-is-section (list a b))))
+          (-map #'org-taskforecast-entry-is-section (list a b))))
     (cond ((and sa (not sb)) +1)
           ((and (not sa) sb) -1)
           (t nil))))
@@ -2344,7 +2344,7 @@ When there is no entry data, this function returns nil."
 
 When there is no task link data, this function returns nil."
   (-some--> (org-taskforecast--list-get-entry-at-point)
-    (when (org-taskforecast--entry-is-task-link it)
+    (when (org-taskforecast-entry-is-task-link it)
       it)))
 
 ;; `org-taskforecast--list-get-section-at-point' is currently unused.
@@ -2427,12 +2427,12 @@ DEFAULT is the default value of NAME-show."
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let* ((today org-taskforecast-list-info-today)
          (day-start org-taskforecast-day-start)
-         (todo (org-taskforecast--entry-todo-state-for-today
+         (todo (org-taskforecast-entry-todo-state-for-today
                 org-taskforecast-list-info-task-link
                 today org-taskforecast-day-start))
-         (scheduled (org-taskforecast--entry-scheduled
+         (scheduled (org-taskforecast-entry-scheduled
                      org-taskforecast-list-info-task-link))
-         (deadline (org-taskforecast--entry-deadline
+         (deadline (org-taskforecast-entry-deadline
                     org-taskforecast-list-info-task-link))
          (stime (and scheduled
                      (not (org-taskforecast--timestamp-start-date-only-p
@@ -2478,7 +2478,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   "Format effort property of a task.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
-  (let ((effort (org-taskforecast--entry-effective-effort
+  (let ((effort (org-taskforecast-entry-effective-effort
                  org-taskforecast-list-info-task-link
                  org-taskforecast-list-info-today
                  org-taskforecast-day-start)))
@@ -2523,7 +2523,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
         (org-taskforecast--decoded-time-second decoded)
         0)))
   (-let* ((todo-type
-           (org-taskforecast--entry-todo-state-for-today
+           (org-taskforecast-entry-todo-state-for-today
             org-taskforecast-list-info-task-link
             org-taskforecast-list-info-today
             org-taskforecast-day-start))
@@ -2555,7 +2555,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   "Format clock of a task link.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
-  (let* ((eclocks (org-taskforecast--entry-effective-clocks
+  (let* ((eclocks (org-taskforecast-entry-effective-clocks
                    org-taskforecast-list-info-task-link
                    org-taskforecast-list-info-today
                    org-taskforecast-day-start))
@@ -2580,10 +2580,10 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
         (len (--> (-map #'cl-first org-taskforecast-sections)
                   (-map #'length it)
                   (-max it))))
-    (--> (org-taskforecast--entry-default-section-id task-link)
+    (--> (org-taskforecast-entry-default-section-id task-link)
          (if it
              it
-           (-some--> (org-taskforecast--entry-derive-default-section
+           (-some--> (org-taskforecast-entry-derive-default-section
                       task-link sections date day-start)
              (org-taskforecast--section-section-id it)
              ;; TODO: define face
@@ -2595,7 +2595,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let ((todo-type
-         (org-taskforecast--entry-todo-state-for-today
+         (org-taskforecast-entry-todo-state-for-today
           org-taskforecast-list-info-task-link
           org-taskforecast-list-info-today
           org-taskforecast-day-start)))
@@ -2611,7 +2611,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   "Format task's title.
 
 This function is used for `org-taskforecast-list-task-link-formatters'."
-  (propertize (org-taskforecast--entry-title
+  (propertize (org-taskforecast-entry-title
                org-taskforecast-list-info-task-link)
               ;; TODO: define face
               'face 'org-scheduled-today))
@@ -2625,7 +2625,7 @@ This function is used for `org-taskforecast-list-section-formatter'."
          (day-start org-taskforecast-day-start)
          (effective-effort
           (--> (org-taskforecast--section-entries section)
-               (-map (-rpartial #'org-taskforecast--entry-effective-effort
+               (-map (-rpartial #'org-taskforecast-entry-effective-effort
                                 today day-start)
                      it)
                (-non-nil it)
@@ -2688,14 +2688,14 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
         (org-taskforecast-get-dailylist-file today)
         day-start)
        (let ((sections
-              (-filter #'org-taskforecast--entry-is-section it))
+              (-filter #'org-taskforecast-entry-is-section it))
              (last-task-done-time
               (org-taskforecast--encode-hhmm day-start today))
              (now (current-time)))
          (--map
-          (if (org-taskforecast--entry-is-task-link it)
+          (if (org-taskforecast-entry-is-task-link it)
               (let* ((todo-type
-                      (org-taskforecast--entry-todo-state-for-today
+                      (org-taskforecast-entry-todo-state-for-today
                        it today day-start))
                      (start-end-time
                       (org-taskforecast--tlink-start-end-time
@@ -2815,8 +2815,8 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
                      for entry = (org-taskforecast--list-get-entry-at-point)
                      if (and entry
                              (string=
-                              (org-taskforecast--entry-id it)
-                              (org-taskforecast--entry-id entry)))
+                              (org-taskforecast-entry-id it)
+                              (org-taskforecast-entry-id entry)))
                      return (point)
                      else do (forward-line)))
           (goto-char it))))))
@@ -2910,7 +2910,7 @@ clear all cache data of `org-taskforecast-cache-mode'."
   "Move entry at the current line up past ARG others."
   (interactive "p")
   (-if-let* ((entry (org-taskforecast--list-get-entry-at-point))
-             (id (org-taskforecast--entry-id entry)))
+             (id (org-taskforecast-entry-id entry)))
       (progn
         (org-taskforecast--at-id id
           (org-move-subtree-up arg))
@@ -2935,8 +2935,8 @@ clear all cache data of `org-taskforecast-cache-mode'."
   "Remove an entry at the current line."
   (interactive)
   (-when-let* ((entry (org-taskforecast--list-get-entry-at-point))
-               (id (org-taskforecast--entry-id entry))
-               (title (org-taskforecast--entry-title entry)))
+               (id (org-taskforecast-entry-id entry))
+               (title (org-taskforecast-entry-title entry)))
     (org-taskforecast--list-remove-link id)
     ;; Move the cursor to the next line or the previous line to prevent
     ;; moving the cursor to the top of a task list.
@@ -2955,14 +2955,14 @@ DATE is an encoded time."
            (cond ((not link)
                   (user-error "Task link not found at the current line"))
                  ((eq 'done
-                      (org-taskforecast--entry-todo-state-for-today
+                      (org-taskforecast-entry-todo-state-for-today
                        link (current-time) org-taskforecast-day-start))
                   (user-error "Done task cannot be postponed"))
                  (t
                   (org-read-date
                    nil t nil
                    (format "Postpone %s to: "
-                           (org-taskforecast--entry-title link))))))))
+                           (org-taskforecast-entry-title link))))))))
   ;; Error checking is done in interactive code above.
   (-when-let* ((link (org-taskforecast--list-get-task-link-at-point))
                (link-id (org-taskforecast--tlink-id link))
@@ -2972,7 +2972,7 @@ DATE is an encoded time."
     (when (called-interactively-p 'any)
       (org-taskforecast--ask-generat-sections
        file org-taskforecast-sections date org-taskforecast-day-start))
-    (if (org-taskforecast--entry-has-effective-clock
+    (if (org-taskforecast-entry-has-effective-clock
          link now org-taskforecast-day-start)
         (org-taskforecast--at-id link-id
           (org-taskforecast--set-task-link-effective-end-time now))
