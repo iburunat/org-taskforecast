@@ -876,33 +876,33 @@ This function returns a symbol, todo or done.
 (defclass org-taskforecast--eclock ()
   ((start
     :initarg :start
-    :reader org-taskforecast--eclock-start
+    :reader org-taskforecast-eclock-start
     :type org-taskforecast--encoded-time
     :documentation
     "an encoded time that indicates the start time of the task of today.
 If the start time is not found, the value will be an estimated time.")
    (end
     :initarg :end
-    :reader org-taskforecast--eclock-end
+    :reader org-taskforecast-eclock-end
     :type org-taskforecast--encoded-time
     :documentation
     "An encoded time that indicates the end time of the task of today.
 If the end time is not found, the value will be an estimated time.")
    (start-estimated-p
     :initarg :start-estimated-p
-    :reader org-taskforecast--eclock-start-estimated-p
+    :reader org-taskforecast-eclock-start-estimated-p
     :type boolean
     :documentation
     "Non-nil means the start time is estimated.")
    (end-estimated-p
     :initarg :end-estimated-p
-    :reader org-taskforecast--eclock-end-estimated-p
+    :reader org-taskforecast-eclock-end-estimated-p
     :type boolean
     :documentation
     "Non-nil means the end time is estimated.")
    (overrunp
     :initarg :overrunp
-    :reader org-taskforecast--eclock-overrun-p
+    :reader org-taskforecast-eclock-overrun-p
     :type boolean
     :documentation
     "Non-nil means the end time is over the time of the start time plus effort."))
@@ -2447,7 +2447,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
            (-let (((hour min) (org-taskforecast--time-to-hhmm it today))
                   (delayp (time-less-p
                            it
-                           (org-taskforecast--eclock-start
+                           (org-taskforecast-eclock-start
                             org-taskforecast-list-info-task-link-start-end-time))))
              (--> (format "%d:%02d" hour min)
                   (propertize
@@ -2490,10 +2490,10 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
         (org-taskforecast--decoded-time-second decoded)
         0)))
   (-let* ((start
-           (org-taskforecast--eclock-start
+           (org-taskforecast-eclock-start
             org-taskforecast-list-info-task-link-start-end-time))
           (start-estimated-p
-           (org-taskforecast--eclock-start-estimated-p
+           (org-taskforecast-eclock-start-estimated-p
             org-taskforecast-list-info-task-link-start-end-time))
           ((hour minute)
            (org-taskforecast--time-to-hhmm
@@ -2520,13 +2520,13 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
             org-taskforecast-list-info-today
             org-taskforecast-day-start))
           (end
-           (org-taskforecast--eclock-end
+           (org-taskforecast-eclock-end
             org-taskforecast-list-info-task-link-start-end-time))
           (end-estimated-p
-           (org-taskforecast--eclock-end-estimated-p
+           (org-taskforecast-eclock-end-estimated-p
             org-taskforecast-list-info-task-link-start-end-time))
           (overrunp_
-           (org-taskforecast--eclock-overrun-p
+           (org-taskforecast-eclock-overrun-p
             org-taskforecast-list-info-task-link-start-end-time))
           (overrunp
            (and end-estimated-p
@@ -2701,7 +2701,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                      it sections today start-end-time now day-start)
                   ;; update last done time
                   (setq last-task-done-time
-                        (org-taskforecast--eclock-end start-end-time))))
+                        (org-taskforecast-eclock-end start-end-time))))
             (org-taskforecast--list-create-section-content
              it today now day-start))
           it))
