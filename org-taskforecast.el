@@ -880,6 +880,44 @@ This function returns a symbol, todo or done.
           ;; day-start =< last-repeat
           (t 'done))))
 
+;;;;; Eclock class (entry clock)
+
+(defclass org-taskforecast--eclock ()
+  ((start
+    :initarg :start
+    :reader org-taskforecast--eclock-start
+    :type org-taskforecast--encoded-time
+    :documentation
+    "an encoded time that indicates the start time of the task of today.
+If the start time is not found, the value will be an estimated time.")
+   (end
+    :initarg :end
+    :reader org-taskforecast--eclock-end
+    :type org-taskforecast--encoded-time
+    :documentation
+    "An encoded time that indicates the end time of the task of today.
+If the end time is not found, the value will be an estimated time.")
+   (start-estimated-p
+    :initarg :start-estimated-p
+    :reader org-taskforecast--eclock-start-estimated-p
+    :type boolean
+    :documentation
+    "Non-nil means the start time is estimated.")
+   (end-estimated-p
+    :initarg :end-estimated-p
+    :reader org-taskforecast--eclock-end-estimated-p
+    :type boolean
+    :documentation
+    "Non-nil means the end time is estimated.")
+   (overrunp
+    :initarg :overrunp
+    :reader org-taskforecast--eclock-overrun-p
+    :type boolean
+    :documentation
+    "Non-nil means the end time is over the time of the start time plus effort."))
+  :documentation
+  "An information of start and end time of a task link.")
+
 ;;;;; Entry interface
 
 ;; Entry interface is the interface for items shown in
@@ -1130,6 +1168,86 @@ TIME is an encoded time."
   (org-taskforecast--get-task-by-id
    (org-taskforecast--tlink-task-id task-link)))
 
+(defun org-taskforecast--tlink-start-end-time (task-link date day-start &optional start-after now)
+  "Get the start and end time of a TASK-LINK.
+
+This function returns an instance of `org-taskforecast--eclock'.
+
+- TASK-LINK is an instance of `org-taskforecast--tlink'
+- DATE is an encoded time as the date of today
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- START-AFTER is an encoded time (optional).
+  If it is set, ignore clocks whose start time is earlier than it.
+- NOW is an encoded time (optional).
+  If it is set, use it instead of an estimated time of start or end
+  when the estimated time is earlier than it."
+  (let* ((day-start-time
+          (org-taskforecast--encode-hhmm day-start date))
+         (next-day-start-time
+          (org-taskforecast--encode-hhmm (+ day-start 2400) date))
+         (effective-start-time
+          (org-taskforecast--entry-effective-start-time task-link))
+         (effective-end-time
+          (org-taskforecast--entry-effective-end-time task-link))
+         (todo
+          (org-taskforecast--entry-todo-state-for-today
+           task-link date day-start))
+         (task
+          (org-taskforecast--get-task-by-id
+           (org-taskforecast--tlink-task-id task-link)))
+         (effort-sec
+          (or (org-taskforecast--entry-effective-effort task-link date day-start)
+              0))
+         (clock-start-greater-p
+          (-flip #'org-taskforecast--clock-start-less-p))
+         (time-greater-p
+          (-flip #'time-less-p))
+         (start-after
+          (-max-by time-greater-p
+                   (-non-nil
+                    (list start-after day-start-time effective-start-time))))
+         (end-before
+          (-min-by time-greater-p
+                   (-non-nil
+                    (list next-day-start-time effective-end-time))))
+         (target-clocks
+          (org-taskforecast--get-clocks-in-range
+           (org-taskforecast--task-clocks task)
+           start-after
+           end-before))
+         (start-time
+          (-some--> target-clocks
+            (-min-by clock-start-greater-p it)
+            (org-taskforecast--clock-start it)))
+         (end-time
+          (-some--> target-clocks
+            (-max-by clock-start-greater-p it)
+            (org-taskforecast--clock-end it)))
+         (start-estimated-p
+          (null start-time))
+         (end-estimated-p
+          (or (null end-time) (eq todo 'todo)))
+         (start
+          (cond ((and start-estimated-p (eq todo 'todo) now)
+                 (-max-by time-greater-p (list start-after now)))
+                (start-estimated-p start-after)
+                (t start-time)))
+         (start-plus-effort
+          (time-add start (seconds-to-time effort-sec)))
+         (end
+          (cond ((and end-estimated-p (eq todo 'todo) now)
+                 (-max-by time-greater-p (list start-plus-effort now)))
+                ((and end-estimated-p (eq todo 'done)) start)
+                (t end-time)))
+         (overrunp
+          (time-less-p start-plus-effort end)))
+    (org-taskforecast--eclock
+     :start start
+     :end end
+     :start-estimated-p start-estimated-p
+     :end-estimated-p end-estimated-p
+     :overrunp overrunp)))
+
 (defun org-taskforecast--get-task-link ()
   "Get a task link at the current point.
 
@@ -1320,124 +1438,6 @@ If the heading of ID is not a task link, this function throws an error."
 
 (cl-defmethod org-taskforecast--entry-is-section ((_section org-taskforecast--section))
   t)
-
-;;;;; Eclock class (entry clock)
-
-(defclass org-taskforecast--eclock ()
-  ((start
-    :initarg :start
-    :reader org-taskforecast--eclock-start
-    :type org-taskforecast--encoded-time
-    :documentation
-    "an encoded time that indicates the start time of the task of today.
-If the start time is not found, the value will be an estimated time.")
-   (end
-    :initarg :end
-    :reader org-taskforecast--eclock-end
-    :type org-taskforecast--encoded-time
-    :documentation
-    "An encoded time that indicates the end time of the task of today.
-If the end time is not found, the value will be an estimated time.")
-   (start-estimated-p
-    :initarg :start-estimated-p
-    :reader org-taskforecast--eclock-start-estimated-p
-    :type boolean
-    :documentation
-    "Non-nil means the start time is estimated.")
-   (end-estimated-p
-    :initarg :end-estimated-p
-    :reader org-taskforecast--eclock-end-estimated-p
-    :type boolean
-    :documentation
-    "Non-nil means the end time is estimated.")
-   (overrunp
-    :initarg :overrunp
-    :reader org-taskforecast--eclock-overrun-p
-    :type boolean
-    :documentation
-    "Non-nil means the end time is over the time of the start time plus effort."))
-  :documentation
-  "An information of start and end time of a task link.")
-
-(defun org-taskforecast--tlink-start-end-time (task-link date day-start &optional start-after now)
-  "Get the start and end time of a TASK-LINK.
-
-This function returns an instance of `org-taskforecast--eclock'.
-
-- TASK-LINK is an instance of `org-taskforecast--tlink'
-- DATE is an encoded time as the date of today
-- DAY-START is an integer, see `org-taskforecast-day-start'
-- START-AFTER is an encoded time (optional).
-  If it is set, ignore clocks whose start time is earlier than it.
-- NOW is an encoded time (optional).
-  If it is set, use it instead of an estimated time of start or end
-  when the estimated time is earlier than it."
-  (let* ((day-start-time
-          (org-taskforecast--encode-hhmm day-start date))
-         (next-day-start-time
-          (org-taskforecast--encode-hhmm (+ day-start 2400) date))
-         (effective-start-time
-          (org-taskforecast--entry-effective-start-time task-link))
-         (effective-end-time
-          (org-taskforecast--entry-effective-end-time task-link))
-         (todo
-          (org-taskforecast--entry-todo-state-for-today
-           task-link date day-start))
-         (task
-          (org-taskforecast--get-task-by-id
-           (org-taskforecast--tlink-task-id task-link)))
-         (effort-sec
-          (or (org-taskforecast--entry-effective-effort task-link date day-start)
-              0))
-         (clock-start-greater-p
-          (-flip #'org-taskforecast--clock-start-less-p))
-         (time-greater-p
-          (-flip #'time-less-p))
-         (start-after
-          (-max-by time-greater-p
-                   (-non-nil
-                    (list start-after day-start-time effective-start-time))))
-         (end-before
-          (-min-by time-greater-p
-                   (-non-nil
-                    (list next-day-start-time effective-end-time))))
-         (target-clocks
-          (org-taskforecast--get-clocks-in-range
-           (org-taskforecast--task-clocks task)
-           start-after
-           end-before))
-         (start-time
-          (-some--> target-clocks
-            (-min-by clock-start-greater-p it)
-            (org-taskforecast--clock-start it)))
-         (end-time
-          (-some--> target-clocks
-            (-max-by clock-start-greater-p it)
-            (org-taskforecast--clock-end it)))
-         (start-estimated-p
-          (null start-time))
-         (end-estimated-p
-          (or (null end-time) (eq todo 'todo)))
-         (start
-          (cond ((and start-estimated-p (eq todo 'todo) now)
-                 (-max-by time-greater-p (list start-after now)))
-                (start-estimated-p start-after)
-                (t start-time)))
-         (start-plus-effort
-          (time-add start (seconds-to-time effort-sec)))
-         (end
-          (cond ((and end-estimated-p (eq todo 'todo) now)
-                 (-max-by time-greater-p (list start-plus-effort now)))
-                ((and end-estimated-p (eq todo 'done)) start)
-                (t end-time)))
-         (overrunp
-          (time-less-p start-plus-effort end)))
-    (org-taskforecast--eclock
-     :start start
-     :end end
-     :start-estimated-p start-estimated-p
-     :end-estimated-p end-estimated-p
-     :overrunp overrunp)))
 
 ;;;; File
 
