@@ -515,13 +515,13 @@ If STR is not a org-id link string, this function returns nil."
 (defclass org-taskforecast--clock ()
   ((start
     :initarg :start
-    :reader org-taskforecast--clock-start
+    :reader org-taskforecast-clock-start
     :type org-taskforecast--encoded-time
     :documentation
     "A start time of a clock of a task as an encoded time.")
    (end
     :initarg :end
-    :reader org-taskforecast--clock-end
+    :reader org-taskforecast-clock-end
     :type (or null org-taskforecast--encoded-time)
     :documentation
     "An end time of a clock of a task as an encoded time."))
@@ -539,21 +539,21 @@ ELEMENT is a clock element of org element api."
                    (org-taskforecast--encode-timestamp-end-time timestamp))))
     (org-taskforecast--clock :start start :end end)))
 
-(defun org-taskforecast--clock-duration (clock)
+(defun org-taskforecast-clock-duration (clock)
   "Duration of CLOCK as an encoded time.
 
 CLOCK is an instance of `org-taskforecast--clock'."
   ;; When the end of CLOCK is nil, it will be used as the current time
   ;; by `time-subtract'.
-  (time-subtract (org-taskforecast--clock-end clock)
-                 (org-taskforecast--clock-start clock)))
+  (time-subtract (org-taskforecast-clock-end clock)
+                 (org-taskforecast-clock-start clock)))
 
-(defun org-taskforecast--clock-start-less-p (a b)
+(defun org-taskforecast-clock-start-less-p (a b)
   "Compare start-times of A and B by `time-less-p'.
 
 A and B are instances of `org-taskforecast--clock'."
-  (time-less-p (org-taskforecast--clock-start a)
-               (org-taskforecast--clock-start b)))
+  (time-less-p (org-taskforecast-clock-start a)
+               (org-taskforecast-clock-start b)))
 
 (cl-defun org-taskforecast--encode-timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
   "Get an encoded time of the start time of TIMESTAMP.
@@ -590,7 +590,7 @@ If hour and minute part do not exist, they are set to zero."
 - START is an encoded time
 - END is an encoded time"
   (--filter
-   (let ((cstart (org-taskforecast--clock-start it)))
+   (let ((cstart (org-taskforecast-clock-start it)))
      (and (not (time-less-p cstart start))
           (time-less-p cstart end)))
    clocks))
@@ -1198,7 +1198,7 @@ This function returns an instance of `org-taskforecast--eclock'.
           (or (org-taskforecast-entry-effective-effort task-link date day-start)
               0))
          (clock-start-greater-p
-          (-flip #'org-taskforecast--clock-start-less-p))
+          (-flip #'org-taskforecast-clock-start-less-p))
          (time-greater-p
           (-flip #'time-less-p))
          (start-after
@@ -1217,11 +1217,11 @@ This function returns an instance of `org-taskforecast--eclock'.
          (start-time
           (-some--> target-clocks
             (-min-by clock-start-greater-p it)
-            (org-taskforecast--clock-start it)))
+            (org-taskforecast-clock-start it)))
          (end-time
           (-some--> target-clocks
             (-max-by clock-start-greater-p it)
-            (org-taskforecast--clock-end it)))
+            (org-taskforecast-clock-end it)))
          (start-estimated-p
           (null start-time))
          (end-estimated-p
@@ -1297,7 +1297,7 @@ If the heading of ID is not a task link, this function throws an error."
          (next-day-start (org-taskforecast--encode-hhmm
                           (+ day-start 2400) date)))
     (--filter
-     (let ((start (org-taskforecast--clock-start it)))
+     (let ((start (org-taskforecast-clock-start it)))
        (and (not (time-less-p start today-start))
             (time-less-p start next-day-start)
             (or (null effective-start-time)
@@ -1333,7 +1333,7 @@ If the heading of ID is not a task link, this function throws an error."
                           (org-taskforecast--encode-hhmm (+ day-start 2400)
                                                          date)))))
          (dsec
-          (-compose #'time-to-seconds #'org-taskforecast--clock-duration))
+          (-compose #'time-to-seconds #'org-taskforecast-clock-duration))
          (used-sec-before
           (--> (org-taskforecast--get-clocks-in-range
                 clocks today-start range-start)
@@ -2562,7 +2562,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
          (total (-reduce-from
                  #'time-add
                  (seconds-to-time 0)
-                 (-map #'org-taskforecast--clock-duration eclocks))))
+                 (-map #'org-taskforecast-clock-duration eclocks))))
     (format "%5s"
             (if eclocks
                 (org-taskforecast--format-second-to-hhmm
