@@ -1041,9 +1041,9 @@ If not, this function returns nil.
                     (org-taskforecast-timestamp-start-date planning day-start)
                   date)))
     (-some--> (org-taskforecast--sort
-               sections #'> :key #'org-taskforecast--section-start-time)
+               sections #'> :key #'org-taskforecast-section-start-time)
       (--first (let ((st (org-taskforecast--encode-hhmm
-                          (org-taskforecast--section-start-time it)
+                          (org-taskforecast-section-start-time it)
                           date)))
                  (or (time-less-p st planning-time)
                      (org-taskforecast--time-equal-p st planning-time)))
@@ -1356,54 +1356,54 @@ If the heading of ID is not a task link, this function throws an error."
 (defclass org-taskforecast--section ()
   ((id
     :initarg :id
-    :reader org-taskforecast--section-id
+    :reader org-taskforecast-section-id
     :type string
     :documentation
     "An ID of org-id")
    (section-id
     :initarg :section-id
-    :reader org-taskforecast--section-section-id
+    :reader org-taskforecast-section-section-id
     :type string
     :documentation
     "A section ID string")
    (start-time
     :initarg :start-time
-    :reader org-taskforecast--section-start-time
+    :reader org-taskforecast-section-start-time
     :type integer
     :documentation
     "An integer of start time line `org-taskforecast-day-start'")
    (description
     :initarg :description
-    :reader org-taskforecast--section-description
+    :reader org-taskforecast-section-description
     :type string
     :documentation
     "Description")
    (effort
     :initarg :effort
-    :reader org-taskforecast--section-effort
+    :reader org-taskforecast-section-effort
     :type integer
     :documentation
     "An integer of effort seconds.")
    (entries
     :initarg :entries
-    :reader org-taskforecast--section-entries
+    :reader org-taskforecast-section-entries
     :type list
     :documentation
     "Entries")))
 
 (cl-defmethod org-taskforecast-entry-title ((section org-taskforecast--section))
-  (org-taskforecast--section-description section))
+  (org-taskforecast-section-description section))
 
 (cl-defmethod org-taskforecast-entry-id ((section org-taskforecast--section))
-  (org-taskforecast--section-id section))
+  (org-taskforecast-section-id section))
 
 (cl-defmethod org-taskforecast-entry-effective-effort ((section org-taskforecast--section) date day-start)
-  (--> (org-taskforecast--section-entries section)
+  (--> (org-taskforecast-section-entries section)
        (--map (org-taskforecast-entry-effective-effort it date day-start) it)
        (-reduce-from #'+ 0 it)))
 
 (cl-defmethod org-taskforecast-entry-effective-clocks ((section org-taskforecast--section) date day-start)
-  (--> (org-taskforecast--section-entries section)
+  (--> (org-taskforecast-section-entries section)
        (--map (org-taskforecast-entry-effective-clocks it date day-start) it)
        (apply #'append it)))
 
@@ -1425,7 +1425,7 @@ If the heading of ID is not a task link, this function throws an error."
   nil)
 
 (cl-defmethod org-taskforecast-entry-default-section-id ((section org-taskforecast--section))
-  (org-taskforecast--section-section-id section))
+  (org-taskforecast-section-section-id section))
 
 (cl-defmethod org-taskforecast-entry-is-section ((_section org-taskforecast--section))
   t)
@@ -1512,7 +1512,7 @@ DAY-START is an integer like `org-taskforecast-day-start'."
        (let ((next-start (+ (* 60 60 24)
                             (org-taskforecast--hhmm-to-second day-start))))
          (--each-r it
-           (let* ((s (org-taskforecast--section-start-time it))
+           (let* ((s (org-taskforecast-section-start-time it))
                   (this-start (org-taskforecast--hhmm-to-second s))
                   (effort (max (- next-start this-start) 0)))
              (setf (slot-value it 'effort) effort
@@ -1702,7 +1702,7 @@ the end of buffer.
                       ;; heading before a section heading if the section is
                       ;; not started.
                       ((org-taskforecast-entry-is-section it)
-                       (let* ((sthhmm (org-taskforecast--section-start-time it))
+                       (let* ((sthhmm (org-taskforecast-section-start-time it))
                               (st (org-taskforecast--encode-hhmm sthhmm date)))
                          (if (time-less-p now st)
                              'todo
@@ -1825,12 +1825,12 @@ already exists corresponding to SECTION-ID.
 - DESCRIPTION is a string of section description or nil
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (--> (org-taskforecast--get-sections file day-start)
-       (--filter (string= section-id (org-taskforecast--section-section-id it))
+       (--filter (string= section-id (org-taskforecast-section-section-id it))
                  it)
        (progn (cl-assert (member (length it) '(0 1)))
               (cl-first it))
        (if it
-           (org-taskforecast--section-id it)
+           (org-taskforecast-section-id it)
          (org-taskforecast--append-section
           section-id start-time description file))))
 
@@ -1993,8 +1993,8 @@ a section by `org-taskforecast-entry-derive-default-section'.
   (-let* ((day-start org-taskforecast-day-start)
           (id-st
            (--map
-            (cons (org-taskforecast--section-section-id it)
-                  (org-taskforecast--section-start-time it))
+            (cons (org-taskforecast-section-section-id it)
+                  (org-taskforecast-section-start-time it))
             sections))
           ((sta stb)
            (--> (list a b)
@@ -2003,7 +2003,7 @@ a section by `org-taskforecast-entry-derive-default-section'.
                   (org-taskforecast-entry-default-section-id it)
                   (-some--> (org-taskforecast-entry-derive-default-section
                              it sections date day-start)
-                    (org-taskforecast--section-section-id it)))
+                    (org-taskforecast-section-section-id it)))
                  it)
                 (--map
                  (when it
@@ -2265,7 +2265,7 @@ from `org-taskforecast-sections' to today's daily task list file.
            today
            org-taskforecast-day-start)))
   (let ((exist-secids
-         (-map #'org-taskforecast--section-section-id
+         (-map #'org-taskforecast-section-section-id
                (org-taskforecast--get-sections file day-start))))
     ;; remove existent sections from targets to prevet sorting them again
     (--each (--reject (member (cl-first it) exist-secids) sections)
@@ -2577,7 +2577,7 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
              it
            (-some--> (org-taskforecast-entry-derive-default-section
                       task-link sections date day-start)
-             (org-taskforecast--section-section-id it)
+             (org-taskforecast-section-section-id it)
              ;; TODO: define face
              (propertize it 'face 'font-lock-comment-face)))
          (s-pad-left len " " it))))
@@ -2616,14 +2616,14 @@ This function is used for `org-taskforecast-list-section-formatter'."
          (today org-taskforecast-list-info-today)
          (day-start org-taskforecast-day-start)
          (effective-effort
-          (--> (org-taskforecast--section-entries section)
+          (--> (org-taskforecast-section-entries section)
                (-map (-rpartial #'org-taskforecast-entry-effective-effort
                                 today day-start)
                      it)
                (-non-nil it)
                (-sum it)))
-         (effort (org-taskforecast--section-effort section))
-         (title (org-taskforecast--section-description section)))
+         (effort (org-taskforecast-section-effort section))
+         (title (org-taskforecast-section-description section)))
     (format "[%5s / %5s]: %s"
             (propertize
              (org-taskforecast--format-second-to-hhmm effective-effort)
