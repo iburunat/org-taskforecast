@@ -717,12 +717,6 @@ ignores DAY-START.
     :type (or null string)
     :documentation
     "A value of Effort property.")
-   (todo
-    :initarg :todo
-    :reader org-taskforecast--task-todo
-    :type (or null string)
-    :documentation
-    "A todo state string.")
    (todo-type
     :initarg :todo-type
     :reader org-taskforecast--task-todo-type
@@ -760,7 +754,6 @@ If the heading is not a task this function returns nil."
     (org-back-to-heading)
     ;; task must have todo state
     (-when-let* ((element (org-element-at-point))
-                 (todo (org-element-property :todo-keyword element))
                  (todo-type (org-element-property :todo-type element)))
       (let ((id (org-id-get-create))
             (title (substring-no-properties
@@ -777,7 +770,6 @@ If the heading is not a task this function returns nil."
          :id id
          :title title
          :effort effort
-         :todo todo
          :todo-type todo-type
          :scheduled scheduled
          :deadline deadline
