@@ -529,6 +529,17 @@ If STR is not a org-id link string, this function returns nil."
   :documentation
   "A clock data.")
 
+(defun org-taskforecast--get-clock-from-element (element)
+  "Get a clock from ELEMENT.
+
+ELEMENT is a clock element of org element api."
+  (let* ((timestamp (org-element-property :value element))
+         (runnigp (eq 'running (org-element-property :status element)))
+         (start (org-taskforecast--encode-timestamp-start-time timestamp))
+         (end (and (not runnigp)
+                   (org-taskforecast--encode-timestamp-end-time timestamp))))
+    (org-taskforecast--clock :start start :end end)))
+
 (defun org-taskforecast--clock-duration (clock)
   "Duration of CLOCK as an encoded time.
 
@@ -739,17 +750,6 @@ ignores DAY-START.
      "A default section ID string."))
   :documentation
   "A task heading data.")
-
-(defun org-taskforecast--get-clock-from-element (element)
-  "Get a clock from ELEMENT.
-
-ELEMENT is a clock element of org element api."
-  (let* ((timestamp (org-element-property :value element))
-         (runnigp (eq 'running (org-element-property :status element)))
-         (start (org-taskforecast--encode-timestamp-start-time timestamp))
-         (end (and (not runnigp)
-                   (org-taskforecast--encode-timestamp-end-time timestamp))))
-    (org-taskforecast--clock :start start :end end)))
 
 (defun org-taskforecast--get-task ()
   "Get a task at the current point.
