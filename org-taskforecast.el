@@ -294,9 +294,9 @@ This function returns an encoded time as a date of today."
      (apply #'org-taskforecast--encode-time decoded))))
 
 (defvar org-taskforecast--today nil
-  "Current time for `org-taskforecast-today' to override.")
+  "Current time for `org-taskforecast--today' to override.")
 
-(defun org-taskforecast-today (day-start)
+(defun org-taskforecast--today (day-start)
   "Get today's date of now.
 
 DAY-START is an integer, see `org-taskforecast-day-start'."
@@ -1918,7 +1918,7 @@ The order is:
 1. low effort
 2. high effort
 3. no effort"
-  (let* ((today (org-taskforecast-today org-taskforecast-day-start))
+  (let* ((today (org-taskforecast--today org-taskforecast-day-start))
          (eea (org-taskforecast--entry-effective-effort
                a today org-taskforecast-day-start))
          (eeb (org-taskforecast--entry-effective-effort
@@ -1937,7 +1937,7 @@ The order is:
 1. high effort
 2. low effort
 3. no effort"
-  (let* ((today (org-taskforecast-today org-taskforecast-day-start))
+  (let* ((today (org-taskforecast--today org-taskforecast-day-start))
          (eea (org-taskforecast--entry-effective-effort
                a today org-taskforecast-day-start))
          (eeb (org-taskforecast--entry-effective-effort
@@ -1955,7 +1955,7 @@ So the returned value is nil.
 
 This is an internal comparator, so down version is not defined."
   (unless (-any #'org-taskforecast--entry-is-section (list a b))
-    (let* ((today (org-taskforecast-today org-taskforecast-day-start))
+    (let* ((today (org-taskforecast--today org-taskforecast-day-start))
            (sa (org-taskforecast--entry-todo-state-for-today
                 a today org-taskforecast-day-start))
            (sb (org-taskforecast--entry-todo-state-for-today
@@ -2174,7 +2174,7 @@ When the task is already registered, this command does nothing.
 - SECTIONS is a list of section definitions like `org-taskforecast-sections'
 - SORTING-STORATEGY is a list, see `org-taskforecast-sorting-storategy'"
   (interactive
-   (let ((today (org-taskforecast-today org-taskforecast-day-start)))
+   (let ((today (org-taskforecast--today org-taskforecast-day-start)))
      (list (org-taskforecast-get-dailylist-file today)
            today
            org-taskforecast-day-start
@@ -2214,7 +2214,7 @@ If not, do nothing.
 - SECTIONS is a list of section definitions like `org-taskforecast-sections'
 - SORTING-STORATEGY is a list, see `org-taskforecast-sorting-storategy'"
   (interactive
-   (let ((today (org-taskforecast-today org-taskforecast-day-start)))
+   (let ((today (org-taskforecast--today org-taskforecast-day-start)))
      (list (org-taskforecast-get-dailylist-file today)
            today
            org-taskforecast-day-start
@@ -2267,7 +2267,7 @@ from `org-taskforecast-sections' to today's daily task list file.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (interactive
-   (let ((today (org-taskforecast-today org-taskforecast-day-start)))
+   (let ((today (org-taskforecast--today org-taskforecast-day-start)))
      (list (org-taskforecast-get-dailylist-file today)
            org-taskforecast-sections
            today
@@ -2795,7 +2795,7 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
    (list org-taskforecast-day-start))
   (switch-to-buffer
    (org-taskforecast--create-list-buffer
-    (org-taskforecast-today day-start) day-start)))
+    (org-taskforecast--today day-start) day-start)))
 
 (defun org-taskforecast--list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
@@ -2805,7 +2805,7 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
             (current-entry (org-taskforecast--list-get-entry-at-point)))
         (erase-buffer)
         (org-taskforecast--insert-task-list
-         (org-taskforecast-today org-taskforecast-day-start)
+         (org-taskforecast--today org-taskforecast-day-start)
          org-taskforecast-day-start)
         ;; Restore the line position of the cursor
         (goto-char (point-min))
@@ -3055,7 +3055,7 @@ ARG is passed to `org-deadline'."
 
 (defun org-taskforecast--track-clock-in-task ()
   "Register clocked-in task and move it to top of todo tasks."
-  (-when-let* ((today (org-taskforecast-today org-taskforecast-day-start))
+  (-when-let* ((today (org-taskforecast--today org-taskforecast-day-start))
                (file (org-taskforecast-get-dailylist-file today))
                (task (org-taskforecast--get-task))
                (todo-type (org-taskforecast--task-todo-state-for-today
@@ -3083,7 +3083,7 @@ ARG is passed to `org-deadline'."
   ;; "reference to free variable" warning without definition of the variable
   ;; in this file.
   (when (org-entry-is-done-p)
-    (let* ((today (org-taskforecast-today org-taskforecast-day-start))
+    (let* ((today (org-taskforecast--today org-taskforecast-day-start))
            (file (org-taskforecast-get-dailylist-file today))
            (now (current-time)))
       (-if-let* ((task (org-taskforecast--get-task))
