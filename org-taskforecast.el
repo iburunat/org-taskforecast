@@ -614,7 +614,7 @@ This function returns an instance of `org-taskforecast--timestamp'."
   (org-taskforecast--timestamp
    :ts-list timestamp))
 
-(cl-defun org-taskforecast--timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
+(cl-defun org-taskforecast-timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
   "An encoded time of the start time of TIMESTAMP.
 
 TIMESTAMP is an instance of `org-taskforecast--timestamp'.
@@ -624,7 +624,7 @@ have those part."
     (org-taskforecast--encode-timestamp-start-time
      ts-list hour minute second)))
 
-(defun org-taskforecast--timestamp-start-date-only-p (timestamp)
+(defun org-taskforecast-timestamp-start-date-only-p (timestamp)
   "Non-nil means start time of TIMESTAMP has no hour and minute sections.
 
 TIMESTAMP is an instance of `org-taskforecast--timestamp'."
@@ -632,14 +632,14 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
     (not (or (org-element-property :hour-start ts-list)
              (org-element-property :minute-start ts-list)))))
 
-(defun org-taskforecast--timestamp-repeat-p (timestamp)
+(defun org-taskforecast-timestamp-repeat-p (timestamp)
   "Non-nil means the TIMESTAMP has a repeater.
 
 TIMESTAMP is an instance of `org-taskforecast--timestamp'."
   (with-slots (ts-list) timestamp
     (and (org-element-property :repeater-type ts-list) t)))
 
-(defun org-taskforecast--timestamp-start-date (timestamp day-start)
+(defun org-taskforecast-timestamp-start-date (timestamp day-start)
   "Get the date of the start time of TIMESTAMP when the day starts at DAY-START.
 
 If the start time of TIMESTAMP has no hour and minute sections, this function
@@ -648,25 +648,25 @@ ignores DAY-START.
 - TIMESTAMP is an instance of `org-taskforecast--timestamp'
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (let ((day-start
-         (if (org-taskforecast--timestamp-start-date-only-p timestamp)
+         (if (org-taskforecast-timestamp-start-date-only-p timestamp)
              ;; do not consider the day start time
              0000
            day-start)))
     (org-taskforecast--date-of-time
-     (org-taskforecast--timestamp-start-time timestamp)
+     (org-taskforecast-timestamp-start-time timestamp)
      day-start)))
 
-(defun org-taskforecast--timestamp-start-earlier-p (a b day-start)
+(defun org-taskforecast-timestamp-start-earlier-p (a b day-start)
   "Non-nil if the start time of A is earlier than one of B.
 
 - A and B is an instance of `org-taskforecast--timestamp'
 - DAY-START is an integer, see `org-taskforecast-day-start'"
-  (let ((a-date (org-taskforecast--timestamp-start-date a day-start))
-        (b-date (org-taskforecast--timestamp-start-date b day-start))
-        (a-date-only-p (org-taskforecast--timestamp-start-date-only-p a))
-        (b-date-only-p (org-taskforecast--timestamp-start-date-only-p b))
-        (a-time (org-taskforecast--timestamp-start-time a))
-        (b-time (org-taskforecast--timestamp-start-time b)))
+  (let ((a-date (org-taskforecast-timestamp-start-date a day-start))
+        (b-date (org-taskforecast-timestamp-start-date b day-start))
+        (a-date-only-p (org-taskforecast-timestamp-start-date-only-p a))
+        (b-date-only-p (org-taskforecast-timestamp-start-date-only-p b))
+        (a-time (org-taskforecast-timestamp-start-time a))
+        (b-time (org-taskforecast-timestamp-start-time b)))
     (or
      ;; compare date
      (time-less-p a-date b-date)
@@ -680,15 +680,15 @@ ignores DAY-START.
                 (not b-date-only-p)
                 (time-less-p a-time b-time)))))))
 
-(defun org-taskforecast--timestamp-start-equal-p (a b)
+(defun org-taskforecast-timestamp-start-equal-p (a b)
   "Non-nil if the start time of A equals to one of B.
 
 - A and B is an instance of `org-taskforecast--timestamp'
 - DAY-START is an integer, see `org-taskforecast-day-start'"
-  (let ((a-date-only-p (org-taskforecast--timestamp-start-date-only-p a))
-        (b-date-only-p (org-taskforecast--timestamp-start-date-only-p b))
-        (a-time (org-taskforecast--timestamp-start-time a))
-        (b-time (org-taskforecast--timestamp-start-time b)))
+  (let ((a-date-only-p (org-taskforecast-timestamp-start-date-only-p a))
+        (b-date-only-p (org-taskforecast-timestamp-start-date-only-p b))
+        (a-time (org-taskforecast-timestamp-start-time a))
+        (b-time (org-taskforecast-timestamp-start-time b)))
     (and (eq a-date-only-p b-date-only-p)
          (org-taskforecast--time-equal-p a-time b-time))))
 
@@ -819,9 +819,9 @@ Each element is an instance of `org-taskforecast--clock'."
 TASK is an instance of `org-taskforecast--task'."
   (org-taskforecast--memoize (org-taskforecast--task-id task)
     (or (-some--> (org-taskforecast--task-scheduled task)
-          (org-taskforecast--timestamp-repeat-p it))
+          (org-taskforecast-timestamp-repeat-p it))
         (-some--> (org-taskforecast--task-deadline task)
-          (org-taskforecast--timestamp-repeat-p it)))))
+          (org-taskforecast-timestamp-repeat-p it)))))
 
 (defun org-taskforecast--task-last-repeat (task)
   "Get the value of LAST_REPEAT of TASK.
@@ -846,16 +846,16 @@ This function returns a symbol, todo or done.
          (scheduled (org-taskforecast--task-scheduled task))
          (deadline (org-taskforecast--task-deadline task))
          (stime (when scheduled
-                  (let ((time (org-taskforecast--timestamp-start-time
+                  (let ((time (org-taskforecast-timestamp-start-time
                                scheduled)))
-                    (if (org-taskforecast--timestamp-start-date-only-p
+                    (if (org-taskforecast-timestamp-start-date-only-p
                          scheduled)
                         (org-taskforecast--encode-hhmm day-start time)
                       time))))
          (dtime (when deadline
-                  (let ((time (org-taskforecast--timestamp-start-time
+                  (let ((time (org-taskforecast-timestamp-start-time
                                deadline)))
-                    (if (org-taskforecast--timestamp-start-date-only-p
+                    (if (org-taskforecast-timestamp-start-date-only-p
                          deadline)
                         (org-taskforecast--encode-hhmm day-start time)
                       time))))
@@ -1010,7 +1010,7 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
   (-some--> (list (org-taskforecast-entry-scheduled entry)
                   (org-taskforecast-entry-deadline entry))
     (-non-nil it)
-    (-min-by (-flip (-rpartial #'org-taskforecast--timestamp-start-earlier-p
+    (-min-by (-flip (-rpartial #'org-taskforecast-timestamp-start-earlier-p
                                day-start))
              it)))
 
@@ -1035,8 +1035,8 @@ If not, this function returns nil.
                 (org-taskforecast-entry-early-planning entry day-start))
                (planning-time
                 (and
-                 (not (org-taskforecast--timestamp-start-date-only-p planning))
-                 (org-taskforecast--timestamp-start-time planning)))
+                 (not (org-taskforecast-timestamp-start-date-only-p planning))
+                 (org-taskforecast-timestamp-start-time planning)))
                ;; when the entry is a repeat task and it has already been done
                ;; on the date, derive the default section on the future day.
                (date
@@ -1046,7 +1046,7 @@ If not, this function returns nil.
                          (eq (org-taskforecast-entry-todo-state-for-today
                               entry date day-start)
                              'done))
-                    (org-taskforecast--timestamp-start-date planning day-start)
+                    (org-taskforecast-timestamp-start-date planning day-start)
                   date)))
     (-some--> (org-taskforecast--sort
                sections #'> :key #'org-taskforecast--section-start-time)
@@ -1898,12 +1898,12 @@ This function moves only ENTRY not all of entries in FILE.
          (ta (org-taskforecast-entry-early-planning a day-start))
          (tb (org-taskforecast-entry-early-planning b day-start)))
     (cond ((and ta tb
-                (org-taskforecast--timestamp-start-earlier-p ta tb day-start))
+                (org-taskforecast-timestamp-start-earlier-p ta tb day-start))
            +1)
           ((and ta tb
-                (org-taskforecast--timestamp-start-earlier-p tb ta day-start))
+                (org-taskforecast-timestamp-start-earlier-p tb ta day-start))
            -1)
-          ((and ta tb (org-taskforecast--timestamp-start-equal-p ta tb)) nil)
+          ((and ta tb (org-taskforecast-timestamp-start-equal-p ta tb)) nil)
           ((and ta (null tb)) +1)
           ((and (null ta) tb) -1)
           (t nil))))
@@ -2235,10 +2235,10 @@ If not, do nothing.
         (let* ((element (org-element-at-point))
                (stime (-some--> (org-element-property :scheduled element)
                         (org-taskforecast--get-timestamp-from-timestamp it)
-                        (org-taskforecast--timestamp-start-time it hh mm)))
+                        (org-taskforecast-timestamp-start-time it hh mm)))
                (dtime (-some--> (org-element-property :deadline element)
                         (org-taskforecast--get-timestamp-from-timestamp it)
-                        (org-taskforecast--timestamp-start-time it hh mm)))
+                        (org-taskforecast-timestamp-start-time it hh mm)))
                (todayp (--> (list stime dtime)
                             (-non-nil it)
                             (--some (time-less-p it next-day-start) it))))
@@ -2435,13 +2435,13 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
          (deadline (org-taskforecast-entry-deadline
                     org-taskforecast-list-info-task-link))
          (stime (and scheduled
-                     (not (org-taskforecast--timestamp-start-date-only-p
+                     (not (org-taskforecast-timestamp-start-date-only-p
                            scheduled))
-                     (org-taskforecast--timestamp-start-time scheduled)))
+                     (org-taskforecast-timestamp-start-time scheduled)))
          (dtime (and deadline
-                     (not (org-taskforecast--timestamp-start-date-only-p
+                     (not (org-taskforecast-timestamp-start-date-only-p
                            deadline))
-                     (org-taskforecast--timestamp-start-time deadline))))
+                     (org-taskforecast-timestamp-start-time deadline))))
     (--> (cl-case org-taskforecast-list-tlfmt-scheduled-strategy
            (scheduled stime)
            (deadline dtime)
