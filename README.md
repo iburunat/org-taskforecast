@@ -62,7 +62,7 @@ TODO: register to MELPA
 Currently this package is not registered in any emacs lisp package archives.
 So manual installing is needed.
 
-Here is an expamle to install via package.el manually.
+Here is an example to install via package.el manually.
 To evaluate the code below, you can install this package from github directory.
 
 ```emacs-lisp
@@ -157,7 +157,7 @@ That file is created for each day (default is like `~/org-taskforecast/2020/2020
 
 The reason of why use manual registration not searching every time is to manage the daily task list more flexible.  
 The flexibility is:
-- Registering and removing arbitary tasks without any tricks (e.g. filtering by tag like "today" or "dont_show")
+- Registering and removing arbitrary tasks without any tricks (e.g. filtering by tag like "today" or "dont_show")
 - Changing the order of the tasks without any tricks (e.g. setting fake scheduled time like 14:59 to put a task before other tasks scheduled at 15:00)
 
 The purpose of this package is to simulate the tasks and the time for today.
@@ -175,7 +175,7 @@ The reasons are below:
 
 ## Section
 
-Section devides the time of a day and makes it easy to check the total effort of the registered tasks for a section.  
+Section divides the time of a day and makes it easy to check the total effort of the registered tasks for a section.  
 Sections are showed in `org-taskforecast-list` like below:
 
 ![section](./images/section.png)
@@ -287,7 +287,7 @@ The recommended way to enable the minor mode is using [directory local variable]
 
 ### Interruption
 
-Interruption function devides the currently working task link into two task links, worked and remaining work, when you've already started working on a task and you've clocked-in anthoer task without getting the working task done.
+Interruption function divides the currently working task link into two task links, worked and remaining work, when you've already started working on a task and you've clocked-in another task without getting the working task done.
 And the task link of newly clocked-in task is placed the head of todo task links.
 This is helpful to resume working on the task which you've worked on before switching to the interruption task.
 
