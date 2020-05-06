@@ -16,7 +16,7 @@ So `ID` property of an org heading is set as needed.
 
 ## Screenshot
 
-![screenshot](./screenshot.png)
+![screenshot](./images/screenshot.png)
 
 ## Table of contents
 
@@ -178,7 +178,7 @@ The reasons are below:
 Section devides the time of a day and makes it easy to check the total effort of the registered tasks for a section.  
 Sections are showed in `org-taskforecast-list` like below:
 
-![section](./section.png)
+![section](./images/section.png)
 
 The default format is `[TOTAL-EFFORT / SECTION-DURATION]: TITLE`.
 
