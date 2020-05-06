@@ -16,7 +16,7 @@ So `ID` property of an org heading is set as needed.
 
 ## Screenshot
 
-![screenshot](./screenshot.png)
+![screenshot](./images/screenshot.png)
 
 ## Table of contents
 
@@ -40,8 +40,8 @@ So `ID` property of an org heading is set as needed.
             * [Manipulate list](#manipulate-list)
             * [Manipulate task](#manipulate-task)
             * [Control formatter](#control-formatter)
-      * [Tracking mode](#tracking-mode)
-      * [Interruption](#interruption)
+      * [Tracking mode - org-taskforecast-track-mode](#tracking-mode---org-taskforecast-track-mode)
+         * [Interruption](#interruption)
       * [Versioning](#versioning)
 
 
@@ -62,7 +62,7 @@ TODO: register to MELPA
 Currently this package is not registered in any emacs lisp package archives.
 So manual installing is needed.
 
-Here is an expamle to install via package.el manually.
+Here is an example to install via package.el manually.
 To evaluate the code below, you can install this package from github directory.
 
 ```emacs-lisp
@@ -157,7 +157,7 @@ That file is created for each day (default is like `~/org-taskforecast/2020/2020
 
 The reason of why use manual registration not searching every time is to manage the daily task list more flexible.  
 The flexibility is:
-- Registering and removing arbitary tasks without any tricks (e.g. filtering by tag like "today" or "dont_show")
+- Registering and removing arbitrary tasks without any tricks (e.g. filtering by tag like "today" or "dont_show")
 - Changing the order of the tasks without any tricks (e.g. setting fake scheduled time like 14:59 to put a task before other tasks scheduled at 15:00)
 
 The purpose of this package is to simulate the tasks and the time for today.
@@ -175,10 +175,10 @@ The reasons are below:
 
 ## Section
 
-Section devides the time of a day and makes it easy to check the total effort of the registered tasks for a section.  
+Section divides the time of a day and makes it easy to check the total effort of the registered tasks for a section.  
 Sections are showed in `org-taskforecast-list` like below:
 
-![section](./section.png)
+![section](./images/section.png)
 
 The default format is `[TOTAL-EFFORT / SECTION-DURATION]: TITLE`.
 
@@ -267,13 +267,43 @@ Also you can manipulate the tasks like org-agenda.
 | `vc` | `org-taskforecast-list-tlfmt-clock-toggle`              |
 | `vd` | `org-taskforecast-list-tlfmt-default-section-id-toggle` |
 
-## Tracking mode
+## Tracking mode - `org-taskforecast-track-mode`
 
-TODO
+Automatically register a task and move it to the head of todo task links when you clock-in or change todo state to done.
+This is helpful when you've forgotten to register a task or you need to do a task not planned for today.
 
-## Interruption
+To enable this, turn `org-taskforecast-track-mode` on in the target buffers.
+This minor mode is not global minor mode, so you can control the files of target for tracking.
 
-TODO
+The recommended way to enable the minor mode is using [directory local variable](https://www.gnu.org/software/emacs/manual/html_node/emacs/Directory-Variables.html) to enable the minor mode for only files in specified directory like below:
+
+```emacs-lisp
+;; .dir-locals.el
+
+;; enable `org-taskforecast-track-mode' for org files in this directory
+((org-mode . ((eval . (when (require 'org-taskforecast nil t)
+                        (org-taskforecast-track-mode 1))))))
+```
+
+### Interruption
+
+Interruption function divides the currently working task link into two task links, worked and remaining work, when you've already started working on a task and you've clocked-in another task without getting the working task done.
+And the task link of newly clocked-in task is placed the head of todo task links.
+This is helpful to resume working on the task which you've worked on before switching to the interruption task.
+
+To disable this function, set `org-taskforecast-enable-interruption` to `nil`.
+
+before interruption:
+
+![before interruption](./images/interruption-before.png)
+
+after interruption:
+
+![after interruption](./images/interruption-after.png)
+
+- the last task is divided into two task links
+- the effort is also divided
+- new task is placed at the head of todo task links
 
 ## Versioning
 
