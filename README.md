@@ -291,9 +291,19 @@ Interruption function devides the currently working task link into two task link
 And the task link of newly clocked-in task is placed the head of todo task links.
 This is helpful to resume working on the task which you've worked on before switching to the interruption task.
 
-TODO: screenshot (before and after)
-
 To disable this function, set `org-taskforecast-enable-interruption` to `nil`.
+
+before interruption:
+
+![before interruption](./images/interruption-before.png)
+
+after interruption:
+
+![after interruption](./images/interruption-after.png)
+
+- the last task is divided into two task links
+- the effort is also divided
+- new task is placed at the head of todo task links
 
 ## Versioning
 
