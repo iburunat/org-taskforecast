@@ -12,6 +12,7 @@ jobs:
           - 26.2
           - 26.3
           - snapshot
+      max-parallel: 1
     steps:
       - uses: purcell/setup-emacs@v1.0
         with:
