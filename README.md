@@ -49,7 +49,7 @@ So `ID` property of an org heading is set as needed.
 
 ## Requirements
 
-- Emacs 25.1 or later
+- Emacs 26.1 or later
 - [dash](https://github.com/magnars/dash.el)
 - [dash-functional](https://github.com/magnars/dash.el)
 - [s](https://github.com/magnars/s.el)
