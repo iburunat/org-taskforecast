@@ -8,10 +8,12 @@ jobs:
     strategy:
       matrix:
         emacs_version:
-          - 26.1
-          - 26.2
+          # gnu elpa sometimes occurs bad request error.
+          # to reduce access to gnu elpa, limit testing emacs versions.
+          # - 26.1
+          # - 26.2
           - 26.3
-          - snapshot
+          # - snapshot
       max-parallel: 1
     steps:
       - uses: purcell/setup-emacs@v2.0
