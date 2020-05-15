@@ -1944,19 +1944,14 @@ This is an internal comparator, so down version is not defined."
           ((and (not sa) sb) -1)
           (t nil))))
 
-(defun org-taskforecast--sort-comparators-for-task-link (file date day-start &optional sorting-storategies)
-  "Get sort comparators for registering task link.
-- FILE is a today's daily task list file name
-- DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'
-- SORTING-STORATEGIES is a list of additional comparators"
+(defun org-taskforecast--sort-comparators-for-task-link (additional-comparators)
+  "Get sort comparators for registering a task link.
+ADDITIONAL-COMPARATORS is a list of additional comparators"
   (append (list #'org-taskforecast--ss-interruption-up
                 #'org-taskforecast--ss-todo-up
-                (-rpartial
-                 #'org-taskforecast--ss-default-section-up
-                 (org-taskforecast--get-sections file day-start) date)
+                #'org-taskforecast--ss-default-section-up
                 #'org-taskforecast--ss-section-up)
-          sorting-storategies))
+          additional-comparators))
 
 
 ;;;; org-taskforecast-cache-mode
@@ -2102,7 +2097,7 @@ When the task is already registered, this command does nothing.
              (org-taskforecast--sort-entry-up
               it file
               (org-taskforecast--sort-comparators-for-task-link
-               file date day-start sorting-storategy)
+               sorting-storategy)
               day-start)))
     (user-error "Heading is not a task")))
 
@@ -2151,7 +2146,7 @@ If not, do nothing.
                    (registerdp (org-taskforecast--get-task-links-for-task
                                 id file))
                    (comparators (org-taskforecast--sort-comparators-for-task-link
-                                 file date day-start sorting-storategy)))
+                                 sorting-storategy)))
               (when (not registerdp)
                 (--> (org-taskforecast--append-task-link id file)
                      (org-taskforecast--get-task-link-by-id it)
@@ -2865,7 +2860,7 @@ DATE is an encoded time."
        (org-taskforecast--get-task-link-by-id new-link-id)
        file
        (org-taskforecast--sort-comparators-for-task-link
-        file date org-taskforecast-day-start org-taskforecast-sorting-storategy)
+        org-taskforecast-sorting-storategy)
        org-taskforecast-day-start))
     ;; Move the cursor to the next line or the previous line to prevent
     ;; moving the cursor to the top of a task list.
