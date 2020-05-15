@@ -1751,16 +1751,30 @@ already exists corresponding to SECTION-ID.
 
 ;;;; Sort
 
-(defun org-taskforecast--sort-compare (a b comparators)
+(defvar org-taskforecast-sort-info-today nil
+  "This variable is used to pass a date of today to sort comparators.
+This value will be an encoded time.
+Its hour, minute and second are set to zero.")
+
+(defvar org-taskforecast-sort-info-sections nil
+  "This variable is used to pass the section list to sort comparators.
+This value will be a list of instances of `org-taskforecast--section'.")
+
+(defun org-taskforecast--sort-compare (a b comparators sections date)
   "Compare A and B with COMPARATORS.
 A returned value is:
 - +1  if A > B
 - -1  if A < B
-- nil if A == B"
-  (cl-loop for cmp in comparators
-           for res = (funcall cmp a b)
-           when (eql res +1) return +1
-           when (eql res -1) return -1))
+- nil if A == B
+
+- SECTIONS is a list of instances of `org-taskforecast--section'.
+- DATE is an encoded time as a date of today"
+  (let ((org-taskforecast-sort-info-sections sections)
+        (org-taskforecast-sort-info-today date))
+    (cl-loop for cmp in comparators
+             for res = (funcall cmp a b)
+             when (eql res +1) return +1
+             when (eql res -1) return -1)))
 
 (defun org-taskforecast--sort-entry-up (entry file comparators day-start)
   "Sort ENTRY up in FILE.
