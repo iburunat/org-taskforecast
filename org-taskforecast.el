@@ -1836,11 +1836,10 @@ The order is:
 1. low effort
 2. high effort
 3. no effort"
-  (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-         (eea (org-taskforecast-entry-effective-effort
-               a today org-taskforecast-day-start))
-         (eeb (org-taskforecast-entry-effective-effort
-               b today org-taskforecast-day-start)))
+  (let ((eea (org-taskforecast-entry-effective-effort
+              a org-taskforecast-sort-info-today org-taskforecast-day-start))
+        (eeb (org-taskforecast-entry-effective-effort
+              b org-taskforecast-sort-info-today org-taskforecast-day-start)))
     (cond ((and eea eeb (< eea eeb)) +1)
           ((and eea eeb (> eea eeb)) -1)
           ((and eea eeb (= eea eeb)) nil)
@@ -1854,11 +1853,10 @@ The order is:
 1. high effort
 2. low effort
 3. no effort"
-  (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-         (eea (org-taskforecast-entry-effective-effort
-               a today org-taskforecast-day-start))
-         (eeb (org-taskforecast-entry-effective-effort
-               b today org-taskforecast-day-start)))
+  (let ((eea (org-taskforecast-entry-effective-effort
+              a org-taskforecast-sort-info-today org-taskforecast-day-start))
+        (eeb (org-taskforecast-entry-effective-effort
+              b org-taskforecast-sort-info-today org-taskforecast-day-start)))
     (cond ((and eea (null eeb)) +1)
           ((and (null eea) eeb) -1)
           (t (org-taskforecast-ss-effective-effort-up b a)))))
@@ -1871,11 +1869,10 @@ So the returned value is nil.
 
 This is an internal comparator, so down version is not defined."
   (unless (-any #'org-taskforecast-entry-is-section (list a b))
-    (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-           (sa (org-taskforecast-entry-todo-state-for-today
-                a today org-taskforecast-day-start))
-           (sb (org-taskforecast-entry-todo-state-for-today
-                b today org-taskforecast-day-start)))
+    (let ((sa (org-taskforecast-entry-todo-state-for-today
+               a org-taskforecast-sort-info-today org-taskforecast-day-start))
+          (sb (org-taskforecast-entry-todo-state-for-today
+               b org-taskforecast-sort-info-today org-taskforecast-day-start)))
       (cond ((and (eq sa 'done) (eq sb 'todo)) +1)
             ((and (eq sa 'todo) (eq sb 'done)) -1)
             (t nil)))))
@@ -1903,28 +1900,28 @@ This is an internal comparator, so down version is not defined."
             ((or (null eea) (null esb)) -1)
             (t nil)))))
 
-(defun org-taskforecast--ss-default-section-up (a b sections date)
+(defun org-taskforecast--ss-default-section-up (a b)
   "Compare A and B by default section, earlier farst.
 This is an internal comparator, so down version is not defined.
 
 If an entry has no default section, this function tries to derive
-a section by `org-taskforecast-entry-derive-default-section'.
-
-- SECTIONS is a list of instances of `org-taskforecast--section'.
-- DATE is an encoded time as a date of today"
+a section by `org-taskforecast-entry-derive-default-section'."
   (-let* ((day-start org-taskforecast-day-start)
           (id-st
            (--map
             (cons (org-taskforecast-section-section-id it)
                   (org-taskforecast-section-start-time it))
-            sections))
+            org-taskforecast-sort-info-sections))
           ((sta stb)
            (--> (list a b)
                 (--map
                  (or
                   (org-taskforecast-entry-default-section-id it)
                   (-some--> (org-taskforecast-entry-derive-default-section
-                             it sections date day-start)
+                             it
+                             org-taskforecast-sort-info-sections
+                             org-taskforecast-sort-info-today
+                             day-start)
                     (org-taskforecast-section-section-id it)))
                  it)
                 (--map
