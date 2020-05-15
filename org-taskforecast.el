@@ -61,7 +61,6 @@
 
 (defcustom org-taskforecast-dailylist-file "~/org-taskforecast/%Y/%Y-%m/%Y-%m-%d.org"
   "A file name which indicates the location to store daily task list.
-
 This string is expanded by `format-time-string'."
   :type 'string
   :group 'org-taskforecast
@@ -69,7 +68,6 @@ This string is expanded by `format-time-string'."
 
 (defcustom org-taskforecast-day-start 0000
   "A start time of a day.
-
 It is an integer as HHMM.
 The value is less than zero, which means yesterday or older.
 The value is over than 2359, which means tomorrow or more future.
@@ -91,7 +89,6 @@ Example of a range of today:
         #'org-taskforecast-list-tlfmt-todo
         #'org-taskforecast-list-tlfmt-title)
   "Function list for formatting a task link.
-
 The results of the functions are joined with \" \" and
 empty strings are ignored..
 The functions should have no parameter.
@@ -114,7 +111,6 @@ Other global variable is also set for formatting:
 (defcustom org-taskforecast-list-section-formatter
   #'org-taskforecast-list-secfmt-section
   "Function for formatting a section in `org-taskforecast-list'.
-
 The function should have no parameter.
 The function is obtained information as global variables below:
 - `org-taskforecast-list-info-section' is an instance of
@@ -134,7 +130,6 @@ The function is obtained information as global variables below:
 (defcustom org-taskforecast-sorting-storategy
   (list #'org-taskforecast-ss-time-up)
   "A list of functions to sort task links.
-
 Each function takes two task links like A and B.
 The function returns:
 - +1  if A > B
@@ -147,7 +142,6 @@ The function returns:
 (defcustom org-taskforecast-sections
   nil
   "A list of section definitions.
-
 Each element is a list like (ID START-TIME &optional DESCRIPTION).
 
 - ID is a string which must be unique in this variable.
@@ -214,7 +208,6 @@ Example:
 
 (defun org-taskforecast--encoded-time-p (x)
   "Non-nil means X is an encoded time.
-
 Encoded time is a type of a returned value of `encode-time'."
   (or
    ;; `time-add' possibly returns an integer
@@ -240,7 +233,6 @@ Encoded time is a type of a returned value of `encode-time'."
 
 (defun org-taskforecast--encode-hhmm (hhmm day)
   "Return an encoded time from HHMM as a time of DAY.
-
 HHMM is an integer like `org-taskforecast-day-start'.
 DAY is an encoded time."
   (-let (((hour minute) (org-taskforecast--split-hhmm hhmm))
@@ -257,7 +249,6 @@ DAY is an encoded time."
 
 (defun org-taskforecast--effort-to-second (effort-str)
   "Convert string of effort property to second.
-
 EFFORT-STR is a string of a value of an effort property.
 If EFFORT-STR is invalid, this function returns nil."
   (-let* ((re (rx bos (? (group (+ num)) ":") (group (+ num)) eos))
@@ -269,7 +260,6 @@ If EFFORT-STR is invalid, this function returns nil."
 
 (defun org-taskforecast--time-as-date (time)
   "Set hour, minute and second of TIME to zero.
-
 TIME is an encoded time.
 A returned value is an encoded time."
   (let ((decoded (decode-time time)))
@@ -280,7 +270,6 @@ A returned value is an encoded time."
 
 (defun org-taskforecast--date-of-time (time day-start)
   "Get the date of TIME when the day starts at DAY-START.
-
 TIME is an encoded time.
 DAY-START is an integer like `org-taskforecast-day-start'.
 This function returns an encoded time as a date of today."
@@ -298,14 +287,12 @@ This function returns an encoded time as a date of today."
 
 (defun org-taskforecast--today (day-start)
   "Get today's date of now.
-
 DAY-START is an integer, see `org-taskforecast-day-start'."
   (org-taskforecast--date-of-time (or org-taskforecast--today (current-time))
                                   day-start))
 
 (defun org-taskforecast--time-to-hhmm (time today)
   "Convert TIME to hour and minute as time of TODAY.
-
 A returned value is a list like (hour minute)."
   (let* ((today (org-taskforecast--time-as-date today))
          (dsec (floor (time-to-seconds (time-subtract time today))))
@@ -317,7 +304,6 @@ A returned value is a list like (hour minute)."
 
 (defun org-taskforecast--today-p (time today day-start)
   "Return non-nil if TIME is in range of TODAY.
-
 - TIME is an encoded time
 - TODAY is an encoded time
 - DAY-START is an integer, see `org-taskforecast-day-start'"
@@ -331,7 +317,6 @@ A returned value is a list like (hour minute)."
 
 (cl-defun org-taskforecast--sort (seq predicate &key (key #'identity))
   "Like `cl-sort' but do not modify SEQ.
-
 About SEQ, PREDICATE and KEY, see `cl-sort'."
   (cl-sort (copy-sequence seq) predicate :key key))
 
@@ -345,7 +330,6 @@ About SEQ, PREDICATE and KEY, see `cl-sort'."
 
 (defvar org-taskforecast--memoize-cache nil
   "A hash table for `org-taskforecast--memoize'.
-
 Do not use this variable directory.
 Use API functons below:
 - `org-taskforecast--memoize-exists-p'
@@ -360,13 +344,11 @@ If the value is nil, which means that do not use cache.")
 
 (defun org-taskforecast--memoize-make-cache-table ()
   "Create a hash table for `org-taskforecast--memoize'.
-
 Key is a string as an id of org-id."
   (make-hash-table :test #'equal))
 
 (defmacro org-taskforecast--memoize (id &rest body)
   "Memoize the result of BODY and associates it to ID.
-
 ID is an id of org-id.
 The result is stored in `org-taskforecast--memoize-cache'.
 If the cached value is not found or `org-taskforecast--memoize-cache' is nil,
@@ -399,7 +381,6 @@ So the cached value is independent for each expression which uses this macro."
 
 (defun org-taskforecast--memoize-exists-p (id key)
   "Non-nil means cached value corresponds to ID and KEY is found.
-
 This is an utility function for `org-taskforecast--memoize'.
 This function finds the value from `org-taskforecast--memoize-cache'.
 
@@ -412,7 +393,6 @@ This function finds the value from `org-taskforecast--memoize-cache'.
 
 (defun org-taskforecast--memoize-get (id key)
   "Get cached value corresponds to ID and KEY.
-
 When the value is not found, this function returns nil.
 This is an utility function for `org-taskforecast--memoize'.
 This function finds the value from `org-taskforecast--memoize-cache'.
@@ -427,7 +407,6 @@ This function finds the value from `org-taskforecast--memoize-cache'.
 
 (defun org-taskforecast--memoize-set (id key value)
   "Store VALUE as a value corresponds ID and KEY.
-
 The returned value is undefined.
 This is an utility function for `org-taskforecast--memoize'.
 This function stores the value in `org-taskforecast--memoize-cache'.
@@ -445,7 +424,6 @@ This function stores the value in `org-taskforecast--memoize-cache'.
 
 (defun org-taskforecast--memoize-drop (id)
   "Drop all cached values correspond to ID.
-
 The returned value is undefined.
 This function drops values from `org-taskforecast--memoize-cache'.
 
@@ -455,7 +433,6 @@ ID is an id of org-id."
 
 (defun org-taskforecast--memoize-clear ()
   "Clear all cached values.
-
 The returned value is undefined.
 This function clears the hash table `org-taskforecast--memoize-cache'."
   (-some--> org-taskforecast--memoize-cache
@@ -467,7 +444,6 @@ This function clears the hash table `org-taskforecast--memoize-cache'."
 
 (defmacro org-taskforecast--at-id (id &rest body)
   "Eval BODY at a heading of ID.
-
 BODY is evaluated in widened buffer to go to appropriate point of
 the buffer whether the buffer narrowed."
   (declare (indent 1) (debug t))
@@ -502,7 +478,6 @@ the buffer whether the buffer narrowed."
 
 (defun org-taskforecast--get-link-id (str)
   "Get a link id from STR.
-
 STR is a org-id link string like \"[[id:1234][foo]]\".
 If STR is not a org-id link string, this function returns nil."
   (let ((re (rx bos "[[id:" (group (+ (not (any "]")))) "]["
@@ -530,7 +505,6 @@ If STR is not a org-id link string, this function returns nil."
 
 (defun org-taskforecast--get-clock-from-element (element)
   "Get a clock from ELEMENT.
-
 ELEMENT is a clock element of org element api."
   (let* ((timestamp (org-element-property :value element))
          (runnigp (eq 'running (org-element-property :status element)))
@@ -541,7 +515,6 @@ ELEMENT is a clock element of org element api."
 
 (defun org-taskforecast-clock-duration (clock)
   "Duration of CLOCK as an encoded time.
-
 CLOCK is an instance of `org-taskforecast--clock'."
   ;; When the end of CLOCK is nil, it will be used as the current time
   ;; by `time-subtract'.
@@ -550,14 +523,12 @@ CLOCK is an instance of `org-taskforecast--clock'."
 
 (defun org-taskforecast-clock-start-less-p (a b)
   "Compare start-times of A and B by `time-less-p'.
-
 A and B are instances of `org-taskforecast--clock'."
   (time-less-p (org-taskforecast-clock-start a)
                (org-taskforecast-clock-start b)))
 
 (cl-defun org-taskforecast--encode-timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
   "Get an encoded time of the start time of TIMESTAMP.
-
 TIMESTAMP is an element of timestamp of org element api.
 HOUR, MINUTE and SECOND are the default values if TIMESTAMP doesn't
 have those part."
@@ -571,7 +542,6 @@ have those part."
 
 (defun org-taskforecast--encode-timestamp-end-time (timestamp)
   "Get an encoded time of the end time of TIMESTAMP.
-
 TIMESTAMP is an element of timestamp of org element api.
 The second part of a returned time is set to zero.
 If hour and minute part do not exist, they are set to zero."
@@ -585,7 +555,6 @@ If hour and minute part do not exist, they are set to zero."
 
 (defun org-taskforecast--get-clocks-in-range (clocks start end)
   "Get clocks between START and END from CLOCKS.
-
 - CLOCKS is a list of instances of `org-taskforecast--clock'
 - START is an encoded time
 - END is an encoded time"
@@ -608,7 +577,6 @@ If hour and minute part do not exist, they are set to zero."
 
 (defun org-taskforecast--get-timestamp-from-timestamp (timestamp)
   "Get a timestamp information from TIMESTAMP.
-
 TIMESTAMP is a timestamp element of org element api.
 This function returns an instance of `org-taskforecast--timestamp'."
   (org-taskforecast--timestamp
@@ -616,7 +584,6 @@ This function returns an instance of `org-taskforecast--timestamp'."
 
 (cl-defun org-taskforecast-timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
   "An encoded time of the start time of TIMESTAMP.
-
 TIMESTAMP is an instance of `org-taskforecast--timestamp'.
 HOUR, MINUTE and SECOND are the default values if TIMESTAMP doesn't
 have those part."
@@ -626,7 +593,6 @@ have those part."
 
 (defun org-taskforecast-timestamp-start-date-only-p (timestamp)
   "Non-nil means start time of TIMESTAMP has no hour and minute sections.
-
 TIMESTAMP is an instance of `org-taskforecast--timestamp'."
   (with-slots (ts-list) timestamp
     (not (or (org-element-property :hour-start ts-list)
@@ -634,14 +600,12 @@ TIMESTAMP is an instance of `org-taskforecast--timestamp'."
 
 (defun org-taskforecast-timestamp-repeat-p (timestamp)
   "Non-nil means the TIMESTAMP has a repeater.
-
 TIMESTAMP is an instance of `org-taskforecast--timestamp'."
   (with-slots (ts-list) timestamp
     (and (org-element-property :repeater-type ts-list) t)))
 
 (defun org-taskforecast-timestamp-start-date (timestamp day-start)
   "Get the date of the start time of TIMESTAMP when the day starts at DAY-START.
-
 If the start time of TIMESTAMP has no hour and minute sections, this function
 ignores DAY-START.
 
@@ -658,7 +622,6 @@ ignores DAY-START.
 
 (defun org-taskforecast-timestamp-start-earlier-p (a b day-start)
   "Non-nil if the start time of A is earlier than one of B.
-
 - A and B is an instance of `org-taskforecast--timestamp'
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (let ((a-date (org-taskforecast-timestamp-start-date a day-start))
@@ -682,7 +645,6 @@ ignores DAY-START.
 
 (defun org-taskforecast-timestamp-start-equal-p (a b)
   "Non-nil if the start time of A equals to one of B.
-
 - A and B is an instance of `org-taskforecast--timestamp'
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (let ((a-date-only-p (org-taskforecast-timestamp-start-date-only-p a))
@@ -746,7 +708,6 @@ ignores DAY-START.
 
 (defun org-taskforecast--get-task ()
   "Get a task at the current point.
-
 A returned value is an instance of `org-taskforecast--task'.
 If the heading is not a task this function returns nil."
   (save-excursion
@@ -777,7 +738,6 @@ If the heading is not a task this function returns nil."
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task by ID.
-
 A returned value is an instance of `org-taskforecast--task'.
 If the heading of ID is not a task, this function throws an error."
   (--> (org-taskforecast--memoize id
@@ -796,7 +756,6 @@ If the heading of ID is not a task, this function throws an error."
 
 (defun org-taskforecast-task-clocks (task)
   "A list of clock data of TASK.
-
 Each element is an instance of `org-taskforecast--clock'."
   (let ((id (org-taskforecast-task-id task)))
     (org-taskforecast--memoize id
@@ -807,7 +766,6 @@ Each element is an instance of `org-taskforecast--clock'."
 
 (defun org-taskforecast-task-repeat-p (task)
   "Non-nil means TASK is a repeat task.
-
 TASK is an instance of `org-taskforecast--task'."
   (org-taskforecast--memoize (org-taskforecast-task-id task)
     (or (-some--> (org-taskforecast-task-scheduled task)
@@ -817,7 +775,6 @@ TASK is an instance of `org-taskforecast--task'."
 
 (defun org-taskforecast-task-last-repeat (task)
   "Get the value of LAST_REPEAT of TASK.
-
 This function returns an encoded time.
 If TASK has no property, this function returns nil."
   (let ((id (org-taskforecast-task-id task)))
@@ -829,7 +786,6 @@ If TASK has no property, this function returns nil."
 
 (defun org-taskforecast-task-todo-state-for-today (task date day-start)
   "Get todo state of TASK for today.
-
 This function returns a symbol, todo or done.
 - TASK is an instance of `org-taskforecast--task'
 - DATE is an encoded time as a date of today
@@ -922,7 +878,6 @@ If the end time is not found, the value will be an estimated time.")
 
 (cl-defgeneric org-taskforecast-entry-effective-effort (entry date day-start)
   "Get effort value of ENTRY.
-
 A returned value is an effort second.
 
 - DATE is an encoded time as a date of today
@@ -930,7 +885,6 @@ A returned value is an effort second.
 
 (cl-defgeneric org-taskforecast-entry-effective-clocks (entry date day-start)
   "Effective clocks of ENTRY.
-
 An effective clock is a clock information that clocked today.
 If the entry has effective start/end time, an effective clock satisfies
 the following conditions:
@@ -942,38 +896,32 @@ the following conditions:
 
 (cl-defgeneric org-taskforecast-entry-todo-state-for-today (entry date day-start)
   "Get todo state of ENTRY for today.
-
 This function returns a symbol, todo or done.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'")
 
 (cl-defgeneric org-taskforecast-entry-scheduled (entry)
   "Schedule information of ENTRY.
-
 If ENTRY has scheduled, this returns an instance of
 `org-taskforecast--timestamp'.
 If not, this returns nil.")
 
 (cl-defgeneric org-taskforecast-entry-deadline (entry)
   "Deadline information of ENTRY.
-
 If ENTRY has deadline, this returns an instance of
 `org-taskforecast--timestamp'.
 If not, this returns nil.")
 
 (cl-defgeneric org-taskforecast-entry-effective-start-time (entry)
   "An encoded time when ENTRY is effective after.
-
 If ENTRY has no effective start time, this returns nil.")
 
 (cl-defgeneric org-taskforecast-entry-effective-end-time (entry)
   "An encoded time when ENTRY is effective before.
-
 If ENTRY has no effective end time, this returns nil.")
 
 (cl-defgeneric org-taskforecast-entry-default-section-id (entry)
   "Default section ID of ENTRY.
-
 If ENTRY has default section, this returns the section ID string.
 If not, this returns nil.")
 
@@ -987,7 +935,6 @@ If not, this returns nil.")
 
 (defun org-taskforecast-entry-has-effective-clock (entry date day-start)
   "Non-nil means ENTRY has some effective clocks.
-
 See `org-taskforecast-entry-effective-clocks' about effective clock.
 
 - DATE is an encoded time as a date of today
@@ -996,7 +943,6 @@ See `org-taskforecast-entry-effective-clocks' about effective clock.
 
 (defun org-taskforecast-entry-early-planning (entry day-start)
   "A timestamp of earlier of scheduled and deadline of ENTRY.
-
 This function returns nil if ENTRY has no scheduled and deadline.
 DAY-START is an integer, see `org-taskforecast-day-start'."
   (-some--> (list (org-taskforecast-entry-scheduled entry)
@@ -1008,7 +954,6 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
 
 (defun org-taskforecast-entry-derive-default-section (entry sections date day-start)
   "Derive default section from SECTIONS with ENTRY's scheduled and deadline.
-
 This function tries to derive a default section using timestamp obtained by
 `org-taskforecast-entry-early-planning'.
 If a latest section whose start time is less than or equal to the timestamp
@@ -1061,7 +1006,6 @@ If not, this function returns nil.
 
 (defun org-taskforecast--get-task-link-effective-start-time ()
   "Get the task link's effective start time property from a heading.
-
 A returned value is an encoded time."
   (-some-->
       (org-entry-get
@@ -1072,7 +1016,6 @@ A returned value is an encoded time."
 
 (defun org-taskforecast--get-task-link-effective-end-time ()
   "Get the task link's effective end time property from a heading.
-
 A returned value is an encoded time."
   (-some-->
       (org-entry-get
@@ -1083,7 +1026,6 @@ A returned value is an encoded time."
 
 (defun org-taskforecast--set-task-link-effective-start-time (time)
   "Set the task link's effective start time property to TIME.
-
 TIME is an encoded time."
   (org-entry-put nil
                  org-taskforecast--task-link-effective-start-time-prop-name
@@ -1091,7 +1033,6 @@ TIME is an encoded time."
 
 (defun org-taskforecast--set-task-link-effective-end-time (time)
   "Set the task link's effective end time property to TIME.
-
 TIME is an encoded time."
   (org-entry-put nil
                  org-taskforecast--task-link-effective-end-time-prop-name
@@ -1161,7 +1102,6 @@ TIME is an encoded time."
 
 (defun org-taskforecast--tlink-start-end-time (task-link date day-start &optional start-after now)
   "Get the start and end time of a TASK-LINK.
-
 This function returns an instance of `org-taskforecast--eclock'.
 
 - TASK-LINK is an instance of `org-taskforecast--tlink'
@@ -1241,7 +1181,6 @@ This function returns an instance of `org-taskforecast--eclock'.
 
 (defun org-taskforecast--get-task-link ()
   "Get a task link at the current point.
-
 A returned value is an instance of `org-taskforecast--tlink'.
 If the heading is not a task link, this function returns nil."
   (save-excursion
@@ -1266,7 +1205,6 @@ If the heading is not a task link, this function returns nil."
 
 (defun org-taskforecast--get-task-link-by-id (id)
   "Get a task link by ID.
-
 A returned value is an instance of `org-taskforecast--tlink'.
 If the heading of ID is not a task link, this function throws an error."
   (--> (org-taskforecast--at-id id
@@ -1436,7 +1374,6 @@ If the heading of ID is not a task link, this function throws an error."
 
 (defun org-taskforecast-get-dailylist-file (today)
   "Get the path of today's daily task list file for TODAY.
-
 This function depends on:
 - `org-taskforecast-dailylist-file' as a file format
 - `org-taskforecast-day-start' to determine the date of today"
@@ -1445,7 +1382,6 @@ This function depends on:
 
 (defmacro org-taskforecast--with-existing-file (file &rest body)
   "Eval BODY in a buffer of FILE.
-
 If FILE does not exist, save the buffer of FILE first.
 The reason of that is to find org heading by org-id.
 org-id searches for existing files only."
@@ -1459,7 +1395,6 @@ org-id searches for existing files only."
 
 (defun org-taskforecast--map-headings (fn)
   "Call FN on headings in the current buffer.
-
 This function returns a list of results of FN.
 
 Why use this function instead of `org-map-entries' is to avoid asking
@@ -1476,7 +1411,6 @@ the file of the current buffer doesn't exist."
 
 (defun org-taskforecast--cut-heading-by-id (id)
   "Cut a heading by ID.
-
 Return a string of the heading.
 When this function failed, returns nil."
   (org-taskforecast--at-id id
@@ -1492,7 +1426,6 @@ When this function failed, returns nil."
 
 (defun org-taskforecast--set-section-slots (entries day-start)
   "Set entries and effort slot of `org-taskforecast--section' in ENTRIES.
-
 This function updates the section instances in ENTRIES and returns ENTRIES.
 
 DAY-START is an integer like `org-taskforecast-day-start'."
@@ -1521,7 +1454,6 @@ DAY-START is an integer like `org-taskforecast-day-start'."
 
 (defun org-taskforecast--get-entry ()
   "Get an entry at the current point.
-
 A returned value is an entry instance.
 If the heading is not an entry, this function returns nil.
 
@@ -1536,7 +1468,6 @@ consider using `org-taskforecast--get-sections' instead."
 
 (defun org-taskforecast--get-entries (file day-start)
   "Get a list of entries from FILE.
-
 DAY-START is an integer like `org-taskforecast-day-start'."
   (org-taskforecast--with-existing-file file
     (--> (org-taskforecast--map-headings #'org-taskforecast--get-entry)
@@ -1547,7 +1478,6 @@ DAY-START is an integer like `org-taskforecast-day-start'."
 
 (defun org-taskforecast--append-task-link (id file)
   "Append a task link for ID to the end of FILE.
-
 This function returns an ID of the new task link."
   (let ((normalized-title
          (org-taskforecast--normalize-title
@@ -1563,7 +1493,6 @@ This function returns an ID of the new task link."
 
 (defun org-taskforecast--append-task-link-maybe (id file date day-start)
   "Append a task link for ID to the end of FILE.
-
 If a todo task link corresponding to ID already exists,
 this function does nothing.
 This function returns an ID of the task link which was appended or already
@@ -1586,7 +1515,6 @@ exists corresponding to the task.
 
 (defun org-taskforecast--get-first-todo-task-link (file date day-start now)
   "Get the first todo task link in FILE.
-
 A returned value is an instance of `org-taskforecast--tlink'.
 If a first todo task is not found, this function returns nil.
 
@@ -1626,7 +1554,6 @@ If a first todo task is not found, this function returns nil.
 
 (defun org-taskforecast--push-task-link-maybe (id file date day-start now &optional allow-interruption)
   "Add a task link for ID to the head of todo task links in FILE.
-
 If a task link corresponding to ID already exists, this function moves it.
 If the existing task link is done, this function does not move it.
 This function returns an ID of the task link corresponding to the task.
@@ -1672,7 +1599,6 @@ This feature is enabled while ALLOW-INTERRUPTION and
 
 (defun org-taskforecast--get-task-links-for-task (task-id file)
   "Get task links for the task of TASK-ID in FILE.
-
 - TASK-ID is a string
 - FILE is a today's daily task list file name"
   (--filter
@@ -1681,7 +1607,6 @@ This feature is enabled while ALLOW-INTERRUPTION and
 
 (defun org-taskforecast--get-todo-entry-head-pos (file date day-start now)
   "Get the point of head of todo entries in FILE.
-
 If there is no todo entry heading, this function returns the point of
 the end of buffer.
 
@@ -1713,7 +1638,6 @@ the end of buffer.
 
 (defun org-taskforecast--move-task-link-to-todo-head (link-id file date day-start now)
   "Move a task link of LINK-ID to the head of todo task links of FILE.
-
 - ID is an id of org-id of a task link
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
@@ -1741,7 +1665,6 @@ the end of buffer.
 
 (defun org-taskforecast--get-section ()
   "Get a section at the current point.
-
 A returned value is an instance of `org-taskforecast--section'.
 If the heading is not a section, this function returns nil.
 
@@ -1770,7 +1693,6 @@ consider using `org-taskforecast--get-sections' instead."
 
 (defun org-taskforecast--get-section-by-id (id)
   "Get a section by ID.
-
 WARNING:
 This function does not set the effort and entries slot of the returned section.
 So those slots are still nil.
@@ -1781,14 +1703,12 @@ consider using `org-taskforecast--get-sections' instead."
 
 (defun org-taskforecast--get-sections (file day-start)
   "Get a section list from FILE.
-
 DAY-START is an integer like `org-taskforecast-day-start'."
   (-filter #'org-taskforecast-entry-is-section
            (org-taskforecast--get-entries file day-start)))
 
 (defun org-taskforecast--append-section (section-id start-time description file)
   "Append a section heading to the end of FILE.
-
 This function returns an ID of the section heading.
 
 - SECTION-ID is a string of section ID
@@ -1814,7 +1734,6 @@ This function returns an ID of the section heading.
 
 (defun org-taskforecast--append-section-maybe (section-id start-time description file day-start)
   "Append a section heading to the end of FILE.
-
 If a section heading corresponding to SECTION-ID already exists,
 this function does nothing.
 This function returns an ID of the section heading which was appended or
@@ -1838,7 +1757,6 @@ already exists corresponding to SECTION-ID.
 
 (defun org-taskforecast--sort-compare (a b comparators)
   "Compare A and B with COMPARATORS.
-
 A returned value is:
 - +1  if A > B
 - -1  if A < B
@@ -1850,7 +1768,6 @@ A returned value is:
 
 (defun org-taskforecast--sort-entry-up (entry file comparators day-start)
   "Sort ENTRY up in FILE.
-
 Move ENTRY up while it > previous one in FILE, like bubble sort.
 This function moves only ENTRY not all of entries in FILE.
 
@@ -1905,7 +1822,6 @@ This function moves only ENTRY not all of entries in FILE.
 
 (defun org-taskforecast-ss-effective-effort-up (a b)
   "Compare A and B by effective effort, high effort last.
-
 The order is:
 1. low effort
 2. high effort
@@ -1924,7 +1840,6 @@ The order is:
 
 (defun org-taskforecast-ss-effective-effort-down (a b)
   "Compare A and B by effective effort, high effort first.
-
 The order is:
 1. high effort
 2. low effort
@@ -1940,7 +1855,6 @@ The order is:
 
 (defun org-taskforecast--ss-todo-up (a b)
   "Compare A and B by todo state, done first.
-
 If A and/or B is an instance of `org-taskforecast--section',
 this function does not compare them.
 So the returned value is nil.
@@ -1958,7 +1872,6 @@ This is an internal comparator, so down version is not defined."
 
 (defun org-taskforecast--ss-interruption-up (a b)
   "Compare A and B by interruption property for a same task, older farst.
-
 If A and/or B is an instance of `org-taskforecast--section',
 this function does not compare them.
 So the returned value is nil.
@@ -1982,7 +1895,6 @@ This is an internal comparator, so down version is not defined."
 
 (defun org-taskforecast--ss-default-section-up (a b sections date)
   "Compare A and B by default section, earlier farst.
-
 This is an internal comparator, so down version is not defined.
 
 If an entry has no default section, this function tries to derive
@@ -2018,7 +1930,6 @@ a section by `org-taskforecast-entry-derive-default-section'.
 
 (defun org-taskforecast--ss-section-up (a b)
   "Compare A and B , section farst.
-
 This is an internal comparator, so down version is not defined."
   (-let (((sa sb)
           (-map #'org-taskforecast-entry-is-section (list a b))))
@@ -2028,7 +1939,6 @@ This is an internal comparator, so down version is not defined."
 
 (defun org-taskforecast--sort-comparators-for-task-link (file date day-start &optional sorting-storategies)
   "Get sort comparators for registering task link.
-
 - FILE is a today's daily task list file name
 - DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'
@@ -2052,7 +1962,6 @@ This is an internal comparator, so down version is not defined."
 
 (defun org-taskforecast--cache-drop (&rest _)
   "Drop cache data for a heading at point.
-
 This function is used for hook."
   (-some--> (org-id-get)
     (org-taskforecast--memoize-drop it)))
@@ -2063,7 +1972,6 @@ This function is used for hook."
 ;;;###autoload
 (define-minor-mode org-taskforecast-cache-mode
   "Cache parsing results and track heading modification.
-
 This global minor mode is used to reduce parsing time of org-mode text.
 This minor mode has 2 features:
 - cache parsing results of org-mode text
@@ -2137,7 +2045,6 @@ to nil."
 
 (defun org-taskforecast--ask-generat-sections (file sections date day-start)
   "Ask whether generate section headings to FILE if there is no ones.
-
 If the answer is yes, this function generates section headings by
 `org-taskforecast-generate-sections'.
 
@@ -2157,7 +2064,6 @@ If the answer is yes, this function generates section headings by
 ;;;###autoload
 (defun org-taskforecast-register-task (file date day-start &optional sections sorting-storategy)
   "Register a task at point as a task for today.
-
 When the task is already registered, this command does nothing.
 
 - FILE is a today's daily task list file name
@@ -2196,7 +2102,6 @@ When the task is already registered, this command does nothing.
 ;;;###autoload
 (defun org-taskforecast-register-tasks-for-today (file date day-start &optional sections sorting-storategy)
   "Register tasks for today or before as tasks for today from agenda files.
-
 If a task is not registered, register and sort it.
 If not, do nothing.
 
@@ -2249,7 +2154,6 @@ If not, do nothing.
 ;;;###autoload
 (defun org-taskforecast-generate-sections (file sections date day-start)
   "Generate sectios headings to FILE.
-
 The section headings are generated from SECTIONS.
 
 When this command is called interactively, generates section headings
@@ -2300,7 +2204,6 @@ from `org-taskforecast-sections' to today's daily task list file.
 
 (defcustom org-taskforecast-list-tlfmt-scheduled-strategy 'earlier
   "Which time to show as a scheduled time of a task between SCHEDULED and DEADLINE.
-
 This changes the behavior of `org-taskforecast-list-tlfmt-scheduled-time'."
   ;; "Later" is not implemented which may be unused.
   :type '(choice
@@ -2321,7 +2224,6 @@ This changes the behavior of `org-taskforecast-list-tlfmt-scheduled-time'."
 
 (defun org-taskforecast--list-get-entry-at-point ()
   "Get an entry data via text property from current point.
-
 When there is no entry data, this function returns nil."
   (save-excursion
     ;; A character of end of line (newline) is not propertized by
@@ -2333,7 +2235,6 @@ When there is no entry data, this function returns nil."
 
 (defun org-taskforecast--list-get-task-link-at-point ()
   "Get a task link data via text property from current point.
-
 When there is no task link data, this function returns nil."
   (-some--> (org-taskforecast--list-get-entry-at-point)
     (when (org-taskforecast-entry-is-task-link it)
@@ -2344,19 +2245,16 @@ When there is no task link data, this function returns nil."
 
 (defvar org-taskforecast-list-info-task-link nil
   "This variable is used to pass a task link to formatter.
-
 This value will be an instance of `org-taskforecast--tlink'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
 
 (defvar org-taskforecast-list-info-section nil
   "This variable is used to pass a section to formatter.
-
 This value will be an instance of `org-taskforecast--section'.
 See `org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-today nil
   "This variable is used to pass a date of today to formatter.
-
 This value will be an encoded time.
 Its hour, minute and second are set to zero.
 See `org-taskforecast-list-task-link-formatters' and
@@ -2364,26 +2262,22 @@ See `org-taskforecast-list-task-link-formatters' and
 
 (defvar org-taskforecast-list-info-now nil
   "This variable is used to pass the current time to formatter.
-
 This value will be an encoded time.
 See `org-taskforecast-list-task-link-formatters' and
 `org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-task-link-start-end-time nil
   "This variable is used to pass the start and end time to formatter.
-
 This value will be an instance of `org-taskforecast--eclock'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
 
 (defvar org-taskforecast-list-info-sections nil
   "This variable is used to pass the section list to formatter.
-
 This value will be a list of instances of `org-taskforecast--section'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
 
 (defmacro org-taskforecast--list-define-toggleable-tlfmt (name default docstring &rest body)
   "Define toggleable task link formatter.
-
 This macro defines two functions and a variable:
 - NAME: a task link formatter function
 - NAME-toggle: a command which toggles show/hide of the formatter
@@ -2415,7 +2309,6 @@ DEFAULT is the default value of NAME-show."
 
 (org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-scheduled-time t
   "Format scheduled/deadline time of a task.
-
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let* ((today org-taskforecast-list-info-today)
          (day-start org-taskforecast-day-start)
@@ -2468,7 +2361,6 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 (org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-effort t
   "Format effort property of a task.
-
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let ((effort (org-taskforecast-entry-effective-effort
                  org-taskforecast-list-info-task-link
@@ -2481,7 +2373,6 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 (org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-start t
   "Format time when a task has been started.
-
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (cl-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
@@ -2506,7 +2397,6 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 (org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-end t
   "Format time when a task has been closed.
-
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (cl-assert
    (let ((decoded (decode-time org-taskforecast-list-info-today)))
@@ -2545,7 +2435,6 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 (org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-clock t
   "Format clock of a task link.
-
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let* ((eclocks (org-taskforecast-entry-effective-clocks
                    org-taskforecast-list-info-task-link
@@ -2563,7 +2452,6 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 (org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-default-section-id nil
   "Format default section id of a task link.
-
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let ((day-start org-taskforecast-day-start)
         (task-link org-taskforecast-list-info-task-link)
@@ -2584,7 +2472,6 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 (defun org-taskforecast-list-tlfmt-todo ()
   "Format task link's todo state.
-
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (let ((todo-type
          (org-taskforecast-entry-todo-state-for-today
@@ -2601,7 +2488,6 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 (defun org-taskforecast-list-tlfmt-title ()
   "Format task's title.
-
 This function is used for `org-taskforecast-list-task-link-formatters'."
   (propertize (org-taskforecast-entry-title
                org-taskforecast-list-info-task-link)
@@ -2610,7 +2496,6 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 
 (defun org-taskforecast-list-secfmt-section ()
   "Format section.
-
 This function is used for `org-taskforecast-list-section-formatter'."
   (let* ((section org-taskforecast-list-info-section)
          (today org-taskforecast-list-info-today)
@@ -2634,7 +2519,6 @@ This function is used for `org-taskforecast-list-section-formatter'."
 
 (defun org-taskforecast--list-create-task-link-content (task-link sections date start-end-time now day-start)
   "Create a content of a task link for today's task list.
-
 - TASK-LINK is an instance of `org-taskforecast--tlink'
 - SECTIONS is a list of instances of `org-taskforecast--section'
 - DATE is an encoded time as a date of today
@@ -2655,7 +2539,6 @@ This function is used for `org-taskforecast-list-section-formatter'."
 
 (defun org-taskforecast--list-create-section-content (section date now day-start)
   "Create a content of a section for today's task list.
-
 - SECTION is an instance of `org-taskforecast--section'
 - DATE is an encoded time as a date of today
 - NOW is an encoded time as the current time
@@ -2669,7 +2552,6 @@ This function is used for `org-taskforecast-list-section-formatter'."
 
 (defun org-taskforecast--create-task-list (today day-start)
   "Create a today's task list for TODAY.
-
 This function returns a string as contents of `org-taskforecast-list-mode'.
 Task list data are stored at each line of listed tasks.
 To get them, use `org-taskforecast--list-get-task-link-at-point'.
@@ -2709,7 +2591,6 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
 
 (defun org-taskforecast--insert-task-list (today day-start)
   "Insert a TODAY's task list.
-
 This function inserts contents of `org-taskforecast-list-mode'.
 
 - TODAY is an encoded time
@@ -2757,13 +2638,11 @@ This function inserts contents of `org-taskforecast-list-mode'.
 
 (defun org-taskforecast--get-list-buffer ()
   "Get the buffer for `org-taskforecast-list-mode'.
-
 When the buffer is not found, this function returns nil."
   (get-buffer org-taskforecast--list-buffer-name))
 
 (defun org-taskforecast--create-list-buffer (today day-start)
   "Create a buffer for `org-taskforecast-list-mode'.
-
 If the buffer already exists, only returns the buffer.
 
 - TODAY is an encoded time
@@ -2781,7 +2660,6 @@ If the buffer already exists, only returns the buffer.
 ;;;###autoload
 (defun org-taskforecast-list (day-start)
   "Show the buffer of `org-taskforecast-list-mode'.
-
 DAY-START is an integer, see `org-taskforecast-day-start'."
   (interactive
    (list org-taskforecast-day-start))
@@ -2815,7 +2693,6 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
 
 (defun org-taskforecast-list-refresh (clear-cache)
   "Refresh `org-taskforecast-list-mode' buffer.
-
 If this command called with a prefix argument (CLEAR-CACHE),
 clear all cache data of `org-taskforecast-cache-mode'."
   (interactive "P")
@@ -2939,7 +2816,6 @@ clear all cache data of `org-taskforecast-cache-mode'."
 
 (defun org-taskforecast-list-postpone-link (date)
   "Postpone task link to DATE.
-
 DATE is an encoded time."
   (declare (interactive-only t))
   (interactive
@@ -2988,7 +2864,6 @@ DATE is an encoded time."
 
 (defun org-taskforecast-list-schedule (arg)
   "Call `org-schedule' for the task link at the current point.
-
 ARG is passed to `org-schedule'."
   (interactive "P")
   (declare (interactive-only t))
@@ -3002,7 +2877,6 @@ ARG is passed to `org-schedule'."
 
 (defun org-taskforecast-list-deadline (arg)
   "Call `org-deadline' for the task link at the current point.
-
 ARG is passed to `org-deadline'."
   (interactive "P")
   (declare (interactive-only t))
