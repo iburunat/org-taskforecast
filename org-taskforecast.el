@@ -2449,13 +2449,17 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
 (org-taskforecast--list-define-toggleable-tlfmt org-taskforecast-list-tlfmt-default-section-id nil
   "Format default section id of a task link.
 This function is used for `org-taskforecast-list-task-link-formatters'."
-  (let ((day-start org-taskforecast-day-start)
-        (task-link org-taskforecast-list-info-task-link)
-        (date org-taskforecast-list-info-today)
-        (sections org-taskforecast-list-info-sections)
-        (len (--> (-map #'cl-first org-taskforecast-sections)
-                  (-map #'length it)
-                  (-max it))))
+  (let* ((day-start org-taskforecast-day-start)
+         (task-link org-taskforecast-list-info-task-link)
+         (date org-taskforecast-list-info-today)
+         (sections org-taskforecast-list-info-sections)
+         (len (--> (append (-map #'cl-first org-taskforecast-sections)
+                           (-map #'org-taskforecast-section-section-id
+                                 sections))
+                   (-map #'length it)
+                   ;; if there is no sections and no section templates,
+                   ;; use "    " as dummy string
+                   (if it (-max it) 4))))
     (--> (org-taskforecast-entry-default-section-id task-link)
          (if it
              it
