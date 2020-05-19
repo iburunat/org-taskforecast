@@ -1776,7 +1776,7 @@ A returned value is:
              when (eql res +1) return +1
              when (eql res -1) return -1)))
 
-(defun org-taskforecast--sort-entry-up (entry file comparators day-start)
+(defun org-taskforecast--sort-entry-up (entry file comparators date day-start)
   "Sort ENTRY up in FILE.
 Move ENTRY up while it > previous one in FILE, like bubble sort.
 This function moves only ENTRY not all of entries in FILE.
@@ -1784,8 +1784,10 @@ This function moves only ENTRY not all of entries in FILE.
 - ENTRY is an entry instance
 - FILE is a today's daily task list file name
 - COMPARATORS is a list of camparators like `org-taskforecast-sorting-storategy'
+- DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (let* ((entries (org-taskforecast--get-entries file day-start))
+         (sections (-filter #'org-taskforecast-entry-is-section entries))
          (target-entry-p (lambda (a)
                            (string= (org-taskforecast-entry-id a)
                                     (org-taskforecast-entry-id entry))))
@@ -1794,7 +1796,8 @@ This function moves only ENTRY not all of entries in FILE.
       (-let (((head _) (-split-when target-entry-p entries))
              (insert-before nil))
         (--each-r-while head
-            (eql +1 (org-taskforecast--sort-compare entry it comparators))
+            (eql +1 (org-taskforecast--sort-compare
+                     entry it comparators sections date))
           (setq insert-before it))
         (when insert-before
           (-let ((tree (org-taskforecast--cut-heading-by-id
@@ -2098,6 +2101,7 @@ When the task is already registered, this command does nothing.
               it file
               (org-taskforecast--sort-comparators-for-task-link
                sorting-storategy)
+              date
               day-start)))
     (user-error "Heading is not a task")))
 
@@ -2151,7 +2155,7 @@ If not, do nothing.
                 (--> (org-taskforecast--append-task-link id file)
                      (org-taskforecast--get-task-link-by-id it)
                      (org-taskforecast--sort-entry-up
-                      it file comparators day-start))))))))))
+                      it file comparators date day-start))))))))))
 
 ;;;###autoload
 (defun org-taskforecast-generate-sections (file sections date day-start)
@@ -2187,6 +2191,7 @@ from `org-taskforecast-sections' to today's daily task list file.
                         (org-taskforecast--get-sections file day-start)
                         date)
              #'org-taskforecast--ss-section-up)
+            date
             day-start)))))
 
 ;;;;; Setting properties
@@ -2861,6 +2866,7 @@ DATE is an encoded time."
        file
        (org-taskforecast--sort-comparators-for-task-link
         org-taskforecast-sorting-storategy)
+       date
        org-taskforecast-day-start))
     ;; Move the cursor to the next line or the previous line to prevent
     ;; moving the cursor to the top of a task list.
