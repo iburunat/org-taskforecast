@@ -1812,6 +1812,17 @@ This function moves only ENTRY not all of entries in FILE.
                   (insert tree "\n"))))))))))
 
 ;; Comparators
+;;
+;; Comparator is a function compares two entry interface objects.
+;; Let the arguments A and B, the function should return:
+;; - +1  if A > B
+;; - nil if A = B
+;; - -1  if A < B
+;;
+;; Comparators are given additional information via global variables below:
+;; - `org-taskforecast-sort-info-today'
+;; - `org-taskforecast-sort-info-sections'
+;; For more details of them, see their documentation.
 
 (defun org-taskforecast-ss-time-up (a b)
   "Compare A and B by scheduled/deadline, early first."
