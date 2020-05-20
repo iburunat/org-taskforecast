@@ -2186,10 +2186,7 @@ from `org-taskforecast-sections' to today's daily task list file.
            (org-taskforecast--sort-entry-up
             it file
             (list
-             (-rpartial #'org-taskforecast--ss-default-section-up
-                        ;; re-getting sectios to include the appended section
-                        (org-taskforecast--get-sections file day-start)
-                        date)
+             #'org-taskforecast--ss-default-section-up
              #'org-taskforecast--ss-section-up)
             date
             day-start)))))
