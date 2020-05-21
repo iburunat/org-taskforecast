@@ -1751,18 +1751,32 @@ already exists corresponding to SECTION-ID.
 
 ;;;; Sort
 
-(defun org-taskforecast--sort-compare (a b comparators)
+(defvar org-taskforecast-sort-info-today nil
+  "This variable is used to pass a date of today to sort comparators.
+This value will be an encoded time.
+Its hour, minute and second are set to zero.")
+
+(defvar org-taskforecast-sort-info-sections nil
+  "This variable is used to pass the section list to sort comparators.
+This value will be a list of instances of `org-taskforecast--section'.")
+
+(defun org-taskforecast--sort-compare (a b comparators sections date)
   "Compare A and B with COMPARATORS.
 A returned value is:
 - +1  if A > B
 - -1  if A < B
-- nil if A == B"
-  (cl-loop for cmp in comparators
-           for res = (funcall cmp a b)
-           when (eql res +1) return +1
-           when (eql res -1) return -1))
+- nil if A == B
 
-(defun org-taskforecast--sort-entry-up (entry file comparators day-start)
+- SECTIONS is a list of instances of `org-taskforecast--section'.
+- DATE is an encoded time as a date of today"
+  (let ((org-taskforecast-sort-info-sections sections)
+        (org-taskforecast-sort-info-today date))
+    (cl-loop for cmp in comparators
+             for res = (funcall cmp a b)
+             when (eql res +1) return +1
+             when (eql res -1) return -1)))
+
+(defun org-taskforecast--sort-entry-up (entry file comparators date day-start)
   "Sort ENTRY up in FILE.
 Move ENTRY up while it > previous one in FILE, like bubble sort.
 This function moves only ENTRY not all of entries in FILE.
@@ -1770,8 +1784,10 @@ This function moves only ENTRY not all of entries in FILE.
 - ENTRY is an entry instance
 - FILE is a today's daily task list file name
 - COMPARATORS is a list of camparators like `org-taskforecast-sorting-storategy'
+- DATE is an encoded time as a date of today
 - DAY-START is an integer like `org-taskforecast-day-start'"
   (let* ((entries (org-taskforecast--get-entries file day-start))
+         (sections (-filter #'org-taskforecast-entry-is-section entries))
          (target-entry-p (lambda (a)
                            (string= (org-taskforecast-entry-id a)
                                     (org-taskforecast-entry-id entry))))
@@ -1780,7 +1796,8 @@ This function moves only ENTRY not all of entries in FILE.
       (-let (((head _) (-split-when target-entry-p entries))
              (insert-before nil))
         (--each-r-while head
-            (eql +1 (org-taskforecast--sort-compare entry it comparators))
+            (eql +1 (org-taskforecast--sort-compare
+                     entry it comparators sections date))
           (setq insert-before it))
         (when insert-before
           (-let ((tree (org-taskforecast--cut-heading-by-id
@@ -1795,6 +1812,17 @@ This function moves only ENTRY not all of entries in FILE.
                   (insert tree "\n"))))))))))
 
 ;; Comparators
+;;
+;; Comparator is a function compares two entry interface objects.
+;; Let the arguments A and B, the function should return:
+;; - +1  if A > B
+;; - nil if A = B
+;; - -1  if A < B
+;;
+;; Comparators are given additional information via global variables below:
+;; - `org-taskforecast-sort-info-today'
+;; - `org-taskforecast-sort-info-sections'
+;; For more details of them, see their documentation.
 
 (defun org-taskforecast-ss-time-up (a b)
   "Compare A and B by scheduled/deadline, early first."
@@ -1822,11 +1850,10 @@ The order is:
 1. low effort
 2. high effort
 3. no effort"
-  (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-         (eea (org-taskforecast-entry-effective-effort
-               a today org-taskforecast-day-start))
-         (eeb (org-taskforecast-entry-effective-effort
-               b today org-taskforecast-day-start)))
+  (let ((eea (org-taskforecast-entry-effective-effort
+              a org-taskforecast-sort-info-today org-taskforecast-day-start))
+        (eeb (org-taskforecast-entry-effective-effort
+              b org-taskforecast-sort-info-today org-taskforecast-day-start)))
     (cond ((and eea eeb (< eea eeb)) +1)
           ((and eea eeb (> eea eeb)) -1)
           ((and eea eeb (= eea eeb)) nil)
@@ -1840,11 +1867,10 @@ The order is:
 1. high effort
 2. low effort
 3. no effort"
-  (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-         (eea (org-taskforecast-entry-effective-effort
-               a today org-taskforecast-day-start))
-         (eeb (org-taskforecast-entry-effective-effort
-               b today org-taskforecast-day-start)))
+  (let ((eea (org-taskforecast-entry-effective-effort
+              a org-taskforecast-sort-info-today org-taskforecast-day-start))
+        (eeb (org-taskforecast-entry-effective-effort
+              b org-taskforecast-sort-info-today org-taskforecast-day-start)))
     (cond ((and eea (null eeb)) +1)
           ((and (null eea) eeb) -1)
           (t (org-taskforecast-ss-effective-effort-up b a)))))
@@ -1857,11 +1883,10 @@ So the returned value is nil.
 
 This is an internal comparator, so down version is not defined."
   (unless (-any #'org-taskforecast-entry-is-section (list a b))
-    (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-           (sa (org-taskforecast-entry-todo-state-for-today
-                a today org-taskforecast-day-start))
-           (sb (org-taskforecast-entry-todo-state-for-today
-                b today org-taskforecast-day-start)))
+    (let ((sa (org-taskforecast-entry-todo-state-for-today
+               a org-taskforecast-sort-info-today org-taskforecast-day-start))
+          (sb (org-taskforecast-entry-todo-state-for-today
+               b org-taskforecast-sort-info-today org-taskforecast-day-start)))
       (cond ((and (eq sa 'done) (eq sb 'todo)) +1)
             ((and (eq sa 'todo) (eq sb 'done)) -1)
             (t nil)))))
@@ -1889,28 +1914,28 @@ This is an internal comparator, so down version is not defined."
             ((or (null eea) (null esb)) -1)
             (t nil)))))
 
-(defun org-taskforecast--ss-default-section-up (a b sections date)
+(defun org-taskforecast--ss-default-section-up (a b)
   "Compare A and B by default section, earlier farst.
 This is an internal comparator, so down version is not defined.
 
 If an entry has no default section, this function tries to derive
-a section by `org-taskforecast-entry-derive-default-section'.
-
-- SECTIONS is a list of instances of `org-taskforecast--section'.
-- DATE is an encoded time as a date of today"
+a section by `org-taskforecast-entry-derive-default-section'."
   (-let* ((day-start org-taskforecast-day-start)
           (id-st
            (--map
             (cons (org-taskforecast-section-section-id it)
                   (org-taskforecast-section-start-time it))
-            sections))
+            org-taskforecast-sort-info-sections))
           ((sta stb)
            (--> (list a b)
                 (--map
                  (or
                   (org-taskforecast-entry-default-section-id it)
                   (-some--> (org-taskforecast-entry-derive-default-section
-                             it sections date day-start)
+                             it
+                             org-taskforecast-sort-info-sections
+                             org-taskforecast-sort-info-today
+                             day-start)
                     (org-taskforecast-section-section-id it)))
                  it)
                 (--map
@@ -1933,19 +1958,14 @@ This is an internal comparator, so down version is not defined."
           ((and (not sa) sb) -1)
           (t nil))))
 
-(defun org-taskforecast--sort-comparators-for-task-link (file date day-start &optional sorting-storategies)
-  "Get sort comparators for registering task link.
-- FILE is a today's daily task list file name
-- DATE is an encoded time as a date of today
-- DAY-START is an integer like `org-taskforecast-day-start'
-- SORTING-STORATEGIES is a list of additional comparators"
+(defun org-taskforecast--sort-comparators-for-task-link (additional-comparators)
+  "Get sort comparators for registering a task link.
+ADDITIONAL-COMPARATORS is a list of additional comparators"
   (append (list #'org-taskforecast--ss-interruption-up
                 #'org-taskforecast--ss-todo-up
-                (-rpartial
-                 #'org-taskforecast--ss-default-section-up
-                 (org-taskforecast--get-sections file day-start) date)
+                #'org-taskforecast--ss-default-section-up
                 #'org-taskforecast--ss-section-up)
-          sorting-storategies))
+          additional-comparators))
 
 
 ;;;; org-taskforecast-cache-mode
@@ -2091,7 +2111,8 @@ When the task is already registered, this command does nothing.
              (org-taskforecast--sort-entry-up
               it file
               (org-taskforecast--sort-comparators-for-task-link
-               file date day-start sorting-storategy)
+               sorting-storategy)
+              date
               day-start)))
     (user-error "Heading is not a task")))
 
@@ -2140,12 +2161,12 @@ If not, do nothing.
                    (registerdp (org-taskforecast--get-task-links-for-task
                                 id file))
                    (comparators (org-taskforecast--sort-comparators-for-task-link
-                                 file date day-start sorting-storategy)))
+                                 sorting-storategy)))
               (when (not registerdp)
                 (--> (org-taskforecast--append-task-link id file)
                      (org-taskforecast--get-task-link-by-id it)
                      (org-taskforecast--sort-entry-up
-                      it file comparators day-start))))))))))
+                      it file comparators date day-start))))))))))
 
 ;;;###autoload
 (defun org-taskforecast-generate-sections (file sections date day-start)
@@ -2176,11 +2197,9 @@ from `org-taskforecast-sections' to today's daily task list file.
            (org-taskforecast--sort-entry-up
             it file
             (list
-             (-rpartial #'org-taskforecast--ss-default-section-up
-                        ;; re-getting sectios to include the appended section
-                        (org-taskforecast--get-sections file day-start)
-                        date)
+             #'org-taskforecast--ss-default-section-up
              #'org-taskforecast--ss-section-up)
+            date
             day-start)))))
 
 ;;;;; Setting properties
@@ -2854,7 +2873,8 @@ DATE is an encoded time."
        (org-taskforecast--get-task-link-by-id new-link-id)
        file
        (org-taskforecast--sort-comparators-for-task-link
-        file date org-taskforecast-day-start org-taskforecast-sorting-storategy)
+        org-taskforecast-sorting-storategy)
+       date
        org-taskforecast-day-start))
     ;; Move the cursor to the next line or the previous line to prevent
     ;; moving the cursor to the top of a task list.
