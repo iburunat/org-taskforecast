@@ -2686,29 +2686,45 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
    (org-taskforecast--create-list-buffer
     (org-taskforecast--today day-start) day-start)))
 
+(defmacro org-taskforecast--save-window-start (buffer &rest body)
+  "Save window start position of windows while evaluating BODY.
+Windows displaying BUFFER are the targets."
+  (declare (debug t) (indent 1))
+  (let ((conf-sym (cl-gensym "conf-"))
+        (buf-sym (cl-gensym "buf-")))
+    `(let* ((,buf-sym ,buffer)
+            (,conf-sym
+             (--> (window-list)
+                  (--filter (eq ,buf-sym (window-buffer it)) it)
+                  (--map (cons it (window-start it)) it))))
+       (prog1 (progn ,@body)
+         (--each ,conf-sym
+           (set-window-start (car it) (cdr it) t))))))
+
 (defun org-taskforecast--list-refresh ()
   "Refresh `org-taskforecast-list-mode' buffer."
   (-when-let (buffer (org-taskforecast--get-list-buffer))
     (with-current-buffer buffer
-      (let ((inhibit-read-only t)
-            (current-entry (org-taskforecast--list-get-entry-at-point)))
-        (erase-buffer)
-        (org-taskforecast--insert-task-list
-         (org-taskforecast--today org-taskforecast-day-start)
-         org-taskforecast-day-start)
-        ;; Restore the line position of the cursor
-        (goto-char (point-min))
-        (-some--> current-entry
-          (save-excursion
-            (cl-loop until (eobp)
-                     for entry = (org-taskforecast--list-get-entry-at-point)
-                     if (and entry
-                             (string=
-                              (org-taskforecast-entry-id it)
-                              (org-taskforecast-entry-id entry)))
-                     return (point)
-                     else do (forward-line)))
-          (goto-char it))))))
+      (org-taskforecast--save-window-start buffer
+        (let ((inhibit-read-only t)
+              (current-entry (org-taskforecast--list-get-entry-at-point)))
+          (erase-buffer)
+          (org-taskforecast--insert-task-list
+           (org-taskforecast--today org-taskforecast-day-start)
+           org-taskforecast-day-start)
+          ;; Restore the line position of the cursor
+          (goto-char (point-min))
+          (-some--> current-entry
+            (save-excursion
+              (cl-loop until (eobp)
+                       for entry = (org-taskforecast--list-get-entry-at-point)
+                       if (and entry
+                               (string=
+                                (org-taskforecast-entry-id it)
+                                (org-taskforecast-entry-id entry)))
+                       return (point)
+                       else do (forward-line)))
+            (goto-char it)))))))
 
 (defun org-taskforecast-list-refresh (clear-cache)
   "Refresh `org-taskforecast-list-mode' buffer.
