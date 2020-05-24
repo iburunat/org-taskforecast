@@ -2635,6 +2635,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "C-c C-s") #'org-taskforecast-list-schedule)
     (define-key map (kbd "C-c C-d") #'org-taskforecast-list-deadline)
     (define-key map (kbd "z") #'org-taskforecast-list-add-note)
+    (define-key map (kbd ":") #'org-taskforecast-list-set-tags)
     (define-key map (kbd "S") #'org-taskforecast-list-set-default-section-id)
     (define-key map (kbd "vS") #'org-taskforecast-list-tlfmt-scheduled-time-toggle)
     (define-key map (kbd "vf") #'org-taskforecast-list-tlfmt-effort-toggle)
@@ -2933,6 +2934,18 @@ ARG is passed to `org-deadline'."
       (progn
         (org-taskforecast--at-id task-id
           (org-add-note))
+        (org-taskforecast--list-refresh))
+    (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-set-tags ()
+  "Call `org-set-tags-command' for the task at the current point."
+  (interactive)
+  (declare (interactive-only t))
+  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+             (task-id (org-taskforecast-tlink-task-id task-link)))
+      (progn
+        (org-taskforecast--at-id task-id
+          (call-interactively #'org-set-tags-command))
         (org-taskforecast--list-refresh))
     (user-error "Task link not found at the current line")))
 

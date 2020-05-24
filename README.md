@@ -254,6 +254,7 @@ Also you can manipulate the tasks like org-agenda.
 | `C-c C-s` | `org-taskforecast-list-schedule`               |
 | `C-c C-d` | `org-taskforecast-list-deadline`               |
 | `z`       | `org-taskforecast-list-add-note`               |
+| `:`       | `org-taskforecast-list-set-tags`               |
 | `S`       | `org-taskforecast-list-set-default-section-id` |
 
 #### Control formatter
