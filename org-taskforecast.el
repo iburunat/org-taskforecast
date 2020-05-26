@@ -2218,7 +2218,7 @@ from `org-taskforecast-sections' to today's daily task list file.
 ;;;; task-forecast-list mode
 
 (defcustom org-taskforecast-list-tlfmt-scheduled-strategy 'earlier
-  "Which time to show as a scheduled time of a task between SCHEDULED and DEADLINE.
+  "Which time to show as a scheduled time of a task, SCHEDULED or DEADLINE.
 This changes the behavior of `org-taskforecast-list-tlfmt-scheduled-time'."
   ;; "Later" is not implemented which may be unused.
   :type '(choice
