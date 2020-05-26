@@ -2162,7 +2162,7 @@ If not, do nothing.
                                 id file))
                    (comparators (org-taskforecast--sort-comparators-for-task-link
                                  sorting-storategy)))
-              (when (not registerdp)
+              (unless registerdp
                 (--> (org-taskforecast--append-task-link id file)
                      (org-taskforecast--get-task-link-by-id it)
                      (org-taskforecast--sort-entry-up
