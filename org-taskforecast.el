@@ -282,11 +282,6 @@ This function returns an encoded time as a date of today."
     (org-taskforecast--time-as-date
      (apply #'org-taskforecast--encode-time decoded))))
 
-(defun org-taskforecast--today (day-start)
-  "Get today's date of now.
-DAY-START is an integer, see `org-taskforecast-day-start'."
-  (org-taskforecast--date-of-time (current-time) day-start))
-
 (defun org-taskforecast--time-to-hhmm (time today)
   "Convert TIME to hour and minute as time of TODAY.
 A returned value is a list like (hour minute)."
@@ -2088,7 +2083,9 @@ When the task is already registered, this command does nothing.
 - SECTIONS is a list of section definitions like `org-taskforecast-sections'
 - SORTING-STORATEGY is a list, see `org-taskforecast-sorting-storategy'"
   (interactive
-   (let ((today (org-taskforecast--today org-taskforecast-day-start)))
+   (let ((today (org-taskforecast--date-of-time
+                 (current-time)
+                 org-taskforecast-day-start)))
      (list (org-taskforecast-get-dailylist-file today)
            today
            org-taskforecast-day-start
@@ -2128,7 +2125,9 @@ If not, do nothing.
 - SECTIONS is a list of section definitions like `org-taskforecast-sections'
 - SORTING-STORATEGY is a list, see `org-taskforecast-sorting-storategy'"
   (interactive
-   (let ((today (org-taskforecast--today org-taskforecast-day-start)))
+   (let ((today (org-taskforecast--date-of-time
+                 (current-time)
+                 org-taskforecast-day-start)))
      (list (org-taskforecast-get-dailylist-file today)
            today
            org-taskforecast-day-start
@@ -2180,7 +2179,9 @@ from `org-taskforecast-sections' to today's daily task list file.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (interactive
-   (let ((today (org-taskforecast--today org-taskforecast-day-start)))
+   (let ((today (org-taskforecast--date-of-time
+                 (current-time)
+                 org-taskforecast-day-start)))
      (list (org-taskforecast-get-dailylist-file today)
            org-taskforecast-sections
            today
@@ -2678,14 +2679,15 @@ If the buffer already exists, only returns the buffer.
           (current-buffer)))))
 
 ;;;###autoload
-(defun org-taskforecast-list (day-start)
+(defun org-taskforecast-list (date day-start)
   "Show the buffer of `org-taskforecast-list-mode'.
-DAY-START is an integer, see `org-taskforecast-day-start'."
+- DATE is an encoded time as a date of today
+- DAY-START is an integer, see `org-taskforecast-day-start'"
   (interactive
-   (list org-taskforecast-day-start))
+   (list (org-taskforecast--date-of-time (current-time) day-start)
+         org-taskforecast-day-start))
   (switch-to-buffer
-   (org-taskforecast--create-list-buffer
-    (org-taskforecast--today day-start) day-start)))
+   (org-taskforecast--create-list-buffer date day-start)))
 
 (defmacro org-taskforecast--save-window-start (buffer &rest body)
   "Save window start position of windows while evaluating BODY.
@@ -2702,8 +2704,9 @@ Windows displaying BUFFER are the targets."
          (--each ,conf-sym
            (set-window-start (car it) (cdr it) t))))))
 
-(defun org-taskforecast--list-refresh ()
-  "Refresh `org-taskforecast-list-mode' buffer."
+(defun org-taskforecast--list-refresh (now)
+  "Refresh `org-taskforecast-list-mode' buffer.
+NOW is an encoded time."
   (-when-let (buffer (org-taskforecast--get-list-buffer))
     (with-current-buffer buffer
       (org-taskforecast--save-window-start buffer
@@ -2711,7 +2714,7 @@ Windows displaying BUFFER are the targets."
               (current-entry (org-taskforecast--list-get-entry-at-point)))
           (erase-buffer)
           (org-taskforecast--insert-task-list
-           (org-taskforecast--today org-taskforecast-day-start)
+           (org-taskforecast--date-of-time now org-taskforecast-day-start)
            org-taskforecast-day-start)
           ;; Restore the line position of the cursor
           (goto-char (point-min))
@@ -2970,12 +2973,13 @@ ARG is passed to `org-deadline'."
 
 (defun org-taskforecast--track-clock-in-task ()
   "Register clocked-in task and move it to top of todo tasks."
-  (-when-let* ((today (org-taskforecast--today org-taskforecast-day-start))
+  (-when-let* ((now (current-time))
+               (today (org-taskforecast--date-of-time
+                       now org-taskforecast-day-start))
                (file (org-taskforecast-get-dailylist-file today))
                (task (org-taskforecast--get-task))
                (todo-type (org-taskforecast-task-todo-state-for-today
-                           task today org-taskforecast-day-start))
-               (now (current-time)))
+                           task today org-taskforecast-day-start)))
     ;; A new task link will not be registered if the task's state is done
     ;; and some task links for the task is already registered.
     ;; This function's purpose for a clocked-in task are:
@@ -2998,9 +3002,10 @@ ARG is passed to `org-deadline'."
   ;; "reference to free variable" warning without definition of the variable
   ;; in this file.
   (when (org-entry-is-done-p)
-    (let* ((today (org-taskforecast--today org-taskforecast-day-start))
-           (file (org-taskforecast-get-dailylist-file today))
-           (now (current-time)))
+    (let* ((now (current-time))
+           (today (org-taskforecast--date-of-time
+                   now org-taskforecast-day-start))
+           (file (org-taskforecast-get-dailylist-file today)))
       (-if-let* ((task (org-taskforecast--get-task))
                  (id (org-taskforecast-task-id task))
                  (head-pos (org-taskforecast--get-todo-entry-head-pos
