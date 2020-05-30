@@ -2310,14 +2310,15 @@ DEFAULT is the default value of NAME-show."
   (declare (indent 2))
   (let* ((namestr (symbol-name name))
          (name-toggle (intern (concat namestr "-toggle")))
-         (name-show (intern (concat namestr "-show"))))
+         (name-show (intern (concat namestr "-show")))
+         (now-sym (cl-gensym "now-")))
     `(progn
        (defvar ,name-show ,default ,(format "Show/hide state of `%s'." name))
-       (defun ,name-toggle ()
+       (defun ,name-toggle (,now-sym)
          ,(format "Toggle show/hide of `%s'." name)
-         (interactive)
+         (interactive (list (current-time)))
          (cl-callf not ,name-show)
-         (org-taskforecast-list-refresh nil))
+         (org-taskforecast-list-refresh nil ,now-sym))
        (defun ,name ()
          ,docstring
          (when ,name-show
@@ -2731,34 +2732,37 @@ NOW is an encoded time."
                        else do (forward-line)))
             (goto-char it)))))))
 
-(defun org-taskforecast-list-refresh (clear-cache)
+(defun org-taskforecast-list-refresh (clear-cache now)
   "Refresh `org-taskforecast-list-mode' buffer.
 If this command called with a prefix argument (CLEAR-CACHE),
-clear all cache data of `org-taskforecast-cache-mode'."
-  (interactive "P")
+clear all cache data of `org-taskforecast-cache-mode'.
+NOW is an encoded time."
+  (interactive (list current-prefix-arg (current-time)))
   (when clear-cache
     (org-taskforecast-cache-clear))
   (if (org-taskforecast--get-list-buffer)
-      (org-taskforecast--list-refresh)
+      (org-taskforecast--list-refresh now)
     (user-error "List buffer, %s, is not found"
                 org-taskforecast--list-buffer-name)))
 
-(defun org-taskforecast-list-clock-in ()
-  "Start the clock on the task linked from the current line."
-  (interactive)
+(defun org-taskforecast-list-clock-in (now)
+  "Start the clock on the task linked from the current line.
+NOW is an encoded time."
+  (interactive (list (current-time)))
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
           (org-clock-in))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Task link not found at the current line")))
 
-(defun org-taskforecast-list-clock-out ()
-  "Stop the current running clock."
-  (interactive)
+(defun org-taskforecast-list-clock-out (now)
+  "Stop the current running clock.
+NOW is an encoded time."
+  (interactive (list (current-time)))
   (org-clock-out)
-  (org-taskforecast--list-refresh))
+  (org-taskforecast--list-refresh now))
 
 (defun org-taskforecast-list-next-line ()
   "Go to the next line."
@@ -2793,43 +2797,47 @@ clear all cache data of `org-taskforecast-cache-mode'."
       (org-id-goto task-id)
     (user-error "Task link not found at the current line")))
 
-(defun org-taskforecast-list-todo ()
-  "Change the TODO state of the task linked from the current line."
-  (interactive)
+(defun org-taskforecast-list-todo (now)
+  "Change the TODO state of the task linked from the current line.
+NOW is an encoded time."
+  (interactive (list (current-time)))
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
           (org-todo))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Task link not found at the current line")))
 
-(defun org-taskforecast-list-set-effort ()
-  "Change Effort property of the task at the current line."
-  (interactive)
+(defun org-taskforecast-list-set-effort (now)
+  "Change Effort property of the task at the current line.
+NOW is an encoded time."
+  (interactive (list (current-time)))
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
           (org-set-effort))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Task link not found at the current line")))
 
-(defun org-taskforecast-list-move-entry-up (&optional arg)
-  "Move entry at the current line up past ARG others."
-  (interactive "p")
+(defun org-taskforecast-list-move-entry-up (arg now)
+  "Move entry at the current line up past ARG others.
+NOW is an encoded time."
+  (interactive (list (prefix-numeric-value current-prefix-arg) (current-time)))
   (-if-let* ((entry (org-taskforecast--list-get-entry-at-point))
              (id (org-taskforecast-entry-id entry)))
       (progn
         (org-taskforecast--at-id id
           (org-move-subtree-up arg))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Entry not found at the current line")))
 
-(defun org-taskforecast-list-move-entry-down (&optional arg)
-  "Move entry at the current line down past ARG others."
-  (interactive "p")
-  (org-taskforecast-list-move-entry-up (- arg)))
+(defun org-taskforecast-list-move-entry-down (arg now)
+  "Move entry at the current line down past ARG others.
+NOW is an encoded time."
+  (interactive (list (prefix-numeric-value current-prefix-arg) (current-time)))
+  (org-taskforecast-list-move-entry-up (- arg) now))
 
 (defun org-taskforecast--list-remove-link (link-id)
   "Remove a task-link of LINK-ID."
@@ -2840,9 +2848,10 @@ clear all cache data of `org-taskforecast-cache-mode'."
         (org-narrow-to-subtree)
         (delete-region (point-min) (point-max))))))
 
-(defun org-taskforecast-list-remove-entry ()
-  "Remove an entry at the current line."
-  (interactive)
+(defun org-taskforecast-list-remove-entry (now)
+  "Remove an entry at the current line.
+NOW is an encoded time."
+  (interactive (list (current-time)))
   (-when-let* ((entry (org-taskforecast--list-get-entry-at-point))
                (id (org-taskforecast-entry-id entry))
                (title (org-taskforecast-entry-title entry)))
@@ -2851,32 +2860,34 @@ clear all cache data of `org-taskforecast-cache-mode'."
     ;; moving the cursor to the top of a task list.
     (when (or (/= 0 (forward-line 1)) (eobp))
       (forward-line -1))
-    (org-taskforecast--list-refresh)
+    (org-taskforecast--list-refresh now)
     (message "%s has been removed from task list." title)))
 
-(defun org-taskforecast-list-postpone-link (date)
+(defun org-taskforecast-list-postpone-link (date now)
   "Postpone task link to DATE.
-DATE is an encoded time."
+- DATE is an encoded time
+- NOW is an encoded time"
   (declare (interactive-only t))
   (interactive
-   (list (let ((link (org-taskforecast--list-get-task-link-at-point)))
-           (cond ((not link)
+   (let ((link (org-taskforecast--list-get-task-link-at-point))
+         (now (current-time)))
+     (list (cond ((not link)
                   (user-error "Task link not found at the current line"))
                  ((eq 'done
                       (org-taskforecast-entry-todo-state-for-today
-                       link (current-time) org-taskforecast-day-start))
+                       link now org-taskforecast-day-start))
                   (user-error "Done task cannot be postponed"))
                  (t
                   (org-read-date
                    nil t nil
                    (format "Postpone %s to: "
-                           (org-taskforecast-entry-title link))))))))
+                           (org-taskforecast-entry-title link)))))
+           now)))
   ;; Error checking is done in interactive code above.
   (-when-let* ((link (org-taskforecast--list-get-task-link-at-point))
                (link-id (org-taskforecast-tlink-id link))
                (task-id (org-taskforecast-tlink-task-id link))
-               (file (org-taskforecast-get-dailylist-file date))
-               (now (current-time)))
+               (file (org-taskforecast-get-dailylist-file date)))
     (when (called-interactively-p 'any)
       (org-taskforecast--ask-generat-sections
        file org-taskforecast-sections date org-taskforecast-day-start))
@@ -2901,67 +2912,72 @@ DATE is an encoded time."
     ;; moving the cursor to the top of a task list.
     (when (or (/= 0 (forward-line 1)) (eobp))
       (forward-line -1))
-    (org-taskforecast--list-refresh)))
+    (org-taskforecast--list-refresh now)))
 
-(defun org-taskforecast-list-schedule (arg)
+(defun org-taskforecast-list-schedule (arg now)
   "Call `org-schedule' for the task link at the current point.
-ARG is passed to `org-schedule'."
-  (interactive "P")
+ARG is passed to `org-schedule'.
+NOW is an encoded time."
+  (interactive (list current-prefix-arg (current-time)))
   (declare (interactive-only t))
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
           (org-schedule arg))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Task link not found at the current line")))
 
-(defun org-taskforecast-list-deadline (arg)
+(defun org-taskforecast-list-deadline (arg now)
   "Call `org-deadline' for the task link at the current point.
-ARG is passed to `org-deadline'."
-  (interactive "P")
+ARG is passed to `org-deadline'.
+NOW is an encoded time."
+  (interactive (list current-prefix-arg (current-time)))
   (declare (interactive-only t))
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
           (org-deadline arg))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Task link not found at the current line")))
 
-(defun org-taskforecast-list-add-note ()
-  "Call `org-add-note' for the task at the current point."
-  (interactive)
+(defun org-taskforecast-list-add-note (now)
+  "Call `org-add-note' for the task at the current point.
+NOW is an encoded time."
+  (interactive (list (current-time)))
   (declare (interactive-only t))
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
           (org-add-note))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Task link not found at the current line")))
 
-(defun org-taskforecast-list-set-tags ()
-  "Call `org-set-tags-command' for the task at the current point."
-  (interactive)
+(defun org-taskforecast-list-set-tags (now)
+  "Call `org-set-tags-command' for the task at the current point.
+NOW is an encoded time."
+  (interactive (list (current-time)))
   (declare (interactive-only t))
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
           (call-interactively #'org-set-tags-command))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Task link not found at the current line")))
 
-(defun org-taskforecast-list-set-default-section-id ()
-  "Set default section id of the task at the current line."
-  (interactive)
+(defun org-taskforecast-list-set-default-section-id (now)
+  "Set default section id of the task at the current line.
+NOW is an encoded time."
+  (interactive (list (current-time)))
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (progn
         (org-taskforecast--at-id task-id
           (call-interactively #'org-taskforecast-set-default-section-id))
-        (org-taskforecast--list-refresh))
+        (org-taskforecast--list-refresh now))
     (user-error "Task link not found at the current line")))
 
 (defun org-taskforecast-list-quit ()
