@@ -2684,7 +2684,8 @@ If the buffer already exists, only returns the buffer.
 - DATE is an encoded time as a date of today
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (interactive
-   (list (org-taskforecast--date-of-time (current-time) day-start)
+   (list (org-taskforecast--date-of-time
+          (current-time) org-taskforecast-day-start)
          org-taskforecast-day-start))
   (switch-to-buffer
    (org-taskforecast--create-list-buffer date day-start)))
