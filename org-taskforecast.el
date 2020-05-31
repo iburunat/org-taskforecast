@@ -1574,7 +1574,7 @@ This feature is enabled while ALLOW-INTERRUPTION and
                   first-todo-task-link
                   date
                   day-start))
-        (org-taskforecast--split-task-link link-id (current-time) file))))
+        (org-taskforecast--split-task-link link-id now file))))
   (let ((link-id (org-taskforecast--append-task-link-maybe
                   id file date day-start)))
     (org-taskforecast--move-task-link-to-todo-head
