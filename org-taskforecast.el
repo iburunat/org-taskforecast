@@ -2688,10 +2688,10 @@ If the buffer already exists, only returns the buffer.
 - DAY-START is an integer, see `org-taskforecast-day-start'
 - NOW is an encoded time"
   (interactive
-   (list (org-taskforecast--date-of-time
-          (current-time) org-taskforecast-day-start)
-         org-taskforecast-day-start
-         (current-time)))
+   (let ((now (current-time)))
+     (list (org-taskforecast--date-of-time now org-taskforecast-day-start)
+           org-taskforecast-day-start
+           now)))
   (switch-to-buffer
    (org-taskforecast--create-list-buffer date day-start now)))
 
