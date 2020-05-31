@@ -2571,22 +2571,22 @@ This function is used for `org-taskforecast-list-section-formatter'."
     (--> (funcall org-taskforecast-list-section-formatter)
          (org-taskforecast--list-propertize-entry-data it section))))
 
-(defun org-taskforecast--create-task-list (today day-start)
+(defun org-taskforecast--create-task-list (today day-start now)
   "Create a today's task list for TODAY.
 This function returns a string as contents of `org-taskforecast-list-mode'.
 Task list data are stored at each line of listed tasks.
 To get them, use `org-taskforecast--list-get-task-link-at-point'.
 
 - TODAY is an encoded time
-- DAY-START is an integer, see `org-taskforecast-day-start'"
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- NOW is an encoded time"
   (--> (org-taskforecast--get-entries
         (org-taskforecast-get-dailylist-file today)
         day-start)
        (let ((sections
               (-filter #'org-taskforecast-entry-is-section it))
              (last-task-done-time
-              (org-taskforecast--encode-hhmm day-start today))
-             (now (current-time)))
+              (org-taskforecast--encode-hhmm day-start today)))
          (--map
           (if (org-taskforecast-entry-is-task-link it)
               (let* ((todo-type
@@ -2610,13 +2610,14 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
           it))
        (s-join "\n" it)))
 
-(defun org-taskforecast--insert-task-list (today day-start)
+(defun org-taskforecast--insert-task-list (today day-start now)
   "Insert a TODAY's task list.
 This function inserts contents of `org-taskforecast-list-mode'.
 
 - TODAY is an encoded time
-- DAY-START is an integer, see `org-taskforecast-day-start'"
-  (insert (org-taskforecast--create-task-list today day-start)))
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- NOW is an encoded time"
+  (insert (org-taskforecast--create-task-list today day-start now)))
 
 (defvar org-taskforecast-list-mode-map
   (let ((map (make-sparse-keymap)))
@@ -2663,12 +2664,13 @@ This function inserts contents of `org-taskforecast-list-mode'.
 When the buffer is not found, this function returns nil."
   (get-buffer org-taskforecast--list-buffer-name))
 
-(defun org-taskforecast--create-list-buffer (today day-start)
+(defun org-taskforecast--create-list-buffer (today day-start now)
   "Create a buffer for `org-taskforecast-list-mode'.
 If the buffer already exists, only returns the buffer.
 
 - TODAY is an encoded time
-- DAY-START is an integer, see `org-taskforecast-day-start'"
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- NOW is an encoded time"
   (let ((buffer (org-taskforecast--get-list-buffer)))
     (or buffer
         (with-current-buffer (get-buffer-create
@@ -2676,20 +2678,22 @@ If the buffer already exists, only returns the buffer.
           (org-taskforecast-list-mode)
           (save-excursion
             (let ((inhibit-read-only t))
-              (org-taskforecast--insert-task-list today day-start)))
+              (org-taskforecast--insert-task-list today day-start now)))
           (current-buffer)))))
 
 ;;;###autoload
-(defun org-taskforecast-list (date day-start)
+(defun org-taskforecast-list (date day-start now)
   "Show the buffer of `org-taskforecast-list-mode'.
 - DATE is an encoded time as a date of today
-- DAY-START is an integer, see `org-taskforecast-day-start'"
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- NOW is an encoded time"
   (interactive
    (list (org-taskforecast--date-of-time
           (current-time) org-taskforecast-day-start)
-         org-taskforecast-day-start))
+         org-taskforecast-day-start
+         (current-time)))
   (switch-to-buffer
-   (org-taskforecast--create-list-buffer date day-start)))
+   (org-taskforecast--create-list-buffer date day-start now)))
 
 (defmacro org-taskforecast--save-window-start (buffer &rest body)
   "Save window start position of windows while evaluating BODY.
@@ -2717,7 +2721,8 @@ NOW is an encoded time."
           (erase-buffer)
           (org-taskforecast--insert-task-list
            (org-taskforecast--date-of-time now org-taskforecast-day-start)
-           org-taskforecast-day-start)
+           org-taskforecast-day-start
+           now)
           ;; Restore the line position of the cursor
           (goto-char (point-min))
           (-some--> current-entry
