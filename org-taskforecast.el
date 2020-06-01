@@ -2633,6 +2633,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "d") #'org-taskforecast-list-remove-entry)
     (define-key map (kbd "P") #'org-taskforecast-list-postpone-link)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
+    (define-key map (kbd "TAB") #'org-taskforecast-list-goto-task-other-window)
     (define-key map (kbd "q") #'org-taskforecast-list-quit)
     (define-key map (kbd "s") #'org-save-all-org-buffers)
     (define-key map (kbd "C-c C-s") #'org-taskforecast-list-schedule)
@@ -2800,6 +2801,19 @@ NOW is an encoded time."
   (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
              (task-id (org-taskforecast-tlink-task-id task-link)))
       (org-id-goto task-id)
+    (user-error "Task link not found at the current line")))
+
+(defun org-taskforecast-list-goto-task-other-window ()
+  "Go to the task linked from the current line in other window."
+  (interactive)
+  (-if-let* ((task-link (org-taskforecast--list-get-task-link-at-point))
+             (task-id (org-taskforecast-tlink-task-id task-link))
+             ((file . pos) (org-id-find task-id)))
+      (progn
+        (switch-to-buffer-other-window (find-file-noselect file))
+        (widen)
+        (goto-char pos)
+        (org-show-context))
     (user-error "Task link not found at the current line")))
 
 (defun org-taskforecast-list-todo (now)

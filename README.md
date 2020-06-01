@@ -251,6 +251,7 @@ Also you can manipulate the tasks like org-agenda.
 | `t`       | `org-taskforecast-list-todo`                   |
 | `e`       | `org-taskforecast-list-set-effort`             |
 | `RET`     | `org-taskforecast-list-goto-task`              |
+| `TAB`     | `org-taskforecast-list-goto-task-other-window` |
 | `C-c C-s` | `org-taskforecast-list-schedule`               |
 | `C-c C-d` | `org-taskforecast-list-deadline`               |
 | `z`       | `org-taskforecast-list-add-note`               |
