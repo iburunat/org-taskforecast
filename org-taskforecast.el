@@ -2608,7 +2608,9 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
             (org-taskforecast--list-create-section-content
              it today now day-start))
           it))
-       (s-join "\n" it)))
+       (s-join "\n" it)
+       ;; The last empty line helps cursor movement by `next-line'
+       (concat it "\n")))
 
 (defun org-taskforecast--insert-task-list (today day-start now)
   "Insert a TODAY's task list.
@@ -2773,22 +2775,7 @@ NOW is an encoded time."
 (defun org-taskforecast-list-next-line ()
   "Go to the next line."
   (interactive)
-  ;; `next-line' moves the cursor to the end of buffer when the cursor is
-  ;; already at the last line and signals `end-of-buffer'.
-  ;; But when the last line does not fit the current window's width,
-  ;; `next-line' does not signal `end-of-buffer'.
-  ;; So check that the cursor is already at the last line to prevent
-  ;; moving the cursor to the end of buffer.
-  (let ((lastpos (point))
-        (lasteobp (eobp)))
-    (condition-case _err
-        (call-interactively #'next-line)
-      ;; ignore `end-of-buffer' error.
-      ;; It will be signaled after restoring the cursor position.
-      (end-of-buffer))
-    (when (and (or lasteobp (/= (point) lastpos)) (eobp))
-      (goto-char lastpos)
-      (signal 'end-of-buffer nil))))
+  (call-interactively #'next-line))
 
 (defun org-taskforecast-list-previous-line ()
   "Go to the previous line."
