@@ -57,19 +57,14 @@ So `ID` property of an org heading is set as needed.
 
 ## Installation
 
-TODO: register to MELPA
+You can install org-taskforecast from [MELPA](https://melpa.org/#/) or
+[MELPA Stable](https://stable.melpa.org/#/) by following steps:
 
-Currently this package is not registered in any emacs lisp package archives.
-So manual installing is needed.
+1. Setup the Emacs built-in package manager to use MELPA or MELPA Stable.  
+   MELPA's documentation is [here](https://github.com/melpa/melpa#usage).
 
-Here is an example to install via package.el manually.
-To evaluate the code below, you can install this package from github directory.
-
-```emacs-lisp
-(with-temp-buffer
-  (url-insert-file-contents "https://raw.githubusercontent.com/HKey/org-taskforecast/master/org-taskforecast.el")
-  (package-install-from-buffer))
-```
+2. Install org-taskforecast.  
+   `M-x package-install org-taskforecast`
 
 ## Basic usage
 
