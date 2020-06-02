@@ -2864,8 +2864,11 @@ NOW is an encoded time."
     (org-taskforecast--list-remove-link id)
     ;; Move the cursor to the next line or the previous line to prevent
     ;; moving the cursor to the top of a task list.
-    (when (or (/= 0 (forward-line 1)) (eobp))
-      (forward-line -1))
+    (when (/= 0 (forward-line 1))
+      ;; This relies that there is an empty line at the end of buffer.
+      (error "Empty line not found at the end of buffer"))
+    (when (eobp)
+      (forward-line -2))
     (org-taskforecast--list-refresh now)
     (message "%s has been removed from task list." title)))
 
