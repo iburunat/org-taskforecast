@@ -2054,6 +2054,16 @@ to nil."
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-search-files #'org-agenda-files
+  "Files to be searching by `org-taskforecast-register-tasks-for-today'.
+The value is a list of files (string) or a function which has no parameter.
+If the value is a function, its result must be a list of files (string)."
+  :type '(choice
+          (repeat file)
+          (function :tag "Function which returns a list of file names"))
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.2.0"))
+
 (defun org-taskforecast--ask-generat-sections (file sections date day-start)
   "Ask whether generate section headings to FILE if there is no ones.
 If the answer is yes, this function generates section headings by
@@ -2113,6 +2123,12 @@ When the task is already registered, this command does nothing.
               day-start)))
     (user-error "Heading is not a task")))
 
+(defun org-taskforecast--search-files ()
+  "Files to be searched by `org-taskforecast-register-tasks-for-today'."
+  (if (functionp org-taskforecast-search-files)
+      (funcall org-taskforecast-search-files)
+    org-taskforecast-search-files))
+
 ;;;###autoload
 (defun org-taskforecast-register-tasks-for-today (file date day-start &optional sections sorting-storategy)
   "Register tasks for today or before as tasks for today from agenda files.
@@ -2141,7 +2157,7 @@ If not, do nothing.
                           (+ day-start 2400)
                           date))
          ((hh mm) (org-taskforecast--split-hhmm day-start)))
-    (org-ql-select (org-agenda-files)
+    (org-ql-select (org-taskforecast--search-files)
       '(and (todo) (ts-a))
       :action
       (lambda ()
