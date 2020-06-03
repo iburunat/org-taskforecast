@@ -1,6 +1,7 @@
 # org-taskforecast
 
 [![MELPA](https://melpa.org/packages/org-taskforecast-badge.svg)](https://melpa.org/#/org-taskforecast)
+[![MELPA Stable](https://stable.melpa.org/packages/org-taskforecast-badge.svg)](https://stable.melpa.org/#/org-taskforecast)
 
 Time management tool for today's tasks showing them with estimated start/end time.
 
