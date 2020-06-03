@@ -2055,7 +2055,7 @@ to nil."
   :package-version '(org-taskforecast . "0.1.0"))
 
 (defcustom org-taskforecast-search-files #'org-agenda-files
-  "Files to be searching by `org-taskforecast-register-tasks-for-today'.
+  "Files to be searched by `org-taskforecast-register-tasks-for-today'.
 The value is a list of files (string) or a function which has no parameter.
 If the value is a function, its result must be a list of files (string)."
   :type '(choice
