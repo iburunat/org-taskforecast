@@ -2720,25 +2720,34 @@ NOW is an encoded time."
     (with-current-buffer buffer
       (org-taskforecast--save-window-start buffer
         (let ((inhibit-read-only t)
-              (current-entry (org-taskforecast--list-get-entry-at-point)))
+              (current-entry (org-taskforecast--list-get-entry-at-point))
+              (eobp (eobp)))
           (erase-buffer)
           (org-taskforecast--insert-task-list
            (org-taskforecast--date-of-time now org-taskforecast-day-start)
            org-taskforecast-day-start
            now)
           ;; Restore the line position of the cursor
-          (goto-char (point-min))
-          (-some--> current-entry
-            (save-excursion
-              (cl-loop until (eobp)
-                       for entry = (org-taskforecast--list-get-entry-at-point)
-                       if (and entry
-                               (string=
-                                (org-taskforecast-entry-id it)
-                                (org-taskforecast-entry-id entry)))
-                       return (point)
-                       else do (forward-line)))
-            (goto-char it)))))))
+          (cond (current-entry
+                 (goto-char (point-min))
+                 (-some--> current-entry
+                   (save-excursion
+                     (cl-loop until (eobp)
+                              for entry =
+                              (org-taskforecast--list-get-entry-at-point)
+                              if (and entry
+                                      (string=
+                                       (org-taskforecast-entry-id it)
+                                       (org-taskforecast-entry-id entry)))
+                              return (point)
+                              else do (forward-line)))
+                   (goto-char it)))
+                ;; When the cursor is at the end of buffer, it cannot get
+                ;; the current entry because the last line is empty line.
+                ;; So to restore the position of cursor, move the cursor
+                ;; to the end of buffer directly.
+                (eobp
+                 (goto-char (point-max)))))))))
 
 (defun org-taskforecast-list-refresh (clear-cache now)
   "Refresh `org-taskforecast-list-mode' buffer.
