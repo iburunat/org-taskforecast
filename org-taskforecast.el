@@ -167,6 +167,27 @@ Example:
 ;;       and use functions that emacs provides.
 
 ;; these functions are introduces since emacs 27
+(defalias 'org-taskforecast--decoded-time-year
+  (if (fboundp 'decoded-time-year)
+      (symbol-function 'decoded-time-year)
+    (lambda (time) (nth 5 time))))
+(gv-define-setter org-taskforecast--decoded-time-year (val time)
+  `(setf (nth 5 ,time) ,val))
+
+(defalias 'org-taskforecast--decoded-time-month
+  (if (fboundp 'decoded-time-month)
+      (symbol-function 'decoded-time-month)
+    (lambda (time) (nth 4 time))))
+(gv-define-setter org-taskforecast--decoded-time-month (val time)
+  `(setf (nth 4 ,time) ,val))
+
+(defalias 'org-taskforecast--decoded-time-day
+  (if (fboundp 'decoded-time-day)
+      (symbol-function 'decoded-time-day)
+    (lambda (time) (nth 3 time))))
+(gv-define-setter org-taskforecast--decoded-time-day (val time)
+  `(setf (nth 3 ,time) ,val))
+
 (defalias 'org-taskforecast--decoded-time-hour
   (if (fboundp 'decoded-time-hour)
       (symbol-function 'decoded-time-hour)
@@ -645,6 +666,58 @@ ignores DAY-START.
     (and (eq a-date-only-p b-date-only-p)
          (org-taskforecast--time-equal-p a-time b-time))))
 
+(cl-defun org-taskforecast-timestamp-planned-date-p (timestamp date day-start &optional (warning-days 0))
+  "Non-nil if the TIMESTAMP is scheduled at DATE or earier.
+WARNING-DAYS is an integer for DEADLINE's default warning days.
+If TIMESTAMP has warning section, WARNING-DAYS is ignored.
+DAY-START is an integer, see `org-taskforecast-day-start'."
+  (cl-assert (natnump warning-days))
+  (with-slots (ts-list) timestamp
+    (-let* ((next-day-start
+             (org-taskforecast--encode-hhmm (+ day-start 2400) date))
+            ((hh mm)
+             (org-taskforecast--split-hhmm day-start))
+            (start-time
+             (org-taskforecast-timestamp-start-time timestamp hh mm))
+            (warning-type
+             (org-element-property :warning-type ts-list))
+            (warning-unit
+             (org-element-property :warning-unit ts-list))
+            (warning-value
+             (org-element-property :warning-value ts-list)))
+      (unless warning-type
+        (cl-assert (and (not warning-unit) (not warning-value)))
+        (setq warning-type 'all
+              warning-unit 'day
+              warning-value warning-days))
+      (cl-assert (and warning-type warning-unit warning-value))
+      (unless (eq warning-type 'all)
+        ;; FIXME: "first" warning-type is not supported.
+        ;;        I don't know what "first" warning-type means.
+        (error "\"%s\" warning-type of DEADLINE is not supported"
+               warning-type))
+      (let ((dtime (decode-time start-time)))
+        (cl-case warning-unit
+          (year
+           (cl-callf - (org-taskforecast--decoded-time-year dtime)
+             warning-value))
+          (month
+           (cl-callf - (org-taskforecast--decoded-time-month dtime)
+             warning-value))
+          (week
+           (cl-callf - (org-taskforecast--decoded-time-day dtime)
+             (* 7 warning-value)))
+          (day
+           (cl-callf - (org-taskforecast--decoded-time-day dtime)
+             warning-value))
+          (hour
+           (cl-callf - (org-taskforecast--decoded-time-hour dtime)
+             warning-value))
+          (t
+           (error "Unknown warning-unit, %s" warning-unit)))
+        (setq start-time (apply #'org-taskforecast--encode-time dtime)))
+      (time-less-p start-time next-day-start))))
+
 ;;;;; Task class
 
 (defconst org-taskforecast--task-default-section-id-prop-name
@@ -817,6 +890,19 @@ This function returns a symbol, todo or done.
           ((time-less-p last-repeat today-start) 'todo)
           ;; day-start =< last-repeat
           (t 'done))))
+
+(defun org-taskforecast-task-scheduled-planned-date-p (task date day-start)
+  "Non-nil if SCHEDULED of TASK is scheduled at DATE or earier.
+DAY-START is an integer, see `org-taskforecast-day-start'."
+  (-when-let (scheduled (org-taskforecast-task-scheduled task))
+    (org-taskforecast-timestamp-planned-date-p scheduled date day-start)))
+
+(defun org-taskforecast-task-deadline-planned-date-p (task date day-start)
+  "Non-nil if DEADLINE of TASK is scheduled at DATE or earier.
+DAY-START is an integer, see `org-taskforecast-day-start'."
+  (-when-let (deadline (org-taskforecast-task-deadline task))
+    (org-taskforecast-timestamp-planned-date-p
+     deadline date day-start org-deadline-warning-days)))
 
 ;;;;; Eclock class (entry clock)
 
@@ -2149,39 +2235,29 @@ If not, do nothing.
            org-taskforecast-day-start
            org-taskforecast-sections
            org-taskforecast-sorting-storategy)))
-  ;; TODO: consider deadline warning
   ;; TODO: make query and filtering customizable
   (when (called-interactively-p 'any)
     (org-taskforecast--ask-generat-sections file sections date day-start))
-  (-let ((next-day-start (org-taskforecast--encode-hhmm
-                          (+ day-start 2400)
-                          date))
-         ((hh mm) (org-taskforecast--split-hhmm day-start)))
+  (let ((pred (lambda ()
+                (let ((task (org-taskforecast--get-task)))
+                  (or (org-taskforecast-task-scheduled-planned-date-p
+                       task date day-start)
+                      (org-taskforecast-task-deadline-planned-date-p
+                       task date day-start))))))
     (org-ql-select (org-taskforecast--search-files)
-      '(and (todo) (ts-a))
+      `(and (todo) (ts-a) (funcall ',pred))
       :action
       (lambda ()
-        (let* ((element (org-element-at-point))
-               (stime (-some--> (org-element-property :scheduled element)
-                        (org-taskforecast--get-timestamp-from-timestamp it)
-                        (org-taskforecast-timestamp-start-time it hh mm)))
-               (dtime (-some--> (org-element-property :deadline element)
-                        (org-taskforecast--get-timestamp-from-timestamp it)
-                        (org-taskforecast-timestamp-start-time it hh mm)))
-               (todayp (--> (list stime dtime)
-                            (-non-nil it)
-                            (--some (time-less-p it next-day-start) it))))
-          (when todayp
-            (let* ((id (org-id-get-create))
-                   (registerdp (org-taskforecast--get-task-links-for-task
-                                id file))
-                   (comparators (org-taskforecast--sort-comparators-for-task-link
-                                 sorting-storategy)))
-              (unless registerdp
-                (--> (org-taskforecast--append-task-link id file)
-                     (org-taskforecast--get-task-link-by-id it)
-                     (org-taskforecast--sort-entry-up
-                      it file comparators date day-start))))))))))
+        (let* ((id (org-id-get-create))
+               (registerdp (org-taskforecast--get-task-links-for-task
+                            id file))
+               (comparators (org-taskforecast--sort-comparators-for-task-link
+                             sorting-storategy)))
+          (unless registerdp
+            (--> (org-taskforecast--append-task-link id file)
+                 (org-taskforecast--get-task-link-by-id it)
+                 (org-taskforecast--sort-entry-up
+                  it file comparators date day-start))))))))
 
 ;;;###autoload
 (defun org-taskforecast-generate-sections (file sections date day-start)
