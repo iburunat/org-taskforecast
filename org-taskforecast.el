@@ -2952,8 +2952,8 @@ NOW is an encoded time."
     (save-restriction
       (save-excursion
         (widen)
-        (org-narrow-to-subtree)
-        (delete-region (point-min) (point-max))))))
+        (org-back-to-heading t)
+        (delete-region (point) (org-end-of-subtree t t))))))
 
 (defun org-taskforecast-list-remove-entry (now)
   "Remove an entry at the current line.
