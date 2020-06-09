@@ -76,8 +76,7 @@ The basic usage of this package is making a task list for today and show the lis
 1. Register tasks for today to make the list:
 
    `M-x org-taskforecast-register-tasks-for-today` to register tasks to the list from your org-agenda files.
-   This command registers tasks whose SCHEDULED or DEADLINE is set to today or before.  
-   **NOTE:** Currently this command does not consider prewarning of DEADLINE of a task.
+   This command registers tasks whose SCHEDULED or DEADLINE is set to today or before.
 
 2. Show the task list for today:
 
