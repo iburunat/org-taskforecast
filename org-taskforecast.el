@@ -594,6 +594,26 @@ This function returns an instance of `org-taskforecast--timestamp'."
   (org-taskforecast--timestamp
    :ts-list timestamp))
 
+(defun org-taskforecast-get-scheduled-at-point ()
+  "Get a timestamp of SCHEDULED at point.
+The returned value is an instance of `org-taskforecast--timestamp'.
+If there is no SCHEDULED, this returns nil."
+  (save-excursion
+    (org-back-to-heading t)
+    (-some--> (org-element-at-point)
+      (org-element-property :scheduled it)
+      (org-taskforecast--get-timestamp-from-timestamp it))))
+
+(defun org-taskforecast-get-deadline-at-point ()
+  "Get a timestamp of DEADLINE at point.
+The returned value is an instance of `org-taskforecast--timestamp'.
+If there is no DEADLINE, this returns nil."
+  (save-excursion
+    (org-back-to-heading t)
+    (-some--> (org-element-at-point)
+      (org-element-property :deadline it)
+      (org-taskforecast--get-timestamp-from-timestamp it))))
+
 (cl-defun org-taskforecast-timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
   "An encoded time of the start time of TIMESTAMP.
 TIMESTAMP is an instance of `org-taskforecast--timestamp'.
@@ -894,12 +914,18 @@ This function returns a symbol, todo or done.
 (defun org-taskforecast-task-scheduled-planned-date-p (task date day-start)
   "Non-nil if SCHEDULED of TASK is scheduled at DATE or earier.
 DAY-START is an integer, see `org-taskforecast-day-start'."
+  (declare (obsolete
+            "Use `org-taskforecast-get-scheduled-at-point' and `org-taskforecast-timestamp-planned-date-p' instead."
+            "0.2.0"))
   (-when-let (scheduled (org-taskforecast-task-scheduled task))
     (org-taskforecast-timestamp-planned-date-p scheduled date day-start)))
 
 (defun org-taskforecast-task-deadline-planned-date-p (task date day-start)
   "Non-nil if DEADLINE of TASK is scheduled at DATE or earier.
 DAY-START is an integer, see `org-taskforecast-day-start'."
+  (declare (obsolete
+            "Use `org-taskforecast-get-deadline-at-point' and `org-taskforecast-timestamp-planned-date-p' instead."
+            "0.2.0"))
   (-when-let (deadline (org-taskforecast-task-deadline task))
     (org-taskforecast-timestamp-planned-date-p
      deadline date day-start org-deadline-warning-days)))
@@ -2215,6 +2241,41 @@ When the task is already registered, this command does nothing.
       (funcall org-taskforecast-search-files)
     org-taskforecast-search-files))
 
+(defvar org-taskforecast-register-info-today nil
+  "This variable is used to pass the date of today to filter function.
+A filter function is called by `org-taskforecast-register-tasks-for-today'.
+This value will be an encoded time.")
+
+(defun org-taskforecast-planned-today-p ()
+  "Non-nil if a task at point planned for today."
+  (cl-assert org-taskforecast-register-info-today)
+  ;; To avoid creating an org-id for a task not to be registered,
+  ;; do not use `org-taskforecast--get-task' because it creates
+  ;; org-id property when parsing a task.
+  (or (--when-let (org-taskforecast-get-scheduled-at-point)
+        (org-taskforecast-timestamp-planned-date-p
+         it
+         org-taskforecast-register-info-today
+         org-taskforecast-day-start))
+      (--when-let (org-taskforecast-get-deadline-at-point)
+        (org-taskforecast-timestamp-planned-date-p
+         it
+         org-taskforecast-register-info-today
+         org-taskforecast-day-start
+         org-deadline-warning-days))))
+
+(defcustom org-taskforecast-registration-filter-function
+  #'org-taskforecast-planned-today-p
+  "Filter function for `org-taskforecast-register-tasks-for-today'.
+The value is a function which has no parameter and returns non-nil if
+a task should be registered for today.
+
+The function will be called at an org heading to determine.
+The date of today will be passed via `org-taskforecastt-register-info-today'."
+  :type 'function
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.2.0"))
+
 ;;;###autoload
 (defun org-taskforecast-register-tasks-for-today (file date day-start &optional sections sorting-storategy)
   "Register tasks for today or before as tasks for today from agenda files.
@@ -2235,17 +2296,13 @@ If not, do nothing.
            org-taskforecast-day-start
            org-taskforecast-sections
            org-taskforecast-sorting-storategy)))
-  ;; TODO: make query and filtering customizable
   (when (called-interactively-p 'any)
     (org-taskforecast--ask-generat-sections file sections date day-start))
   (let ((pred (lambda ()
-                (let ((task (org-taskforecast--get-task)))
-                  (or (org-taskforecast-task-scheduled-planned-date-p
-                       task date day-start)
-                      (org-taskforecast-task-deadline-planned-date-p
-                       task date day-start))))))
+                (let ((org-taskforecast-register-info-today date))
+                  (funcall org-taskforecast-registration-filter-function)))))
     (org-ql-select (org-taskforecast--search-files)
-      `(and (todo) (ts-a) (funcall ',pred))
+      `(and (todo) (funcall ',pred))
       :action
       (lambda ()
         (let* ((id (org-id-get-create))
