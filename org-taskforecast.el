@@ -2408,6 +2408,8 @@ When there is no task link data, this function returns nil."
 ;; `org-taskforecast--list-get-section-at-point' is currently unused.
 ;; So it is not defined
 
+;;;;; Entry formatters
+
 (defvar org-taskforecast-list-info-task-link nil
   "This variable is used to pass a task link to formatter.
 This value will be an instance of `org-taskforecast--tlink'.
@@ -2687,6 +2689,8 @@ This function is used for `org-taskforecast-list-section-formatter'."
             (org-taskforecast--format-second-to-hhmm effort)
             title)))
 
+;;;;; Task list contents
+
 (defun org-taskforecast--list-create-task-link-content (task-link sections date start-end-time now day-start)
   "Create a content of a task link for today's task list.
 - TASK-LINK is an instance of `org-taskforecast--tlink'
@@ -2769,6 +2773,8 @@ This function inserts contents of `org-taskforecast-list-mode'.
 - DAY-START is an integer, see `org-taskforecast-day-start'
 - NOW is an encoded time"
   (insert (org-taskforecast--create-task-list today day-start now)))
+
+;;;;; Major mode
 
 (defvar org-taskforecast-list-mode-map
   (let ((map (make-sparse-keymap)))
