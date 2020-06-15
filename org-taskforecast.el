@@ -2378,6 +2378,12 @@ This changes the behavior of `org-taskforecast-list-tlfmt-scheduled-time'."
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-list-show-outline-path t
+  "Non-nil means outline path is showed in `org-taskforecast-list' buffer."
+  :type 'boolean
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.2.0"))
+
 (defconst org-taskforecast--list-entry-property 'entry
   "A property symbol for an entry data to propertize string.")
 
@@ -2407,6 +2413,8 @@ When there is no task link data, this function returns nil."
 
 ;; `org-taskforecast--list-get-section-at-point' is currently unused.
 ;; So it is not defined
+
+;;;;; Entry formatters
 
 (defvar org-taskforecast-list-info-task-link nil
   "This variable is used to pass a task link to formatter.
@@ -2687,6 +2695,8 @@ This function is used for `org-taskforecast-list-section-formatter'."
             (org-taskforecast--format-second-to-hhmm effort)
             title)))
 
+;;;;; Task list contents
+
 (defun org-taskforecast--list-create-task-link-content (task-link sections date start-end-time now day-start)
   "Create a content of a task link for today's task list.
 - TASK-LINK is an instance of `org-taskforecast--tlink'
@@ -2769,6 +2779,8 @@ This function inserts contents of `org-taskforecast-list-mode'.
 - DAY-START is an integer, see `org-taskforecast-day-start'
 - NOW is an encoded time"
   (insert (org-taskforecast--create-task-list today day-start now)))
+
+;;;;; Major mode
 
 (defvar org-taskforecast-list-mode-map
   (let ((map (make-sparse-keymap)))
@@ -2944,15 +2956,38 @@ NOW is an encoded time."
   (org-clock-out)
   (org-taskforecast--list-refresh now))
 
+(defvar org-taskforecast--list-display-outline-path-timer nil
+  "Timer for displaying the outline path of a task link at point.")
+
+(defun org-taskforecast--list-display-outline-path-idle ()
+  "Display the outline path of a task link with idle timer."
+  (when (and org-taskforecast-list-show-outline-path
+             (null org-taskforecast--list-display-outline-path-timer))
+    (let* ((buffer (current-buffer))
+           (fn (lambda ()
+                 (setq org-taskforecast--list-display-outline-path-timer
+                       nil)
+                 (when (eq (current-buffer) buffer)
+                   (--when-let (org-taskforecast--list-get-task-link-at-point)
+                     (org-taskforecast--at-id
+                         (org-taskforecast-tlink-task-id it)
+                       (org-display-outline-path t)))))))
+      ;; To reduce load, prevent displaying the outline path at each time
+      ;; when this function called many times in a moment.
+      (setq org-taskforecast--list-display-outline-path-timer
+            (run-with-idle-timer 0 nil fn)))))
+
 (defun org-taskforecast-list-next-line ()
   "Go to the next line."
   (interactive)
-  (call-interactively #'next-line))
+  (call-interactively #'next-line)
+  (org-taskforecast--list-display-outline-path-idle))
 
 (defun org-taskforecast-list-previous-line ()
   "Go to the previous line."
   (interactive)
-  (call-interactively #'previous-line))
+  (call-interactively #'previous-line)
+  (org-taskforecast--list-display-outline-path-idle))
 
 (defun org-taskforecast-list-goto-task ()
   "Go to the task linked from the current line."

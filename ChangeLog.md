@@ -4,6 +4,8 @@
 
 [Commits](https://github.com/HKey/org-taskforecast/compare/0.1.0...master)
 
+- Show outline path in list buffer. ([#7](https://github.com/HKey/org-taskforecast/pull/7))
+  - Add a custom variable `org-taskforecast-list-show-outline-path`
 - Make registration filter customizable. ([#6](https://github.com/HKey/org-taskforecast/pull/6))
   - Add a custom variable `org-taskforecast-registration-filter-function`
   - Make functions obsolete
