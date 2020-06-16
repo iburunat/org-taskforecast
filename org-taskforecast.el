@@ -2803,6 +2803,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "P") #'org-taskforecast-list-postpone-link)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
     (define-key map (kbd "TAB") #'org-taskforecast-list-goto-task-other-window)
+    (define-key map (kbd "J") #'org-taskforecast-list-goto-head-todo)
     (define-key map (kbd "q") #'org-taskforecast-list-quit)
     (define-key map (kbd "s") #'org-save-all-org-buffers)
     (define-key map (kbd "C-c C-s") #'org-taskforecast-list-schedule)
@@ -3172,6 +3173,29 @@ NOW is an encoded time."
     (org-taskforecast--at-id (org-taskforecast-tlink-task-id task-link)
       (call-interactively #'org-taskforecast-set-default-section-id))
     (org-taskforecast--list-refresh now)))
+
+(defun org-taskforecast-list-goto-head-todo (date day-start)
+  "Go to the head todo task link of task links.
+- DATE is an encoded time as a date of today
+- DAY-START is an integer like `org-taskforecast-day-start'"
+  (interactive
+   (let ((now (current-time))
+         (day-start org-taskforecast-day-start))
+     (list (org-taskforecast--date-of-time now day-start) day-start)))
+  (let (p)
+    (save-excursion
+      (goto-char (point-min))
+      (cl-loop for task-link = (org-taskforecast--list-get-task-link-at-point)
+               when (and task-link
+                         (eq 'todo
+                             (org-taskforecast-entry-todo-state-for-today
+                              task-link date day-start)))
+               do (setq p (point))
+               do (forward-line)
+               while (and (null p) (not (eobp)))))
+    (if p
+        (goto-char p)
+      (user-error "Todo task link not found"))))
 
 (defun org-taskforecast-list-quit ()
   "Quit the today's task list buffer."
