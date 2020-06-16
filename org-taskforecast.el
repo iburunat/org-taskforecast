@@ -2384,6 +2384,12 @@ This changes the behavior of `org-taskforecast-list-tlfmt-scheduled-time'."
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.2.0"))
 
+(defcustom org-taskforecast-list-show-outline-path-delay 0.1
+  "Number of seconds of idle time before showing."
+  :type 'number
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.2.0"))
+
 (defconst org-taskforecast--list-entry-property 'entry
   "A property symbol for an entry data to propertize string.")
 
@@ -2975,7 +2981,10 @@ NOW is an encoded time."
       ;; To reduce load, prevent displaying the outline path at each time
       ;; when this function called many times in a moment.
       (setq org-taskforecast--list-display-outline-path-timer
-            (run-with-idle-timer 0 nil fn)))))
+            (run-with-idle-timer
+             org-taskforecast-list-show-outline-path-delay
+             nil
+             fn)))))
 
 (defun org-taskforecast-list-next-line ()
   "Go to the next line."
