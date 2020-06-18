@@ -7,6 +7,7 @@ GH_MD_TOC ?= gh-md-toc
 # directories
 SRC = .
 TEST = ./test
+TEST_WORK = $(TEST)/work
 SANDBOX = ./sandbox
 
 # files
@@ -19,6 +20,10 @@ TEST_ELC = $(TEST_EL:.el=.elc)
 MAKEM_LINT = lint-compile lint-declare lint-indent lint-package lint-regexps
 MAKEM_TEST = tests
 MAKEM_SANDBOX =
+MAKEM_FILES = -f $(TEST)/org-taskforecast-test-helper.el
+
+# test option
+TEST_LEAVE_WORK = no
 
 # tasks
 
@@ -33,17 +38,18 @@ init:
 clean:
 	-rm $(SRC_ELC) $(TEST_ELC)
 	-rm -r $(SANDBOX)
+	-rm -r $(TEST_WORK)
 
 .PHONY: compile
 compile:
-	$(MAKEM) compile --emacs $(EMACS) --verbose
+	$(MAKEM) compile --emacs $(EMACS) $(MAKEM_FILES) --verbose
 
 .PHONY: test
 test:
 # lint-checkdoc may report false positive errors and warnings.
 # run lint-checkdoc as advice.
 	-$(MAKEM) lint-checkdoc --emacs $(EMACS) --verbose $(MAKEM_SANDBOX)
-	$(MAKEM) $(MAKEM_LINT) $(MAKEM_TEST) --emacs $(EMACS) --verbose $(MAKEM_SANDBOX) --install-deps --install-linters
+	$(MAKEM) $(MAKEM_LINT) $(MAKEM_TEST) --emacs $(EMACS) $(MAKEM_FILES) --verbose $(MAKEM_SANDBOX) --install-deps --install-linters
 
 .PHONY: test-sandboxed
 test-sandboxed:

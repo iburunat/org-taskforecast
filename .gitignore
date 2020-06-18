@@ -6,3 +6,6 @@ dist
 
 # for makem.sh
 sandbox
+
+# for test work dir
+test/work

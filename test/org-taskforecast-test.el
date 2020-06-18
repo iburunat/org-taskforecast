@@ -2,8 +2,7 @@
 
 (require 'ert)
 (require 'org-taskforecast)
-
-(defmacro should-not-error (form) form)
+(require 'org-taskforecast-test-helper)
 
 ;;; Test:
 
