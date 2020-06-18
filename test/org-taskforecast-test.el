@@ -4,8 +4,6 @@
 (require 'org-taskforecast)
 (require 'org-taskforecast-test-helper)
 
-(defmacro should-not-error (form) form)
-
 ;;; Test:
 
 ;;;; Cache
