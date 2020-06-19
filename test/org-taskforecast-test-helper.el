@@ -110,8 +110,10 @@ DAILYLIST-FILE &rest BODY)"
                 ;; org-id
                 (org-id-locations-file (f-join ,env-root-sym
                                                ".org-id-locations"))
-                (org-id-files (list ,dailylist-file-sym ,agenda-file-sym))
-                (org-id-extra-files nil)
+                (org-id-locations nil)
+                (org-id-files nil)
+                (org-id-extra-files (list ,dailylist-file-sym
+                                          ,agenda-file-sym))
                 (org-id-locations nil)
                 ;; Disable org file indentation to help comparison of
                 ;; org file contents.
