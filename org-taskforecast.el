@@ -1916,7 +1916,7 @@ This function moves only ENTRY not all of entries in FILE.
                 (save-restriction
                   (widen)
                   (goto-char pos)
-                  (insert tree "\n"))))))))))
+                  (insert tree))))))))))
 
 ;; Comparators
 ;;
