@@ -89,7 +89,9 @@ DAILYLIST-FILE &rest BODY)"
                    :dailylist-file dailylist-file
                    :agenda-file agenda-file)
            key-params)
-          (time (apply #'encode-time (parse-time-string current-time)))
+          (time (if current-time
+                    (apply #'encode-time (parse-time-string current-time))
+                  (current-time)))
           ((dailylist-file-var dailylist-file-content) dailylist-file)
           ((agenda-file-var agenda-file-content) agenda-file))
     (--> `(progn ,@body)
