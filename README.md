@@ -227,17 +227,18 @@ Also you can manipulate the tasks like org-agenda.
 
 #### Manipulate list
 
-| key | command                                 |
-|-----|-----------------------------------------|
-| `g` | `org-taskforecast-list-refresh`         |
-| `n` | `org-taskforecast-list-next-line`       |
-| `p` | `org-taskforecast-list-previous-line`   |
-| `U` | `org-taskforecast-list-move-entry-up`   |
-| `D` | `org-taskforecast-list-move-entry-down` |
-| `s` | `org-save-all-org-buffers`              |
-| `P` | `org-taskforecast-list-postpone-link`   |
-| `d` | `org-taskforecast-list-remove-entry`    |
-| `q` | `org-taskforecast-list-quit`            |
+| key | command                                      |
+|-----|----------------------------------------------|
+| `g` | `org-taskforecast-list-refresh`              |
+| `n` | `org-taskforecast-list-next-line`            |
+| `p` | `org-taskforecast-list-previous-line`        |
+| `U` | `org-taskforecast-list-move-entry-up`        |
+| `D` | `org-taskforecast-list-move-entry-down`      |
+| `M` | `org-taskforecast-list-move-link-to-section` |
+| `s` | `org-save-all-org-buffers`                   |
+| `P` | `org-taskforecast-list-postpone-link`        |
+| `d` | `org-taskforecast-list-remove-entry`         |
+| `q` | `org-taskforecast-list-quit`                 |
 
 #### Manipulate task
 

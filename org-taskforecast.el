@@ -2799,6 +2799,7 @@ This function inserts contents of `org-taskforecast-list-mode'.
     (define-key map (kbd "e") #'org-taskforecast-list-set-effort)
     (define-key map (kbd "U") #'org-taskforecast-list-move-entry-up)
     (define-key map (kbd "D") #'org-taskforecast-list-move-entry-down)
+    (define-key map (kbd "M") #'org-taskforecast-list-move-link-to-section)
     (define-key map (kbd "d") #'org-taskforecast-list-remove-entry)
     (define-key map (kbd "P") #'org-taskforecast-list-postpone-link)
     (define-key map (kbd "RET") #'org-taskforecast-list-goto-task)
@@ -3048,6 +3049,77 @@ NOW is an encoded time."
 NOW is an encoded time."
   (interactive (list (prefix-numeric-value current-prefix-arg) (current-time)))
   (org-taskforecast-list-move-entry-up (- arg) now))
+
+(defun org-taskforecast-list-move-link-to-section (task-link section file additional-comparators date day-start now)
+  "Move TASK-LINK to SECTION.
+After TASK-LINK is moved, it is sorted by ADDITIONAL-COMPARATORS in SECTION.
+- TASK-LINK is an instance of `org-taskforecast--tlink'
+- SECTION is an instance of `org-taskforecast--section'
+- FILE is a today's daily task list file name
+- ADDITIONAL-COMPARATORS is a list of comparators,
+  see `org-taskforecast-sorting-storategy'
+- DATE is an encoded time as a date of today
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- NOW is an encoded time as the current time"
+  (interactive
+   (let* ((now (current-time))
+          (day-start org-taskforecast-day-start)
+          (date (org-taskforecast--date-of-time now day-start))
+          (file (org-taskforecast-get-dailylist-file date))
+          (task-link (org-taskforecast--list-with-task-link task-link
+                       task-link)))
+     (list
+      task-link
+      (let* ((sections (org-taskforecast--get-sections file day-start))
+             (id-sec (--map
+                      (cons (org-taskforecast-section-section-id it) it)
+                      sections))
+             (ids (-map #'car id-sec)))
+        (unless id-sec (user-error "There is no section in daily task list"))
+        (--> (completing-read
+              (format "Move \"%s\" to (section id): "
+                      (org-taskforecast-entry-title task-link))
+              ids nil t)
+             (alist-get it id-sec nil nil #'equal)))
+      file
+      org-taskforecast-sorting-storategy
+      date
+      day-start
+      now)))
+  (cl-assert
+   (and (file-equal-p
+         file (car (org-id-find (org-taskforecast-tlink-id task-link))))
+        (file-equal-p
+         file (car (org-id-find (org-taskforecast-section-id section)))))
+   "TASK-LINK and SECTION must be in FILE")
+  (let* ((task-link-heading
+          (org-taskforecast--cut-heading-by-id
+           (org-taskforecast-tlink-id task-link)))
+         (last-entry
+          (or (-last-item
+               ;; TASK-LINK has been removed but SECTION may still have
+               ;; the removed TASK-LINK as its entries.
+               (-remove-item
+                task-link (org-taskforecast-section-entries section)))
+              section))
+         (insert-point
+          (org-taskforecast--at-id (org-taskforecast-entry-id last-entry)
+            (org-end-of-subtree t t)))
+         (comparators
+          ;; `org-taskforecast--ss-section-up' is for sorting TASK-LINK
+          ;; only in SECTION.
+          (-uniq `(,#'org-taskforecast--ss-section-up
+                   ,@(org-taskforecast--sort-comparators-for-task-link
+                      additional-comparators)))))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (save-restriction
+          (widen)
+          (goto-char insert-point)
+          (insert task-link-heading))))
+    (org-taskforecast--sort-entry-up
+     task-link file comparators date day-start)
+    (org-taskforecast--list-refresh now)))
 
 (defun org-taskforecast--list-remove-link (link-id)
   "Remove a task-link of LINK-ID."

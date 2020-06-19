@@ -53,18 +53,26 @@ Keyword parameters:
 Example:
 
     (org-taskforecast-test-deftest TEST-NAME ()
+      \"documentation\"
       :current-time \"2020-01-01 00:00:00\"
       :agenda-file (agenda-file \"\\
     * TODO foo
     SCHEDULED: <2020-01-01>\")
       :dailylist-file (dailylist-file \"\")
       TEST-BODY...)
-"
+
+\(fn NAME args &optional docstring &key CURRENT-TIME AGENDA-FILE \
+DAILYLIST-FILE &rest BODY)"
   (declare (indent 2))
   (-let* ((testname (symbol-name name))
           (env-root-sym (cl-gensym "env-root-"))
           (dailylist-file-sym (cl-gensym "dailylist-file-"))
           (agenda-file-sym (cl-gensym "agenda-file-"))
+          ;; split docstring
+          ((docstring . params-and-body)
+           (if (stringp (car params-and-body))
+               params-and-body
+             (cons nil params-and-body)))
           ;; split to key-params and body
           ((key-params . body)
            (cl-loop for (first . rest) on params-and-body by #'cddr
@@ -81,7 +89,9 @@ Example:
                    :dailylist-file dailylist-file
                    :agenda-file agenda-file)
            key-params)
-          (time (apply #'encode-time (parse-time-string current-time)))
+          (time (if current-time
+                    (apply #'encode-time (parse-time-string current-time))
+                  (current-time)))
           ((dailylist-file-var dailylist-file-content) dailylist-file)
           ((agenda-file-var agenda-file-content) agenda-file))
     (--> `(progn ,@body)
@@ -100,8 +110,10 @@ Example:
                 ;; org-id
                 (org-id-locations-file (f-join ,env-root-sym
                                                ".org-id-locations"))
-                (org-id-files (list ,dailylist-file-sym ,agenda-file-sym))
-                (org-id-extra-files nil)
+                (org-id-locations nil)
+                (org-id-files nil)
+                (org-id-extra-files (list ,dailylist-file-sym
+                                          ,agenda-file-sym))
                 (org-id-locations nil)
                 ;; Disable org file indentation to help comparison of
                 ;; org file contents.
@@ -146,7 +158,17 @@ Example:
                  (,agenda-file-sym (f-join ,env-root-sym "agenda.org")))
             ,it)
          ;; define test
-         `(ert-deftest ,name ,args ,it))))
+         `(ert-deftest ,name ,args ,@(when docstring (list docstring)),it))))
+
+;;; file utility
+
+(defun org-taskforecast-test-file-string-no-properties (file)
+  "Return FILE's buffer contents as string without text properties."
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (save-restriction
+        (widen)
+        (buffer-substring-no-properties (point-min) (point-max))))))
 
 
 (provide 'org-taskforecast-test-helper)
