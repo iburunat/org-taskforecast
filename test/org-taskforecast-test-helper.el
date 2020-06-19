@@ -160,6 +160,16 @@ DAILYLIST-FILE &rest BODY)"
          ;; define test
          `(ert-deftest ,name ,args ,@(when docstring (list docstring)),it))))
 
+;;; file utility
+
+(defun org-taskforecast-test-file-string-no-properties (file)
+  "Return FILE's buffer contents as string without text properties."
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (save-restriction
+        (widen)
+        (buffer-substring-no-properties (point-min) (point-max))))))
+
 
 (provide 'org-taskforecast-test-helper)
 ;;; org-taskforecast-test-helper.el ends here
