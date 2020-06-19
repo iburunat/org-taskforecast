@@ -4,6 +4,8 @@
 
 [Commits](https://github.com/HKey/org-taskforecast/compare/0.1.0...master)
 
+- Add a command to move a task link into a section. ([#10](https://github.com/HKey/org-taskforecast/pull/10))
+  - New command `org-taskforecast-list-move-link-to-section` can be called by `M`
 - Add a command to go to the head todo task link of task links. ([#9](https://github.com/HKey/org-taskforecast/pull/9))
   - New command `org-taskforecast-list-goto-head-todo` can be called by `J`
 - Show outline path in list buffer. ([#7](https://github.com/HKey/org-taskforecast/pull/7), [#8](https://github.com/HKey/org-taskforecast/pull/8))
