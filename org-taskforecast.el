@@ -79,6 +79,24 @@ Example of a range of today:
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
+(defcustom org-taskforecast-list-header-formatters
+  (list #'org-taskforecast-list-hdfmt-date
+        "\n")
+  "A list of functions and strings for formatting header lines.
+The results of the functions and strings are joined with \"\\n\" and
+empty strings are ignored.
+The functions should have no parameter.
+The functions are obtained information as global variables below:
+- `org-taskforecast-list-info-today' is an encoded time as a date of today
+- `org-taskforecast-list-info-now' as an encoded time as the current time
+- `org-taskforecast-list-info-entries' is a list of entry interface objects
+
+Other global variable is also set for formatting:
+- `org-taskforecast-day-start'"
+  :type '(list (or function string))
+  :group 'org-taskforecast
+  :package-version '(org-taskforecast . "0.2.0"))
+
 (defcustom org-taskforecast-list-task-link-formatters
   (list #'org-taskforecast-list-tlfmt-default-section-id
         #'org-taskforecast-list-tlfmt-scheduled-time
@@ -2420,7 +2438,7 @@ When there is no task link data, this function returns nil."
 ;; `org-taskforecast--list-get-section-at-point' is currently unused.
 ;; So it is not defined
 
-;;;;; Entry formatters
+;;;;; Formatters
 
 (defvar org-taskforecast-list-info-task-link nil
   "This variable is used to pass a task link to formatter.
@@ -2436,13 +2454,15 @@ See `org-taskforecast-list-section-formatter' for more detail.")
   "This variable is used to pass a date of today to formatter.
 This value will be an encoded time.
 Its hour, minute and second are set to zero.
-See `org-taskforecast-list-task-link-formatters' and
+See `org-taskforecast-list-header-formatters',
+`org-taskforecast-list-task-link-formatters' and
 `org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-now nil
   "This variable is used to pass the current time to formatter.
 This value will be an encoded time.
-See `org-taskforecast-list-task-link-formatters' and
+See `org-taskforecast-list-header-formatters',
+`org-taskforecast-list-task-link-formatters' and
 `org-taskforecast-list-section-formatter' for more detail.")
 
 (defvar org-taskforecast-list-info-task-link-start-end-time nil
@@ -2454,6 +2474,26 @@ See `org-taskforecast-list-task-link-formatters' for more detail.")
   "This variable is used to pass the section list to formatter.
 This value will be a list of instances of `org-taskforecast--section'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
+
+(defvar org-taskforecast-list-info-entries nil
+  "This variable is used to pass the entry list to formatter.
+This value will be a list of entry interface objects.
+See `org-taskforecast-list-header-formatters' for more detail.")
+
+;;;;;; Header formatters
+
+(defun org-taskforecast-list-hdfmt-date ()
+  "Format date of today.
+This function is used for `org-taskforecast-list-header-formatters'."
+  (--> (decode-time org-taskforecast-list-info-today)
+       (org-agenda-format-date-aligned
+        (list (org-taskforecast--decoded-time-month it)
+              (org-taskforecast--decoded-time-day it)
+              (org-taskforecast--decoded-time-year it)))
+       ;; TODO: define face
+       (propertize it 'face 'org-agenda-date-today)))
+
+;;;;;; Task link formatters
 
 (defmacro org-taskforecast--list-define-toggleable-tlfmt (name default docstring &rest body)
   "Define toggleable task link formatter.
@@ -2678,6 +2718,8 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
               ;; TODO: define face
               'face 'org-scheduled-today))
 
+;;;;;; Section formatters
+
 (defun org-taskforecast-list-secfmt-section ()
   "Format section.
 This function is used for `org-taskforecast-list-section-formatter'."
@@ -2702,6 +2744,21 @@ This function is used for `org-taskforecast-list-section-formatter'."
             title)))
 
 ;;;;; Task list contents
+
+(defun org-taskforecast--list-create-header (entries date day-start now)
+  "Create contents of header line.
+- ENTRIES is a list of entry interface objects
+- DATE is an encoded time as a date of today
+- DAY-START is an integer, see `org-taskforecast-day-start'
+- NOW is an encoded time as the current time"
+  (let ((org-taskforecast-list-info-entries entries)
+        (org-taskforecast-list-info-today date)
+        (org-taskforecast-list-info-now now)
+        (org-taskforecast-day-start day-start))
+    (--> org-taskforecast-list-header-formatters
+         (--map (if (functionp it) (funcall it) it) it)
+         (-reject #'s-blank-p it)
+         (s-join "\n" it))))
 
 (defun org-taskforecast--list-create-task-link-content (task-link sections date start-end-time now day-start)
   "Create a content of a task link for today's task list.
@@ -2736,18 +2793,17 @@ This function is used for `org-taskforecast-list-section-formatter'."
     (--> (funcall org-taskforecast-list-section-formatter)
          (org-taskforecast--list-propertize-entry-data it section))))
 
-(defun org-taskforecast--create-task-list (today day-start now)
+(defun org-taskforecast--create-task-list (entries today day-start now)
   "Create a today's task list for TODAY.
 This function returns a string as contents of `org-taskforecast-list-mode'.
 Task list data are stored at each line of listed tasks.
 To get them, use `org-taskforecast--list-get-task-link-at-point'.
 
+- ENTRIES is a list of entry interface objects
 - TODAY is an encoded time
 - DAY-START is an integer, see `org-taskforecast-day-start'
 - NOW is an encoded time"
-  (--> (org-taskforecast--get-entries
-        (org-taskforecast-get-dailylist-file today)
-        day-start)
+  (--> entries
        (let ((sections
               (-filter #'org-taskforecast-entry-is-section it))
              (last-task-done-time
@@ -2784,7 +2840,11 @@ This function inserts contents of `org-taskforecast-list-mode'.
 - TODAY is an encoded time
 - DAY-START is an integer, see `org-taskforecast-day-start'
 - NOW is an encoded time"
-  (insert (org-taskforecast--create-task-list today day-start now)))
+  (let ((entries (org-taskforecast--get-entries
+                  (org-taskforecast-get-dailylist-file today)
+                  day-start)))
+    (insert (org-taskforecast--list-create-header entries today day-start now)
+            (org-taskforecast--create-task-list entries today day-start now))))
 
 ;;;;; Major mode
 
@@ -2890,7 +2950,8 @@ NOW is an encoded time."
       (org-taskforecast--save-window-start buffer
         (let ((inhibit-read-only t)
               (current-entry (org-taskforecast--list-get-entry-at-point))
-              (eobp (eobp)))
+              (eobp (eobp))
+              (current-line (line-number-at-pos)))
           (erase-buffer)
           (org-taskforecast--insert-task-list
            (org-taskforecast--date-of-time now org-taskforecast-day-start)
@@ -2916,7 +2977,11 @@ NOW is an encoded time."
                 ;; So to restore the position of cursor, move the cursor
                 ;; to the end of buffer directly.
                 (eobp
-                 (goto-char (point-max)))))))))
+                 (goto-char (point-max)))
+                (t
+                 ;; `goto-line' is for interactive use only
+                 (goto-char (point-min))
+                 (forward-line (1- current-line)))))))))
 
 (defun org-taskforecast-list-refresh (clear-cache now)
   "Refresh `org-taskforecast-list-mode' buffer.
