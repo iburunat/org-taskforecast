@@ -6,6 +6,8 @@
 
 ### Improvements
 
+- Add header line formatter. ([#11](https://github.com/HKey/org-taskforecast/pull/11))
+  - Add a custom variable `org-taskforecast-list-header-formatters`
 - Add a command to move a task link into a section. ([#10](https://github.com/HKey/org-taskforecast/pull/10))
   - New command `org-taskforecast-list-move-link-to-section` can be called by `M`
 - Add a command to go to the head todo task link of task links. ([#9](https://github.com/HKey/org-taskforecast/pull/9))
