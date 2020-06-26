@@ -6,6 +6,7 @@
 
 ### Improvements
 
+- Accept a string as a task link formatter via `org-taskforecast-list-task-link-formatters`. ([#12](https://github.com/HKey/org-taskforecast/pull/12))
 - Add header line formatter. ([#11](https://github.com/HKey/org-taskforecast/pull/11))
   - Add a custom variable `org-taskforecast-list-header-formatters`
 - Add a command to move a task link into a section. ([#10](https://github.com/HKey/org-taskforecast/pull/10))
