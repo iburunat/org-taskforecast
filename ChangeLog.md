@@ -6,6 +6,7 @@
 
 ### Improvements
 
+- Make `org-taskforecast-list-info-sections` obsolete ([#13](https://github.com/HKey/org-taskforecast/pull/13))
 - Accept a string as a task link formatter via `org-taskforecast-list-task-link-formatters`. ([#12](https://github.com/HKey/org-taskforecast/pull/12))
 - Add header line formatter. ([#11](https://github.com/HKey/org-taskforecast/pull/11))
   - Add a custom variable `org-taskforecast-list-header-formatters`
