@@ -106,9 +106,9 @@ Other global variable is also set for formatting:
         #'org-taskforecast-list-tlfmt-clock
         #'org-taskforecast-list-tlfmt-todo
         #'org-taskforecast-list-tlfmt-title)
-  "Function list for formatting a task link.
-The results of the functions are joined with \" \" and
-empty strings are ignored..
+  "A list of functions and strings for formatting a task link.
+The results of the functions and strings are joined with \" \" and
+empty strings are ignored.
 The functions should have no parameter.
 The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-task-link' is an instance of
@@ -122,7 +122,7 @@ The functions are obtained information as global variables below:
 
 Other global variable is also set for formatting:
 - `org-taskforecast-day-start'"
-  :type '(repeat function)
+  :type '(list (or function string))
   :group 'org-taskforecast
   :package-version '(org-taskforecast . "0.1.0"))
 
@@ -2775,7 +2775,7 @@ This function is used for `org-taskforecast-list-section-formatter'."
         (org-taskforecast-day-start day-start)
         (org-taskforecast-list-info-task-link-start-end-time start-end-time))
     (--> org-taskforecast-list-task-link-formatters
-         (-map #'funcall it)
+         (--map (if (functionp it) (funcall it) it) it)
          (-reject #'s-blank-p it)
          (s-join " " it)
          (org-taskforecast--list-propertize-entry-data it task-link))))
