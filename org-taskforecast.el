@@ -514,6 +514,14 @@ If STR is not a org-id link string, this function returns nil."
     (-when-let (((_ id)) (s-match-strings-all re str))
       id)))
 
+(defun org-taskforecast--heading-element-at-point ()
+  "Call `org-element-at-point' after `org-back-to-heading'."
+  (save-excursion
+    ;; Prevent error when there is no heading in a buffer.
+    (unless (org-before-first-heading-p)
+      (org-back-to-heading t))
+    (org-element-at-point)))
+
 ;;;;; Clock class
 
 (defclass org-taskforecast--clock ()
@@ -615,21 +623,17 @@ This function returns an instance of `org-taskforecast--timestamp'."
   "Get a timestamp of SCHEDULED at point.
 The returned value is an instance of `org-taskforecast--timestamp'.
 If there is no SCHEDULED, this returns nil."
-  (save-excursion
-    (org-back-to-heading t)
-    (-some--> (org-element-at-point)
-      (org-element-property :scheduled it)
-      (org-taskforecast--get-timestamp-from-timestamp it))))
+  (-some--> (org-taskforecast--heading-element-at-point)
+    (org-element-property :scheduled it)
+    (org-taskforecast--get-timestamp-from-timestamp it)))
 
 (defun org-taskforecast-get-deadline-at-point ()
   "Get a timestamp of DEADLINE at point.
 The returned value is an instance of `org-taskforecast--timestamp'.
 If there is no DEADLINE, this returns nil."
-  (save-excursion
-    (org-back-to-heading t)
-    (-some--> (org-element-at-point)
-      (org-element-property :deadline it)
-      (org-taskforecast--get-timestamp-from-timestamp it))))
+  (-some--> (org-taskforecast--heading-element-at-point)
+    (org-element-property :deadline it)
+    (org-taskforecast--get-timestamp-from-timestamp it)))
 
 (cl-defun org-taskforecast-timestamp-start-time (timestamp &optional (hour 0) (minute 0) (second 0))
   "An encoded time of the start time of TIMESTAMP.
@@ -811,31 +815,28 @@ DAY-START is an integer, see `org-taskforecast-day-start'."
   "Get a task at the current point.
 A returned value is an instance of `org-taskforecast--task'.
 If the heading is not a task this function returns nil."
-  (save-excursion
-    ;; go to heading line for `org-element-at-point' to get a headline element
-    (org-back-to-heading)
-    ;; task must have todo state
-    (-when-let* ((element (org-element-at-point))
-                 (todo-type (org-element-property :todo-type element)))
-      (let ((id (org-id-get-create))
-            (title (substring-no-properties
-                    (org-element-property :title element)))
-            (effort (org-entry-get nil org-effort-property))
-            (scheduled (-some--> (org-element-property :scheduled element)
-                         (org-taskforecast--get-timestamp-from-timestamp it)))
-            (deadline (-some--> (org-element-property :deadline element)
-                        (org-taskforecast--get-timestamp-from-timestamp it)))
-            (default-section-id (org-entry-get
-                                 nil
-                                 org-taskforecast--task-default-section-id-prop-name)))
-        (org-taskforecast--task
-         :id id
-         :title title
-         :effort effort
-         :todo-type todo-type
-         :scheduled scheduled
-         :deadline deadline
-         :default-section-id default-section-id)))))
+  ;; task must have todo state
+  (-when-let* ((element (org-taskforecast--heading-element-at-point))
+               (todo-type (org-element-property :todo-type element)))
+    (let ((id (org-id-get-create))
+          (title (substring-no-properties
+                  (org-element-property :title element)))
+          (effort (org-entry-get nil org-effort-property))
+          (scheduled (-some--> (org-element-property :scheduled element)
+                       (org-taskforecast--get-timestamp-from-timestamp it)))
+          (deadline (-some--> (org-element-property :deadline element)
+                      (org-taskforecast--get-timestamp-from-timestamp it)))
+          (default-section-id (org-entry-get
+                               nil
+                               org-taskforecast--task-default-section-id-prop-name)))
+      (org-taskforecast--task
+       :id id
+       :title title
+       :effort effort
+       :todo-type todo-type
+       :scheduled scheduled
+       :deadline deadline
+       :default-section-id default-section-id))))
 
 (defun org-taskforecast--get-task-by-id (id)
   "Get a task by ID.
@@ -1303,25 +1304,20 @@ This function returns an instance of `org-taskforecast--eclock'.
   "Get a task link at the current point.
 A returned value is an instance of `org-taskforecast--tlink'.
 If the heading is not a task link, this function returns nil."
-  (save-excursion
-    ;; Prevent error when there is no heading in a buffer.
-    (unless (org-before-first-heading-p)
-      ;; go to heading line for `org-element-at-point' to get a headline element
-      (org-back-to-heading))
-    (let* ((element (org-element-at-point))
-           (title (org-element-property :title element))
-           (task-id (org-taskforecast--get-link-id title))
-           (effective-start-time
-            (org-taskforecast--get-task-link-effective-start-time))
-           (effective-end-time
-            (org-taskforecast--get-task-link-effective-end-time)))
-      ;; Ignore if the linked heading is not a task.
-      (when (and task-id (org-taskforecast--is-task-id task-id))
-        (org-taskforecast--tlink
-         :id (org-id-get-create) ; Create id when this heading is a task link.
-         :task-id task-id
-         :effective-start-time effective-start-time
-         :effective-end-time effective-end-time)))))
+  (let* ((element (org-taskforecast--heading-element-at-point))
+         (title (org-element-property :title element))
+         (task-id (org-taskforecast--get-link-id title))
+         (effective-start-time
+          (org-taskforecast--get-task-link-effective-start-time))
+         (effective-end-time
+          (org-taskforecast--get-task-link-effective-end-time)))
+    ;; Ignore if the linked heading is not a task.
+    (when (and task-id (org-taskforecast--is-task-id task-id))
+      (org-taskforecast--tlink
+       :id (org-id-get-create) ; Create id when this heading is a task link.
+       :task-id task-id
+       :effective-start-time effective-start-time
+       :effective-end-time effective-end-time))))
 
 (defun org-taskforecast--get-task-link-by-id (id)
   "Get a task link by ID.
@@ -1535,7 +1531,7 @@ Return a string of the heading.
 When this function failed, returns nil."
   (org-taskforecast--at-id id
     (save-excursion
-      (-when-let* ((helement (org-element-at-point))
+      (-when-let* ((helement (org-taskforecast--heading-element-at-point))
                    (begin (org-element-property :begin helement))
                    (end (org-element-property :end helement)))
         (prog1
@@ -1793,23 +1789,19 @@ This function does not set the effort and entries slot of the returned section.
 So those slots are still nil.
 If you want to get a section which contains them,
 consider using `org-taskforecast--get-sections' instead."
-  (save-excursion
-    ;; Prevent error when there is no heading in a buffer.
-    (unless (org-before-first-heading-p)
-      ;; go to heading line for `org-element-at-point' to get a headline element
-      (org-back-to-heading))
-    (-when-let* ((section-id (org-entry-get
-                              nil org-taskforecast--section-id-prop-name))
-                 (start-time (org-entry-get
-                              nil org-taskforecast--section-start-time-prop-name))
-                 (description (org-element-property
-                               :title (org-element-at-point)))
-                 (id (org-id-get-create)))
-      (org-taskforecast--section
-       :id id
-       :section-id section-id
-       :start-time (string-to-number start-time)
-       :description description))))
+  (-when-let* ((section-id (org-entry-get
+                            nil org-taskforecast--section-id-prop-name))
+               (start-time (org-entry-get
+                            nil org-taskforecast--section-start-time-prop-name))
+               (description (org-element-property
+                             :title
+                             (org-taskforecast--heading-element-at-point)))
+               (id (org-id-get-create)))
+    (org-taskforecast--section
+     :id id
+     :section-id section-id
+     :start-time (string-to-number start-time)
+     :description description)))
 
 (defun org-taskforecast--get-section-by-id (id)
   "Get a section by ID.
