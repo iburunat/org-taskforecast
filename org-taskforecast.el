@@ -117,8 +117,7 @@ The functions are obtained information as global variables below:
 - `org-taskforecast-list-info-now' as an encoded time as the current time
 - `org-taskforecast-list-info-task-link-start-end-time' is an instance of
   `org-taskforecast--eclock'
-- `org-taskforecast-list-info-sections' is a list of instances of
-  `org-taskforecast--section'
+- `org-taskforecast-list-info-entries' is a list of entry interface objects
 
 Other global variable is also set for formatting:
 - `org-taskforecast-day-start'"
@@ -2475,6 +2474,14 @@ See `org-taskforecast-list-task-link-formatters' for more detail.")
 This value will be a list of instances of `org-taskforecast--section'.
 See `org-taskforecast-list-task-link-formatters' for more detail.")
 
+(make-obsolete-variable 'org-taskforecast-list-info-sections
+                        "\
+Use code below instead:
+
+    (-filter #'org-taskforecast-entry-is-section
+             org-taskforecast-list-info-entries)"
+                        "0.2.0")
+
 (defvar org-taskforecast-list-info-entries nil
   "This variable is used to pass the entry list to formatter.
 This value will be a list of entry interface objects.
@@ -2676,7 +2683,8 @@ This function is used for `org-taskforecast-list-task-link-formatters'."
   (let* ((day-start org-taskforecast-day-start)
          (task-link org-taskforecast-list-info-task-link)
          (date org-taskforecast-list-info-today)
-         (sections org-taskforecast-list-info-sections)
+         (sections (-filter #'org-taskforecast-entry-is-section
+                            org-taskforecast-list-info-entries))
          (len (--> (append (-map #'cl-first org-taskforecast-sections)
                            (-map #'org-taskforecast-section-section-id
                                  sections))
@@ -2760,16 +2768,16 @@ This function is used for `org-taskforecast-list-section-formatter'."
          (-reject #'s-blank-p it)
          (s-join "\n" it))))
 
-(defun org-taskforecast--list-create-task-link-content (task-link sections date start-end-time now day-start)
+(defun org-taskforecast--list-create-task-link-content (task-link entries date start-end-time now day-start)
   "Create a content of a task link for today's task list.
 - TASK-LINK is an instance of `org-taskforecast--tlink'
-- SECTIONS is a list of instances of `org-taskforecast--section'
+- ENTRIES is a list of entry interface objects
 - DATE is an encoded time as a date of today
 - START-END-TIME is an instance of `org-taskforecast--eclock'
 - NOW is an encoded time as the current time
 - DAY-START is an integer, see `org-taskforecast-day-start'"
   (let ((org-taskforecast-list-info-task-link task-link)
-        (org-taskforecast-list-info-sections sections)
+        (org-taskforecast-list-info-entries entries)
         (org-taskforecast-list-info-today date)
         (org-taskforecast-list-info-now now)
         (org-taskforecast-day-start day-start)
@@ -2803,10 +2811,7 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
 - TODAY is an encoded time
 - DAY-START is an integer, see `org-taskforecast-day-start'
 - NOW is an encoded time"
-  (--> entries
-       (let ((sections
-              (-filter #'org-taskforecast-entry-is-section it))
-             (last-task-done-time
+  (--> (let ((last-task-done-time
               (org-taskforecast--encode-hhmm day-start today)))
          (--map
           (if (org-taskforecast-entry-is-task-link it)
@@ -2822,13 +2827,13 @@ To get them, use `org-taskforecast--list-get-task-link-at-point'.
                        (and (eq todo-type 'todo) now))))
                 (prog1
                     (org-taskforecast--list-create-task-link-content
-                     it sections today start-end-time now day-start)
+                     it entries today start-end-time now day-start)
                   ;; update last done time
                   (setq last-task-done-time
                         (org-taskforecast-eclock-end start-end-time))))
             (org-taskforecast--list-create-section-content
              it today now day-start))
-          it))
+          entries))
        (s-join "\n" it)
        ;; The last empty line helps cursor movement by `next-line'
        (concat it "\n")))
